@@ -1,0 +1,223 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SFMono-Regular", monospace;
+
+  /* Color tokens are a direct transcription of the reference prototype's
+     palette (same hex values, not an approximation). Navy is kept for text
+     and thin accents only — no large solid-navy surfaces anywhere. */
+  --color-paper: #fbfdff;
+  --color-surface: #ffffff;
+  --color-ink: #082f4c;
+  --color-navy: #06466f;
+  --color-muted: #5e7b91;
+  --color-line: #d5ecf8;
+  --color-mist: #e5f3ff;
+
+  --color-signal: #078cff;
+  --color-signal-2: #33c7ff;
+  --color-signal-soft: #e5f3ff;
+
+  --color-safe: #12b97a;
+  --color-safe-soft: #e1f7ee;
+  --color-amber: #b9720a;
+  --color-amber-soft: #fdf0da;
+  --color-danger: #ef4e62;
+  --color-danger-soft: #ffe8eb;
+
+  --radius-panel: 10px;
+  --radius-card: 14px;
+  --radius-pill: 999px;
+
+  /* Motion budget: a one-shot entrance for the splash/hero, functional
+     feedback for modals/toasts, plus a small set of ambient loops reserved
+     for the hero permit/QR moment and other deliberately "alive" accents. */
+  --animate-stamp: stamp-press 0.6s cubic-bezier(0.19, 0.9, 0.24, 1.05) both;
+  --animate-fade-up: fade-up 0.6s cubic-bezier(0.22, 0.8, 0.25, 1) both;
+  --animate-bar: bar-fill 1.3s ease-in-out infinite;
+  --animate-pop: pop 0.25s cubic-bezier(0.22, 0.8, 0.25, 1) both;
+  --animate-float: float 5s ease-in-out infinite;
+  --animate-scan: scan-sweep 2.4s ease-in-out infinite;
+  --animate-glow: glow-pulse 2.6s ease-in-out infinite;
+  --animate-drift: drift 22s linear infinite;
+
+  @keyframes stamp-press {
+    0% { transform: scale(1.5) rotate(-10deg); opacity: 0; }
+    65% { transform: scale(0.94) rotate(2deg); opacity: 1; }
+    100% { transform: scale(1) rotate(0deg); opacity: 1; }
+  }
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes bar-fill {
+    0% { width: 8%; }
+    55% { width: 78%; }
+    100% { width: 100%; }
+  }
+  @keyframes pop {
+    from { opacity: 0; transform: scale(0.97) translateY(4px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+  }
+  @keyframes float {
+    0%, 100% { transform: translateY(0) rotate(var(--tilt, 0deg)); }
+    50% { transform: translateY(-10px) rotate(var(--tilt, 0deg)); }
+  }
+  @keyframes scan-sweep {
+    0% { top: 6%; opacity: 0; }
+    12% { opacity: 1; }
+    88% { opacity: 1; }
+    100% { top: 92%; opacity: 0; }
+  }
+  @keyframes glow-pulse {
+    0%, 100% { opacity: 0.45; transform: scale(0.97); }
+    50% { opacity: 0.9; transform: scale(1.04); }
+  }
+  @keyframes drift {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+  }
+  button,
+  input,
+  select {
+    font: inherit;
+  }
+  button {
+    cursor: pointer;
+  }
+  a {
+    color: inherit;
+  }
+  ::selection {
+    background: var(--color-signal);
+    color: #fff;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-signal);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  label {
+    display: grid;
+    gap: 7px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-muted);
+  }
+  input,
+  select {
+    width: 100%;
+    min-height: 46px;
+    border-radius: var(--radius-panel);
+    border: 1px solid var(--color-line);
+    background: var(--color-surface);
+    padding: 0 14px;
+    font-size: 15px;
+    color: var(--color-ink);
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  input:focus,
+  select:focus {
+    border-color: var(--color-signal);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-signal) 14%, transparent);
+  }
+  input::placeholder {
+    color: var(--color-muted);
+    opacity: 0.7;
+  }
+}
+
+@layer components {
+  /* The prototype's own hero gradient, used verbatim wherever a section
+     needs visual weight — replaces solid dark-navy fills. */
+  .bg-hero-sky {
+    background-image: linear-gradient(125deg, #fbfeff, #eaf7ff 63%, #d7efff);
+  }
+
+  /* Frosted glass — reserved for the handful of surfaces that float over a
+     colored/gradient ground (hero card, sticky nav, modals, floating
+     badges), not applied to everyday flat data surfaces. */
+  .surface-glass {
+    background: color-mix(in oklab, white 72%, transparent);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border: 1px solid color-mix(in oklab, white 60%, transparent);
+  }
+
+  /* Soft blurred color blobs for depth behind glass surfaces. */
+  .orb {
+    position: absolute;
+    border-radius: 9999px;
+    filter: blur(60px);
+    pointer-events: none;
+  }
+
+  /* Prototype's gradient "paint" for the QR ticket and stamp accents — the
+     only place a two-stop blue gradient is used, kept deliberately small. */
+  .paint-ticket {
+    background-image: linear-gradient(135deg, var(--color-signal), var(--color-signal-2));
+  }
+
+  /* Perforated stub edge, like a torn ticket/permit slip. The two notches
+     punch through to the page background color they sit on. */
+  .stub-edge {
+    position: relative;
+    border-top: 1px dashed var(--color-line);
+  }
+  .stub-edge::before,
+  .stub-edge::after {
+    content: "";
+    position: absolute;
+    top: -7px;
+    width: 14px;
+    height: 14px;
+    border-radius: 9999px;
+    background: var(--stub-bg, var(--color-paper));
+  }
+  .stub-edge::before {
+    left: -19px;
+  }
+  .stub-edge::after {
+    right: -19px;
+  }
+
+  .toast-msg {
+    animation: var(--animate-pop);
+  }
+
+  /* Hero permit card: fades/rises in once, then settles into a slow,
+     continuous bob — the one element on the page allowed to stay in motion. */
+  .hero-permit-card {
+    animation:
+      fade-up 0.6s cubic-bezier(0.22, 0.8, 0.25, 1) both,
+      float 5s ease-in-out 0.6s infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
