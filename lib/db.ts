@@ -110,20 +110,43 @@ function getDb() {
   return database;
 }
 
-// Bootstraps exactly one manager account from environment variables, so a
-// fresh deployment has a way in without any credentials baked into source
-// control. No-ops once a manager already exists, and no-ops entirely if the
-// bootstrap variables aren't set — there is no seeded/demo data otherwise.
+type BootstrapManager = { bcaId: string; password: string; name: string };
+
+// Bootstrap one or more manager accounts without committing credentials. The
+// insert is idempotent: existing manager accounts are never overwritten, so
+// passwords remain under the account owner's control after first login.
 function seed(db: Database.Database) {
-  const hasManager = db.prepare("SELECT id FROM accounts WHERE role = 'MANAGER' LIMIT 1").get();
-  if (hasManager) return;
-  const bcaId = process.env.INITIAL_MANAGER_BCA_ID;
-  const password = process.env.INITIAL_MANAGER_PASSWORD;
-  if (!bcaId || !password) return;
-  const fullName = process.env.INITIAL_MANAGER_NAME || "Pengelola RTB";
-  db.prepare(
-    "INSERT OR IGNORE INTO accounts (bca_id, full_name, role, password_hash) VALUES (?, ?, 'MANAGER', ?)",
-  ).run(normalizeBcaId(bcaId), fullName, bcrypt.hashSync(password, 12));
+  for (const manager of bootstrapManagers()) {
+    const bcaId = normalizeBcaId(manager.bcaId);
+    if (!/^\d{6}$/.test(bcaId) || manager.password.length < 8 || !manager.name.trim()) {
+      throw new Error("Konfigurasi INITIAL_MANAGERS tidak valid.");
+    }
+    const existing = db.prepare("SELECT role FROM accounts WHERE bca_id = ?").get(bcaId) as { role: Role } | undefined;
+    if (existing?.role === "MANAGER") continue;
+    if (existing) throw new Error("ID BCA bootstrap Pengelola sudah dipakai akun lain.");
+    db.prepare("INSERT INTO accounts (bca_id, full_name, role, password_hash, must_change_password) VALUES (?, ?, 'MANAGER', ?, 1)")
+      .run(bcaId, manager.name.trim(), bcrypt.hashSync(manager.password, 12));
+  }
+}
+
+function bootstrapManagers(): BootstrapManager[] {
+  const managers: BootstrapManager[] = [];
+  const configured = process.env.INITIAL_MANAGERS?.trim();
+  if (configured) {
+    let parsed: unknown;
+    try { parsed = JSON.parse(configured); } catch { throw new Error("INITIAL_MANAGERS harus berupa JSON array yang valid."); }
+    if (!Array.isArray(parsed)) throw new Error("INITIAL_MANAGERS harus berupa JSON array.");
+    for (const item of parsed) {
+      if (!item || typeof item !== "object") throw new Error("Konfigurasi INITIAL_MANAGERS tidak valid.");
+      const value = item as Record<string, unknown>;
+      managers.push({ bcaId: String(value.bcaId || ""), password: String(value.password || ""), name: String(value.name || "") });
+    }
+  }
+  // Backwards-compatible single-manager configuration for existing installs.
+  if (process.env.INITIAL_MANAGER_BCA_ID || process.env.INITIAL_MANAGER_PASSWORD) {
+    managers.push({ bcaId: process.env.INITIAL_MANAGER_BCA_ID || "", password: process.env.INITIAL_MANAGER_PASSWORD || "", name: process.env.INITIAL_MANAGER_NAME || "Pengelola RTB" });
+  }
+  return managers;
 }
 
 function ensureColumn(db: Database.Database, table: string, column: string, definition: string) {

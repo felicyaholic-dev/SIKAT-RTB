@@ -253,9 +253,15 @@ pnpm dev
 
 Server lokal akan tersedia di `http://localhost:3000`.
 
-### Akun manager pertama
+### Akun Pengelola awal
 
-Database dimulai kosong — tidak ada data fiktif/seed. Isi `INITIAL_MANAGER_BCA_ID` dan `INITIAL_MANAGER_PASSWORD` di `.env.local` (atau variabel environment platform deployment) sebelum menjalankan aplikasi untuk pertama kali; satu akun manager akan dibuat otomatis saat belum ada manager sama sekali. Setelah itu, manager tersebut membuat akun satpam dan menambahkan master penghuni langsung dari aplikasi. Kosongkan variabel ini kembali setelah akun manager pertama berhasil dibuat.
+Database dimulai kosong — tidak ada data fiktif/seed. Gunakan `INITIAL_MANAGERS` di `.env.local` atau variabel environment platform deployment untuk membuat satu atau beberapa akun Pengelola pada startup pertama. Nilainya berupa JSON array satu baris, misalnya:
+
+```env
+INITIAL_MANAGERS=[{"bcaId":"033245","name":"Nama Pengelola","password":"password-awal-minimal-8-karakter"}]
+```
+
+Setiap Pengelola bootstrap wajib mengganti password pada login pertama. Proses ini idempotent: akun Pengelola yang sudah ada tidak akan ditimpa atau di-reset ketika aplikasi redeploy. Variabel lama `INITIAL_MANAGER_BCA_ID`, `INITIAL_MANAGER_PASSWORD`, dan `INITIAL_MANAGER_NAME` masih didukung untuk satu akun demi kompatibilitas.
 
 ## 12. Deployment Railway
 
@@ -282,6 +288,7 @@ DATABASE_URL=file:/data/sikat.db
 SESSION_SECRET=<random-secret-production>
 APP_URL=https://<domain-production>
 NODE_ENV=production
+INITIAL_MANAGERS=<JSON-array-akun-pengelola-awal>
 ```
 
 4. Schema database dibuat idempotent ketika aplikasi mulai, karena Railway memasang volume saat runtime, bukan saat build.
@@ -323,7 +330,7 @@ SQLite cocok pada tahap ini karena operasinya singkat dan jumlah pengguna sediki
 ## 14. Kriteria selesai MVP
 
 - Pengelola dapat menambah penghuni ke Master Penghuni.
-- Mahasiswa yang datanya cocok dapat mengaktivasi akun dan login.
+- Pengelola membuat akun mahasiswa dan satpam dengan password awal; seluruh akun mengganti password pada login pertama.
 - Mahasiswa hanya dapat melihat izin miliknya sendiri.
 - Satpam dapat memvalidasi QR/kode keluar dan masuk.
 - Pengelola dapat melihat daftar penghuni di luar dan terlambat.
