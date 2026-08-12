@@ -25,10 +25,12 @@ export async function logoutAction() {
 export async function createPermitAction(_: FormState, formData: FormData): Promise<FormState> {
   const session = await requireRole("STUDENT");
   const destination = String(formData.get("destination") || "");
-  const departure = String(formData.get("departure") || "");
-  const returnAt = String(formData.get("returnAt") || "");
+  const permitType = String(formData.get("permitType") || "");
+  const date = String(formData.get("date") || "");
+  const time = String(formData.get("time") || "");
+  const movementAt = date && time ? `${date}T${time}` : "";
   try {
-    const result = createPermit(session.accountId, { destination, departure, returnAt });
+    const result = createPermit(session.accountId, { destination, permitType, departure: movementAt, returnAt: movementAt });
     revalidatePath("/student");
     revalidatePath("/student/apply");
     revalidatePath("/student/permit");

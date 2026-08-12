@@ -94,7 +94,8 @@
   }
   button,
   input,
-  select {
+  select,
+  textarea {
     font: inherit;
   }
   button {
@@ -121,7 +122,8 @@
     color: var(--color-muted);
   }
   input,
-  select {
+  select,
+  textarea {
     width: 100%;
     min-height: 46px;
     border-radius: var(--radius-panel);
@@ -134,13 +136,20 @@
     transition: border-color 0.15s, box-shadow 0.15s;
   }
   input:focus,
-  select:focus {
+  select:focus,
+  textarea:focus {
     border-color: var(--color-signal);
     box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-signal) 14%, transparent);
   }
   input::placeholder {
     color: var(--color-muted);
     opacity: 0.7;
+  }
+  textarea {
+    min-height: 46px;
+    resize: vertical;
+    padding: 13px 14px;
+    line-height: 1.5;
   }
 }
 

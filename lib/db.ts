@@ -85,6 +85,7 @@ function getDb() {
       permit_code TEXT NOT NULL UNIQUE,
       qr_token TEXT NOT NULL UNIQUE,
       destination TEXT NOT NULL,
+      permit_type TEXT NOT NULL DEFAULT 'IZIN_PRIBADI',
       planned_departure_at TEXT NOT NULL,
       planned_return_at TEXT NOT NULL,
       entry_code TEXT,
@@ -135,6 +136,7 @@ function getDb() {
   ensureColumn(database, "master_residents", "gender", "TEXT NOT NULL DEFAULT 'TIDAK_DISEBUTKAN'");
   ensureColumn(database, "security_staff", "gender", "TEXT NOT NULL DEFAULT 'TIDAK_DISEBUTKAN'");
   ensureColumn(database, "permits", "entry_code", "TEXT");
+  ensureColumn(database, "permits", "permit_type", "TEXT NOT NULL DEFAULT 'IZIN_PRIBADI'");
   migrateLegacyDemoIds(database);
   seed(database);
   return database;
@@ -235,6 +237,7 @@ type PermitRow = {
   permit_code: string;
   qr_token: string;
   destination: string;
+  permit_type: string;
   planned_departure_at: string;
   planned_return_at: string;
   entry_code: string | null;
@@ -242,7 +245,7 @@ type PermitRow = {
   created_at: string;
 };
 
-export function createPermit(accountId: number, input: { destination?: string; departure?: string; returnAt?: string }) {
+export function createPermit(accountId: number, input: { destination?: string; permitType?: string; departure?: string; returnAt?: string }) {
   const db = getDb();
   const resident = db.prepare("SELECT r.* FROM master_residents r JOIN accounts a ON a.resident_id = r.id WHERE a.id = ?").get(accountId) as ResidentRow | undefined;
   if (!resident) throw new Error("Profil mahasiswa tidak ditemukan.");
@@ -256,13 +259,14 @@ export function createPermit(accountId: number, input: { destination?: string; d
     db.prepare("INSERT INTO permit_events (permit_id, event_type, performed_by_account_id) VALUES (?, 'ENTRY_REQUESTED', ?)").run(current.id, accountId);
     return { code: entryCode, mode: "ENTRY" as const };
   }
-  if (!input.destination?.trim() || !input.departure) throw new Error("Lengkapi tujuan dan waktu keluar.");
+  const permitType = input.permitType || "IZIN_PRIBADI";
+  if (!input.destination?.trim() || !input.departure || !["IZIN_PRIBADI", "IZIN_AKADEMIK", "IZIN_KESEHATAN", "KEPERLUAN_KELUARGA", "LAINNYA"].includes(permitType)) throw new Error("Lengkapi informasi izin dan waktu keluar.");
   const permitCode = `SKT-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
   const qrToken = crypto.randomUUID();
   const result = db.prepare(`
-    INSERT INTO permits (resident_id, permit_code, qr_token, destination, planned_departure_at, planned_return_at, status)
-    VALUES (?, ?, ?, ?, ?, ?, 'MENUNGGU_KELUAR')
-  `).run(resident.id, permitCode, qrToken, input.destination.trim(), input.departure, input.departure);
+    INSERT INTO permits (resident_id, permit_code, qr_token, destination, permit_type, planned_departure_at, planned_return_at, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 'MENUNGGU_KELUAR')
+  `).run(resident.id, permitCode, qrToken, input.destination.trim(), permitType, input.departure, input.departure);
   db.prepare("INSERT INTO permit_events (permit_id, event_type, performed_by_account_id) VALUES (?, 'EXIT_REQUESTED', ?)").run(result.lastInsertRowid, accountId);
   return { code: permitCode, mode: "EXIT" as const };
 }
@@ -443,7 +447,7 @@ export function getReport(period: ReportPeriod) {
   const db = getDb();
   const where = reportPeriodWhere[period];
   const rows = db.prepare(`
-    SELECT p.permit_code, p.entry_code, r.bca_id, r.full_name, r.room_number, p.destination,
+    SELECT p.permit_code, p.entry_code, r.bca_id, r.full_name, r.room_number, p.destination, p.permit_type,
       p.planned_departure_at, p.planned_return_at, p.status, p.created_at,
       MAX(CASE WHEN e.event_type = 'EXIT' THEN e.occurred_at END) AS actual_exit_at,
       MAX(CASE WHEN e.event_type = 'ENTRY' THEN e.occurred_at END) AS actual_entry_at
