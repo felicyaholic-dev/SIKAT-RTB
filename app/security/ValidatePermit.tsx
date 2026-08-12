@@ -1,8 +1,8 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Clock3, MapPin, ShieldCheck, UserRound } from "lucide-react";
+import { Check, CheckCircle2, CircleX, Clock3, MapPin, ShieldCheck, UserRound } from "lucide-react";
 import { validatePermitAction, type FormState } from "@/app/actions";
 import { FormModal } from "@/components/FormModal";
 import { btn, formMessage, initials, pill, permitTone } from "@/lib/ui";
@@ -14,17 +14,33 @@ export function ValidatePermit({ permit }: { permit: Permit }) {
   const router = useRouter();
   const [state, action, pending] = useActionState(validatePermitAction, initialState);
   const [open, setOpen] = useState(true);
+  const [decision, setDecision] = useState<"APPROVE" | "REJECT" | null>(null);
   const incoming = permit.status === "MENUNGGU_MASUK";
   const close = () => {
     setOpen(false);
     router.replace("/security");
   };
 
-  useEffect(() => {
-    if (state.success) router.replace("/security");
-  }, [router, state.success]);
-
   if (!open) return null;
+
+  if (state.success) {
+    const cancelled = decision === "REJECT";
+    const title = cancelled ? "Izin dibatalkan" : incoming ? "Masuk disetujui" : "Izin disetujui";
+    return (
+      <FormModal eyebrow="KEPUTUSAN TERSIMPAN" title={title} description="Status mahasiswa dan riwayat validasi sudah diperbarui." onClose={close}>
+        <div className="grid justify-items-center py-3 text-center">
+          <span className={`animate-stamp grid h-20 w-20 place-items-center rounded-[26px] ${cancelled ? "bg-danger-soft text-danger" : "bg-safe-soft text-safe"}`}>
+            {cancelled ? <CircleX size={40} strokeWidth={1.8} /> : <CheckCircle2 size={40} strokeWidth={1.8} />}
+          </span>
+          <h3 className="mt-5 text-xl font-semibold tracking-tight text-ink">{cancelled ? "Mahasiswa tetap di RTB." : incoming ? "Mahasiswa kembali tercatat di RTB." : "Mahasiswa kini tercatat di luar RTB."}</h3>
+          <p className="mt-2 max-w-sm text-sm leading-relaxed text-muted">{state.success}</p>
+          <button type="button" onClick={close} className={`${btn.base} ${cancelled ? "bg-danger text-white hover:bg-[#db3348]" : btn.primary} mt-7 min-w-40`}>
+            Selesai
+          </button>
+        </div>
+      </FormModal>
+    );
+  }
 
   return (
     <FormModal
@@ -62,15 +78,15 @@ export function ValidatePermit({ permit }: { permit: Permit }) {
         {state.error && <p className={formMessage("error")}>{state.error}</p>}
         {state.success && <p className={formMessage("success")}>{state.success}</p>}
         {incoming ? (
-          <button name="decision" value="APPROVE" className={`${btn.base} ${btn.safe} w-full rounded-xl`} disabled={pending}>
+            <button name="decision" value="APPROVE" onClick={() => setDecision("APPROVE")} className={`${btn.base} ${btn.safe} w-full rounded-xl`} disabled={pending}>
             <ShieldCheck size={16} /> {pending ? "Memproses…" : "Izinkan masuk RTB"}
           </button>
         ) : (
           <div className="grid gap-2.5 sm:grid-cols-2">
-            <button name="decision" value="REJECT" className={`${btn.base} w-full rounded-xl border border-danger/30 bg-danger-soft text-danger hover:bg-danger hover:text-white`} disabled={pending}>
+            <button name="decision" value="REJECT" onClick={() => setDecision("REJECT")} className={`${btn.base} w-full rounded-xl border border-danger/30 bg-danger-soft text-danger hover:bg-danger hover:text-white`} disabled={pending}>
               {pending ? "Memproses…" : "Batalkan izin"}
             </button>
-            <button name="decision" value="APPROVE" className={`${btn.base} ${btn.primary} w-full rounded-xl`} disabled={pending}>
+            <button name="decision" value="APPROVE" onClick={() => setDecision("APPROVE")} className={`${btn.base} ${btn.primary} w-full rounded-xl`} disabled={pending}>
               <UserRound size={16} /> {pending ? "Memproses…" : "Izinkan keluar"}
             </button>
           </div>

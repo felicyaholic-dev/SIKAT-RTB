@@ -311,6 +311,32 @@ export function getSecurityQueue() {
   `).all() as Array<PermitRow & { full_name: string; room_number: string }>;
 }
 
+export function getSecurityHistory(accountId: number) {
+  return getDb().prepare(`
+    SELECT e.id AS event_id, e.event_type, e.occurred_at,
+      p.permit_code, p.entry_code, p.destination, p.status,
+      r.full_name, r.room_number, r.class_name
+    FROM permit_events e
+    JOIN permits p ON p.id = e.permit_id
+    JOIN master_residents r ON r.id = p.resident_id
+    WHERE e.performed_by_account_id = ?
+      AND e.event_type IN ('EXIT', 'ENTRY', 'EXIT_REJECTED')
+    ORDER BY e.occurred_at DESC, e.id DESC
+    LIMIT 100
+  `).all(accountId) as Array<{
+    event_id: number;
+    event_type: "EXIT" | "ENTRY" | "EXIT_REJECTED";
+    occurred_at: string;
+    permit_code: string;
+    entry_code: string | null;
+    destination: string;
+    status: PermitStatus;
+    full_name: string;
+    room_number: string;
+    class_name: string;
+  }>;
+}
+
 export function getManagerData() {
   const db = getDb();
   const stats = db.prepare(`
