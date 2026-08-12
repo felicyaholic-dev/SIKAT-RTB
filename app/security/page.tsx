@@ -1,4 +1,4 @@
-import { QrCode, Search, ShieldCheck, TriangleAlert } from "lucide-react";
+import { QrCode, Search, TriangleAlert } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { requireRole } from "@/lib/auth";
 import { getPermitForSecurity } from "@/lib/db";
@@ -20,7 +20,7 @@ export default async function SecurityPage({ searchParams }: Props) {
           <p className="mt-2 text-sm text-muted">Pindai QR mahasiswa, periksa data, lalu berikan keputusan.</p>
         </header>
 
-        <section className="grid gap-5 xl:grid-cols-[1.04fr_.96fr]">
+        <section className="max-w-[760px]">
           <div className="security-card p-5 sm:p-6">
             <div className="flex items-center justify-between gap-3"><span className="flex items-center gap-3"><span className="grid h-11 w-11 place-items-center rounded-xl bg-[#e1f6ff] text-signal"><QrCode size={21} /></span><span><b className="block text-sm text-ink">Pindai QR</b><small className="text-[10px] text-muted">Arahkan kamera ke kode mahasiswa</small></span></span></div>
             <QrScanner />
@@ -36,28 +36,17 @@ export default async function SecurityPage({ searchParams }: Props) {
             </form>
           </div>
 
-          <div className="min-w-0">
-            {code && !permit && (
-              <div className="security-card grid min-h-[470px] place-items-center p-8 text-center">
-                <div className="grid justify-items-center gap-2 text-muted">
-                  <span className="grid h-16 w-16 place-items-center rounded-[22px] bg-[#fff4de] text-amber"><TriangleAlert size={28} strokeWidth={1.6} /></span>
-                  <h2 className="mt-3 text-xl font-medium tracking-tight text-ink">Izin tidak ditemukan</h2>
-                  <p className="max-w-[250px] text-[13px] leading-relaxed">Periksa kembali kode, atau gunakan QR yang diberikan mahasiswa.</p>
-                </div>
-              </div>
-            )}
-            {permit && <ValidatePermit permit={permit} />}
-            {!code && (
-              <div className="security-card grid min-h-[470px] place-items-center p-8 text-center">
-                <div className="grid justify-items-center gap-2 text-muted">
-                  <span className="security-wait-icon grid h-16 w-16 place-items-center rounded-[22px] bg-safe-soft text-safe"><ShieldCheck size={29} strokeWidth={1.6} /></span>
-                  <h2 className="mt-3 text-xl font-medium tracking-tight text-ink">Menunggu kode pengajuan</h2>
-                  <p className="max-w-[250px] text-[13px] leading-relaxed">Data mahasiswa akan muncul di sini setelah QR atau kode izin ditemukan.</p>
-                </div>
-              </div>
-            )}
-          </div>
         </section>
+        {code && !permit && (
+          <div className="security-card mt-5 grid min-h-56 max-w-[760px] place-items-center p-8 text-center">
+            <div className="grid justify-items-center gap-2 text-muted">
+              <span className="grid h-16 w-16 place-items-center rounded-[22px] bg-[#fff4de] text-amber"><TriangleAlert size={28} strokeWidth={1.6} /></span>
+              <h2 className="mt-3 text-xl font-medium tracking-tight text-ink">Izin tidak ditemukan</h2>
+              <p className="max-w-[250px] text-[13px] leading-relaxed">Periksa kembali kode, atau gunakan QR yang diberikan mahasiswa.</p>
+            </div>
+          </div>
+        )}
+        {permit && <ValidatePermit permit={permit} />}
       </div>
     </AppShell>
   );

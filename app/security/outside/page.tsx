@@ -43,7 +43,7 @@ export default async function SecurityOutsidePage() {
                     </small>
                   </span>
                   <span className="text-right">
-                    <small className="block text-[10px] text-muted">Keluar tercatat</small>
+                    <small className="block text-[10px] text-muted">Izin disetujui</small>
                     <b className="font-mono text-xs">{time(item.planned_departure_at)}</b>
                   </span>
                   <span className={pill(item.status === "MENUNGGU_MASUK" ? "amber" : "safe")}>{item.status === "MENUNGGU_MASUK" ? "QR MASUK SIAP" : "DI LUAR"}</span>

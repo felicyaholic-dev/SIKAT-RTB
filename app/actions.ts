@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { addResident, addSecurityStaff, changePassword, createBroadcast, createPermit, resetStudentPassword, updateManagerProfile, updateResident, updateSecurityStaff, validatePermit, verifyCredentials, type Gender } from "@/lib/db";
+import { addResident, addSecurityStaff, changePassword, createBroadcast, createPermit, decidePermit, resetStudentPassword, updateManagerProfile, updateResident, updateSecurityStaff, verifyCredentials, type Gender } from "@/lib/db";
 import { clearSession, createSession, requireRole, requireSession, roleHome } from "@/lib/auth";
 
 export type FormState = { error?: string; success?: string };
@@ -44,8 +44,10 @@ export async function createPermitAction(_: FormState, formData: FormData): Prom
 export async function validatePermitAction(_: FormState, formData: FormData): Promise<FormState> {
   const session = await requireRole("SECURITY");
   const permitId = Number(formData.get("permitId"));
+  const decision = String(formData.get("decision") || "") as "APPROVE" | "REJECT";
   if (!permitId) return { error: "Data validasi tidak lengkap." };
-  const result = validatePermit(session.accountId, permitId);
+  if (!["APPROVE", "REJECT"].includes(decision)) return { error: "Pilih keputusan izin terlebih dahulu." };
+  const result = decidePermit(session.accountId, permitId, decision);
   if (result.ok) {
     revalidatePath("/security");
     revalidatePath("/security/outside");

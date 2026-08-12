@@ -280,19 +280,26 @@ export function getPermitForSecurity(code: string) {
   `).get(code.trim().toUpperCase(), code.trim(), code.trim().toUpperCase()) as (PermitRow & { full_name: string; room_number: string; class_name: string }) | undefined;
 }
 
-export function validatePermit(accountId: number, permitId: number) {
+export function decidePermit(accountId: number, permitId: number, decision: "APPROVE" | "REJECT") {
   const db = getDb();
   const permit = db.prepare("SELECT * FROM permits WHERE id = ?").get(permitId) as PermitRow | undefined;
   if (!permit) return { ok: false, message: "Izin tidak ditemukan." };
-  const event = permit.status === "MENUNGGU_KELUAR" ? "EXIT" : permit.status === "MENUNGGU_MASUK" ? "ENTRY" : null;
-  if (!event) return { ok: false, message: "QR ini sudah digunakan atau belum siap divalidasi." };
-  const next = event === "EXIT" ? "SEDANG_DI_LUAR" : "SELESAI";
+  if (permit.status === "MENUNGGU_MASUK" && decision === "REJECT") return { ok: false, message: "QR masuk tidak dapat dibatalkan dari proses ini." };
+  const isExit = permit.status === "MENUNGGU_KELUAR";
+  const isEntry = permit.status === "MENUNGGU_MASUK";
+  if (!isExit && !isEntry) return { ok: false, message: "QR ini sudah digunakan atau belum siap divalidasi." };
+  const next = isExit ? decision === "APPROVE" ? "SEDANG_DI_LUAR" : "DIBATALKAN" : "SELESAI";
+  const event = isExit ? decision === "APPROVE" ? "EXIT" : "EXIT_REJECTED" : "ENTRY";
   const transaction = db.transaction(() => {
-    db.prepare("UPDATE permits SET status = ? WHERE id = ?").run(next, permitId);
+    const update = db.prepare("UPDATE permits SET status = ? WHERE id = ? AND status = ?").run(next, permitId, permit.status);
+    if (!update.changes) return false;
     db.prepare("INSERT INTO permit_events (permit_id, event_type, performed_by_account_id) VALUES (?, ?, ?)").run(permitId, event, accountId);
+    return true;
   });
-  transaction();
-  return { ok: true, message: event === "EXIT" ? "Keluar tercatat. Mahasiswa kini berstatus di luar RTB." : "Masuk tercatat. Izin selesai." };
+  if (!transaction()) return { ok: false, message: "Status izin sudah berubah. Silakan pindai ulang QR." };
+  if (event === "EXIT") return { ok: true, message: "Izin keluar disetujui. Mahasiswa kini berstatus di luar RTB." };
+  if (event === "EXIT_REJECTED") return { ok: true, message: "Izin dibatalkan. Mahasiswa tetap berstatus di dalam RTB." };
+  return { ok: true, message: "Masuk disetujui. Mahasiswa kini kembali tercatat di RTB." };
 }
 
 export function getSecurityQueue() {

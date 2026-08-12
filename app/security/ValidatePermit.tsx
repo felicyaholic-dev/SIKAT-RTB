@@ -1,64 +1,81 @@
 "use client";
 
-import { useActionState } from "react";
-import { Check, Clock3, MapPin, UserRound } from "lucide-react";
+import { useActionState, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Check, Clock3, MapPin, ShieldCheck, UserRound } from "lucide-react";
 import { validatePermitAction, type FormState } from "@/app/actions";
+import { FormModal } from "@/components/FormModal";
 import { btn, formMessage, initials, pill, permitTone } from "@/lib/ui";
 
 const initialState: FormState = {};
 type Permit = { id: number; permit_code: string; entry_code: string | null; full_name: string; room_number: string; class_name: string; destination: string; planned_departure_at: string; planned_return_at: string; status: string };
 
 export function ValidatePermit({ permit }: { permit: Permit }) {
+  const router = useRouter();
   const [state, action, pending] = useActionState(validatePermitAction, initialState);
+  const [open, setOpen] = useState(true);
   const incoming = permit.status === "MENUNGGU_MASUK";
+  const close = () => {
+    setOpen(false);
+    router.replace("/security");
+  };
+
+  useEffect(() => {
+    if (state.success) router.replace("/security");
+  }, [router, state.success]);
+
+  if (!open) return null;
+
   return (
-    <section className="security-card min-h-[470px] overflow-hidden">
-      <div className="flex items-center justify-between border-b border-[#cceedd] bg-safe-soft px-5 py-3 font-mono text-[10px] text-safe">
-        <span className="flex items-center gap-1.5">
-          <Check size={16} strokeWidth={1.8} /> IZIN DITEMUKAN
-        </span>
-        <span className={pill(permitTone(permit.status))}>{permit.status.replaceAll("_", " ")}</span>
+    <FormModal
+      eyebrow={incoming ? "KONFIRMASI MASUK" : "KONFIRMASI IZIN"}
+      title={incoming ? "Izinkan masuk RTB" : "Tinjau izin keluar"}
+      description={incoming ? "Cocokkan data mahasiswa sebelum mengizinkan ia kembali masuk RTB." : "Periksa data sebelum memberikan atau membatalkan izin. Menutup popup tidak akan mengubah status."}
+      onClose={close}
+    >
+      <div className="overflow-hidden rounded-2xl border border-line bg-[#fafdff]">
+        <div className="flex items-center justify-between gap-3 border-b border-[#cceedd] bg-safe-soft px-4 py-3 font-mono text-[10px] text-safe sm:px-5">
+          <span className="flex items-center gap-1.5"><Check size={16} strokeWidth={1.8} /> QR DITEMUKAN</span>
+          <span className={pill(permitTone(permit.status))}>{incoming ? "MENUNGGU MASUK" : "MENUNGGU KEPUTUSAN"}</span>
+        </div>
+        <div className="flex items-center gap-3.5 px-4 py-5 sm:px-5">
+          <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-signal-soft text-lg font-bold text-signal">{initials(permit.full_name)}</span>
+          <div className="min-w-0">
+            <h2 className="truncate text-xl font-semibold text-ink">{permit.full_name}</h2>
+            <p className="mt-1 text-xs text-muted">{permit.class_name} · Kamar {permit.room_number}</p>
+            <small className="font-mono text-[10px] text-muted">{incoming ? permit.entry_code : permit.permit_code}</small>
+          </div>
+        </div>
+        <dl className="mx-4 grid gap-0 rounded-2xl border border-line bg-white px-4 sm:mx-5">
+          <div className="grid gap-1 border-b border-line py-3.5">
+            <dt className="flex items-center gap-1.5 text-[11px] text-muted"><MapPin size={14} /> Tujuan</dt>
+            <dd className="text-sm font-semibold text-ink">{permit.destination}</dd>
+          </div>
+          <div className="grid gap-1 py-3.5">
+            <dt className="flex items-center gap-1.5 text-[11px] text-muted"><Clock3 size={14} /> {incoming ? "Waktu kembali" : "Waktu keluar"}</dt>
+            <dd className="text-sm font-semibold text-ink">{new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(incoming ? permit.planned_return_at : permit.planned_departure_at))}</dd>
+          </div>
+        </dl>
       </div>
-      <div className="flex items-center gap-3.5 px-6 pt-6 pb-5">
-        <span className="grid h-14 w-14 shrink-0 rounded-2xl bg-signal-soft text-lg font-bold text-signal">{initials(permit.full_name)}</span>
-        <div>
-          <h2 className="text-xl font-semibold">{permit.full_name}</h2>
-          <p className="mt-1 text-xs text-muted">
-            {permit.class_name} · Kamar {permit.room_number}
-          </p>
-          <small className="font-mono text-[10px] text-muted">{incoming ? permit.entry_code : permit.permit_code}</small>
-        </div>
-      </div>
-      <dl className="mx-6 grid gap-0 rounded-2xl border border-line bg-[#fafdff] px-4">
-        <div className="grid gap-1 border-b border-line py-3.5">
-          <dt className="flex items-center gap-1.5 text-[11px] text-muted">
-            <MapPin size={14} /> Tujuan
-          </dt>
-          <dd className="text-sm font-semibold">{permit.destination}</dd>
-        </div>
-        <div className="grid gap-1 py-3.5">
-          <dt className="flex items-center gap-1.5 text-[11px] text-muted">
-            <Clock3 size={14} /> {incoming ? "Waktu kembali" : "Waktu keluar"}
-          </dt>
-          <dd className="text-sm font-semibold">
-            {new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(incoming ? permit.planned_return_at : permit.planned_departure_at))}
-          </dd>
-        </div>
-      </dl>
-      <form action={action} className="mt-5 grid gap-2.5 border-t border-line px-6 pt-5 pb-6">
+      <form action={action} className="mt-5 grid gap-2.5">
         <input type="hidden" name="permitId" value={permit.id} />
         {state.error && <p className={formMessage("error")}>{state.error}</p>}
         {state.success && <p className={formMessage("success")}>{state.success}</p>}
-        <button className={`${btn.base} ${incoming ? btn.safe : btn.primary} w-full rounded-xl`} disabled={pending}>
-          {pending ? (
-            "Mencatat…"
-          ) : (
-            <>
-              <UserRound size={16} /> {incoming ? "Catat masuk" : "Catat keluar"}
-            </>
-          )}
-        </button>
+        {incoming ? (
+          <button name="decision" value="APPROVE" className={`${btn.base} ${btn.safe} w-full rounded-xl`} disabled={pending}>
+            <ShieldCheck size={16} /> {pending ? "Memproses…" : "Izinkan masuk RTB"}
+          </button>
+        ) : (
+          <div className="grid gap-2.5 sm:grid-cols-2">
+            <button name="decision" value="REJECT" className={`${btn.base} w-full rounded-xl border border-danger/30 bg-danger-soft text-danger hover:bg-danger hover:text-white`} disabled={pending}>
+              {pending ? "Memproses…" : "Batalkan izin"}
+            </button>
+            <button name="decision" value="APPROVE" className={`${btn.base} ${btn.primary} w-full rounded-xl`} disabled={pending}>
+              <UserRound size={16} /> {pending ? "Memproses…" : "Izinkan keluar"}
+            </button>
+          </div>
+        )}
       </form>
-    </section>
+    </FormModal>
   );
 }

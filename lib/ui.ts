@@ -42,7 +42,7 @@ export function permitTone(status: string | undefined): Tone {
 
 export function permitStatusLabel(status: string) {
   const labels: Record<string, string> = {
-    MENUNGGU_KELUAR: "Menunggu validasi keluar",
+    MENUNGGU_KELUAR: "Menunggu keputusan satpam",
     SEDANG_DI_LUAR: "Sedang di luar RTB",
     MENUNGGU_MASUK: "Menunggu validasi masuk",
     SELESAI: "Izin selesai",
