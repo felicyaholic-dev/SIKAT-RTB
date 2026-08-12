@@ -16,9 +16,9 @@ export default function ResetPasswordPage() {
           <span className="text-signal">password.</span>
         </>
       }
-      lede="Untuk melindungi akun, data yang dimasukkan perlu sesuai dengan master penghuni RTB."
+      lede="Untuk melindungi akun, data yang dimasukkan perlu sesuai dengan data penghuni RTB."
       noteIcon={KeyRound}
-      note="Reset mandiri tersedia untuk akun mahasiswa yang sudah pernah diaktivasi."
+      note="Reset mandiri tersedia untuk akun mahasiswa aktif yang dibuat oleh Pengelola RTB."
       formKicker="RESET PASSWORD"
       title="Verifikasi datamu."
       subtitle="Masukkan data terdaftar, lalu tentukan password baru."

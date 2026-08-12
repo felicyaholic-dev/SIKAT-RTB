@@ -209,6 +209,192 @@
       fade-up 0.6s cubic-bezier(0.22, 0.8, 0.25, 1) both,
       float 5s ease-in-out 0.6s infinite;
   }
+
+  /* Landing page: airy product canvas with a deliberately animated permit
+     interface. Motion is restrained to the objects that communicate state. */
+  .hero-stage {
+    background:
+      radial-gradient(circle at 86% 28%, rgb(122 211 255 / 0.38), transparent 24rem),
+      radial-gradient(circle at 7% 68%, rgb(109 230 255 / 0.18), transparent 23rem),
+      linear-gradient(112deg, #fbfeff 0%, #edfaff 47%, #d6f1ff 100%);
+  }
+  .hero-grid {
+    position: absolute;
+    inset: 0;
+    opacity: 0.23;
+    background-image: linear-gradient(rgb(35 160 222 / 0.08) 1px, transparent 1px), linear-gradient(90deg, rgb(35 160 222 / 0.08) 1px, transparent 1px);
+    background-size: 46px 46px;
+    mask-image: linear-gradient(to right, transparent, black 46%, transparent);
+    pointer-events: none;
+  }
+  .hero-glow {
+    position: absolute;
+    border-radius: 999px;
+    border: 1px solid rgb(255 255 255 / 0.45);
+    background: rgb(255 255 255 / 0.16);
+    pointer-events: none;
+  }
+  .hero-glow-one { width: 38rem; height: 38rem; left: -25rem; top: -18rem; }
+  .hero-glow-two { width: 28rem; height: 28rem; right: -13rem; bottom: -15rem; }
+  .sky-text {
+    background: linear-gradient(100deg, #087cf7, #14b8f4);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .permit-window { animation: permit-float 6s ease-in-out infinite; }
+  .permit-ticket { background: linear-gradient(132deg, #078cff 0%, #0088eb 54%, #16bdf0 100%); }
+  .hero-rings {
+    grid-area: 1 / 1;
+    place-self: center;
+    border: 1.5px solid rgb(8 76 119 / 0.58);
+    box-shadow: 0 0 0 22px rgb(255 255 255 / 0.10), 0 0 0 50px rgb(255 255 255 / 0.07);
+    animation: ring-breathe 4.8s ease-in-out infinite;
+  }
+  .hero-orbit {
+    grid-area: 1 / 1;
+    place-self: center;
+    z-index: 2;
+    border: 1.5px solid rgb(8 76 119 / 0.72);
+    pointer-events: none;
+    animation: orbit-spin 7.5s linear infinite;
+  }
+  .hero-orbit::before,
+  .hero-orbit::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    width: 15px;
+    height: 15px;
+    border: 3px solid #fff;
+    border-radius: 999px;
+    background: #078cff;
+    box-shadow: 0 4px 12px rgb(1 89 152 / .28), 0 0 0 5px rgb(7 140 255 / .12);
+  }
+  .hero-orbit::before { top: -8px; transform: translateX(-50%); }
+  .hero-orbit::after { bottom: -8px; transform: translateX(-50%); background: #42cef4; }
+  /* The card is the source of truth for the atom's centre. This avoids the
+     orbit drifting upward when the hero switches from two columns to a
+     stacked mobile layout. */
+  .permit-showcase { display: grid; place-items: center; }
+  .permit-showcase > .permit-window { grid-area: 1 / 1; }
+  .float-badge { animation: badge-float 4.3s ease-in-out 0.3s infinite; }
+  .float-badge-late { animation-delay: 1.15s; }
+  .landing-reveal { animation: landing-rise 0.75s cubic-bezier(.22,.8,.25,1) both; }
+  .eyebrow { font-size: 10px; font-weight: 800; letter-spacing: .14em; color: #118aca; }
+  .flow-card::after {
+    content: "";
+    position: absolute;
+    inset: auto 0 0;
+    height: 3px;
+    background: linear-gradient(90deg, #078cff, #27cdf7);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform .3s ease;
+  }
+  .flow-card:hover::after { transform: scaleX(1); }
+  .role-stage { background: linear-gradient(180deg, #f4fbff, #e9f7ff); }
+  .role-orb { position: absolute; width: 38rem; height: 38rem; border-radius: 50%; background: rgb(151 226 255 / .27); filter: blur(65px); left: 50%; top: 40%; transform: translate(-50%, -50%); pointer-events: none; }
+  .closing-band { background: linear-gradient(110deg, #07517d 0%, #0879af 63%, #079ad2 100%); }
+  .closing-shine { position: absolute; width: 43rem; height: 43rem; right: -23rem; top: -30rem; border: 1px solid rgb(255 255 255 / .14); border-radius: 50%; box-shadow: 0 0 0 40px rgb(255 255 255 / .04), 0 0 0 100px rgb(255 255 255 / .035); }
+  .modal-enter { animation: modal-enter .32s cubic-bezier(.22,.8,.25,1) both; }
+
+  /* Satpam workspace: intentionally calm and operational. The deep-blue
+     rail keeps navigation fixed while the pale work surface protects focus
+     around the scan-and-decide flow. */
+  .security-shell { background: #f4fbfe; }
+  .security-sidebar {
+    background: linear-gradient(180deg, #096292 0%, #075680 55%, #034a73 100%);
+    box-shadow: inset -1px 0 rgb(255 255 255 / .09);
+  }
+  .security-sidebar::before {
+    content: "";
+    position: absolute;
+    width: 22rem;
+    height: 22rem;
+    top: -13rem;
+    left: -12rem;
+    border-radius: 50%;
+    background: rgb(63 206 255 / .13);
+    filter: blur(20px);
+    pointer-events: none;
+  }
+  .security-sidebar > * { position: relative; }
+  .security-access-card { border: 1px solid rgb(255 255 255 / .12); border-radius: 14px; background: rgb(255 255 255 / .065); }
+  .security-nav-active { border-color: #62d9ff; border-radius: 10px; background: linear-gradient(90deg, rgb(72 192 245 / .32), rgb(255 255 255 / .08)); color: #fff; font-weight: 700; box-shadow: inset 3px 0 #5bd8ff; }
+  .security-main { min-height: 100vh; background: radial-gradient(circle at 81% 18%, rgb(181 234 255 / .45), transparent 23rem), linear-gradient(135deg, #f9fdff, #f1faff 60%, #eaf8ff); }
+  .security-page { animation: landing-rise .5s ease-out both; }
+  .security-kicker { font-size: 10px; font-weight: 800; letter-spacing: .13em; color: #158bc7; }
+  .security-card { border: 1px solid #d6edf6; border-radius: 22px; background: rgb(255 255 255 / .86); box-shadow: 0 14px 35px rgb(11 103 146 / .06); }
+  .security-scanner { box-shadow: inset 0 0 50px rgb(105 214 255 / .10); }
+  .scanner-corner { position: absolute; z-index: 2; width: 28px; height: 28px; border-color: #36b7e3; border-style: solid; pointer-events: none; }
+  .scanner-corner-tl { left: 18px; top: 18px; border-width: 3px 0 0 3px; border-radius: 4px 0 0; }
+  .scanner-corner-tr { right: 18px; top: 18px; border-width: 3px 3px 0 0; border-radius: 0 4px 0 0; }
+  .scanner-corner-bl { bottom: 18px; left: 18px; border-width: 0 0 3px 3px; border-radius: 0 0 0 4px; }
+  .scanner-corner-br { right: 18px; bottom: 18px; border-width: 0 3px 3px 0; border-radius: 0 0 4px 0; }
+  .security-wait-icon { box-shadow: 0 0 0 8px rgb(18 185 122 / .06); }
+  .security-stat-card { display: flex; align-items: center; gap: 16px; min-height: 96px; padding: 18px 20px; border: 1px solid #d7edf6; border-radius: 19px; background: rgb(255 255 255 / .82); box-shadow: 0 10px 25px rgb(11 103 146 / .045); transition: transform .25s ease, box-shadow .25s ease; }
+  .security-stat-card:hover { transform: translateY(-3px); box-shadow: 0 18px 30px rgb(11 103 146 / .1); }
+  .security-stat-card span:last-child { display: grid; gap: 1px; }
+  .security-stat-card small, .security-stat-card em { font-size: 10px; font-style: normal; color: var(--color-muted); }
+  .security-stat-card b { font-size: 25px; line-height: 1.05; letter-spacing: -.05em; color: var(--color-ink); }
+  .security-profile-hero { display: flex; align-items: center; gap: 24px; background: linear-gradient(112deg, rgb(255 255 255 / .96), rgb(225 246 255 / .88)); }
+  .manager-chart { border-bottom: 1px solid var(--color-line); background: repeating-linear-gradient(to top, transparent 0 30px, rgb(213 236 248 / .65) 30px 31px); }
+  .manager-chart span { align-items: end; }
+  .manager-chart small { padding-bottom: 6px; font-size: 9px; color: var(--color-muted); }
+  .manager-donut { width: 142px; height: 142px; margin-inline: auto; border-radius: 50%; background: conic-gradient(var(--color-safe) 0deg 290deg, var(--color-signal) 290deg 360deg); }
+  .manager-donut > span { display: grid; place-items: center; width: 100px; height: 100px; border-radius: 50%; background: #fff; }
+  .manager-donut b { font-size: 24px; letter-spacing: -.06em; color: var(--color-ink); }
+  .manager-donut small { margin-top: -5px; font-size: 9px; color: var(--color-muted); }
+
+  @keyframes landing-rise {
+    from { opacity: 0; transform: translateY(18px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes permit-float {
+    0%, 100% { transform: translateY(0) rotate(-1deg); }
+    50% { transform: translateY(-9px) rotate(1deg); }
+  }
+  @keyframes badge-float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-7px); }
+  }
+  @keyframes ring-breathe {
+    0%, 100% { transform: scale(.98); opacity: .58; }
+    50% { transform: scale(1.035); opacity: .84; }
+  }
+  @keyframes orbit-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+  @keyframes modal-enter {
+    from { opacity: 0; transform: translateY(14px) scale(.97); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+}
+
+@media (max-width: 767px) {
+  /* Keep the permit preview comfortably inside a handset viewport. Desktop
+     gets the larger floating specimen; mobile gets a compact, self-contained
+     card with badges that never push past the screen edge. */
+  /* Use the full content width as the mobile composition canvas. Every piece
+     of the permit scene takes its x-coordinate from this same centre point. */
+  .permit-showcase { width: 100%; max-width: none; margin-inline: 0 !important; display: grid; place-items: center; }
+  .permit-window { grid-area: 1 / 1; max-width: 300px; justify-self: center; padding: 12px; border-radius: 24px; }
+  .permit-window .permit-ticket { padding: 14px; border-radius: 16px; }
+  .permit-window .permit-ticket .h-28,
+  .permit-window .permit-ticket .w-28 { width: 80px; height: 80px; }
+  .permit-window .permit-ticket .mt-5 { margin-top: 12px; }
+  .permit-window .permit-ticket .mt-3 { margin-top: 8px; }
+  .permit-window > .flex:nth-child(2) { padding-top: 10px; padding-bottom: 10px; }
+  /* Preserve the two live-status callouts on phones, but dock them to the
+     card edges and scale them down so the QR card itself stays centred. */
+  .permit-showcase .float-badge { display: flex; scale: .62; }
+  .permit-showcase .float-badge:not(.float-badge-late) { left: calc(50% + 72px); right: auto; top: 2px; transform-origin: left top; }
+  .permit-showcase .float-badge-late { bottom: -4px; left: calc(50% - 150px); transform-origin: left bottom; }
+  .hero-rings { width: 370px; height: 370px; }
+  .hero-orbit { width: 326px; height: 326px; }
+  .security-profile-hero { align-items: flex-start; flex-direction: column; }
 }
 
 @media (prefers-reduced-motion: reduce) {

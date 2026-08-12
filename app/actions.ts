@@ -2,8 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { activateStudent, addResident, addSecurityStaff, createPermit, resetStudentPassword, updateResident, updateSecurityStaff, validatePermit, verifyCredentials } from "@/lib/db";
-import { clearSession, createSession, requireRole, roleHome } from "@/lib/auth";
+import { addResident, addSecurityStaff, changePassword, createPermit, resetStudentPassword, updateResident, updateSecurityStaff, validatePermit, verifyCredentials } from "@/lib/db";
+import { clearSession, createSession, requireRole, requireSession, roleHome } from "@/lib/auth";
 
 export type FormState = { error?: string; success?: string };
 
@@ -13,20 +13,8 @@ export async function loginAction(_: FormState, formData: FormData): Promise<For
   if (!bcaId || !password) return { error: "Masukkan ID BCA dan password." };
   const account = verifyCredentials(bcaId, password);
   if (!account) return { error: "ID BCA atau password tidak tepat." };
-  await createSession({ accountId: account.id, bcaId: account.bcaId, name: account.name, role: account.role, room: account.room });
-  redirect(roleHome(account.role));
-}
-
-export async function activateAction(_: FormState, formData: FormData): Promise<FormState> {
-  const password = String(formData.get("password") || "");
-  if (password.length < 8) return { error: "Password minimal terdiri dari 8 karakter." };
-  const result = activateStudent({
-    bcaId: String(formData.get("bcaId") || ""),
-    fullName: String(formData.get("fullName") || ""),
-    room: String(formData.get("room") || ""),
-    password,
-  });
-  return result.ok ? { success: result.message } : { error: result.message };
+  await createSession({ accountId: account.id, bcaId: account.bcaId, name: account.name, role: account.role, room: account.room, mustChangePassword: account.mustChangePassword });
+  redirect(account.mustChangePassword ? "/change-password" : roleHome(account.role));
 }
 
 export async function logoutAction() {
@@ -79,8 +67,9 @@ export async function addResidentAction(_: FormState, formData: FormData): Promi
     fullName: String(formData.get("fullName") || ""),
     room: String(formData.get("room") || ""),
     className: String(formData.get("className") || ""),
+    password: String(formData.get("password") || ""),
   };
-  if (Object.values(values).some((value) => !value.trim())) return { error: "Semua data penghuni wajib diisi." };
+  if (Object.values(values).some((value) => !value.trim()) || values.password.length < 8) return { error: "Lengkapi data penghuni dan gunakan password awal minimal 8 karakter." };
   const result = addResident(session.accountId, values);
   if (result.ok) {
     revalidatePath("/manager/users");
@@ -120,6 +109,19 @@ export async function resetPasswordAction(_: FormState, formData: FormData): Pro
     password,
   });
   return result.ok ? { success: result.message } : { error: result.message };
+}
+
+export async function changePasswordAction(_: FormState, formData: FormData): Promise<FormState> {
+  const session = await requireSession();
+  const currentPassword = String(formData.get("currentPassword") || "");
+  const password = String(formData.get("password") || "");
+  const confirmPassword = String(formData.get("confirmPassword") || "");
+  if (password.length < 8) return { error: "Password baru minimal terdiri dari 8 karakter." };
+  if (password !== confirmPassword) return { error: "Konfirmasi password belum sama." };
+  const result = changePassword(session.accountId, { currentPassword, password });
+  if (!result.ok) return { error: result.message };
+  await createSession({ ...session, mustChangePassword: false });
+  redirect(roleHome(session.role));
 }
 
 export async function addSecurityStaffAction(_: FormState, formData: FormData): Promise<FormState> {

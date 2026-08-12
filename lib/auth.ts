@@ -12,7 +12,7 @@ if (!process.env.SESSION_SECRET) {
 }
 const secret = new TextEncoder().encode(process.env.SESSION_SECRET);
 
-export type Session = { accountId: number; bcaId: string; name: string; role: Role; room?: string | null };
+export type Session = { accountId: number; bcaId: string; name: string; role: Role; room?: string | null; mustChangePassword?: boolean };
 
 export async function createSession(session: Session) {
   const token = await new SignJWT(session)
@@ -43,7 +43,14 @@ export async function getSession(): Promise<Session | null> {
 export async function requireRole(...roles: Role[]) {
   const session = await getSession();
   if (!session) redirect("/login");
+  if (session.mustChangePassword) redirect("/change-password");
   if (!roles.includes(session.role)) redirect(roleHome(session.role));
+  return session;
+}
+
+export async function requireSession() {
+  const session = await getSession();
+  if (!session) redirect("/login");
   return session;
 }
 

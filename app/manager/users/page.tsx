@@ -12,25 +12,25 @@ export default async function ManagerUsersPage() {
 
   return (
     <AppShell role="MANAGER" name={session.name}>
-      <div className="mx-auto max-w-6xl px-5 py-9 md:px-10 md:py-10">
+      <div className="security-page mx-auto max-w-[1280px] px-5 py-9 md:px-10 md:py-11">
         <header className="mb-7 flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="font-mono text-[11px] tracking-[0.1em] text-signal">DATA USER</p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-ink md:text-4xl">Data pengguna RTB.</h1>
-            <p className="mt-1 text-sm text-muted">Kelola master penghuni dan akses satpam dari satu tempat.</p>
+            <p className="security-kicker">PENGELOLA</p>
+            <h1 className="mt-2 text-[clamp(2rem,4vw,3.15rem)] font-medium tracking-[-0.06em] text-ink">Pengaturan</h1>
+            <p className="mt-2 text-sm text-muted">Kelola akses pengguna dan data penghuni RTB.</p>
           </div>
         </header>
 
-        <section>
+        <section className="security-card p-5 sm:p-6">
           <div className="mb-3.5 flex flex-wrap items-end justify-between gap-4">
             <div>
-              <p className="font-mono text-[11px] tracking-[0.1em] text-signal">SUMBER KEBENARAN</p>
-              <h2 className="mt-2 text-xl font-semibold">Master penghuni</h2>
+              <p className="security-kicker">DATA AKSES</p>
+              <h2 className="mt-2 text-lg font-medium tracking-tight">Pengguna yang dapat masuk</h2>
               <p className="mt-1 text-sm text-muted">ID BCA mahasiswa terdiri dari 6 angka dan dipakai sistem untuk aktivasi akun.</p>
             </div>
             <AddResidentForm />
           </div>
-          <div className="overflow-auto border border-line bg-surface">
+          <div className="overflow-auto rounded-xl border border-line bg-white">
             <table className="w-full min-w-[710px] border-collapse">
               <thead>
                 <tr>

@@ -16,6 +16,7 @@ type AccountRow = {
   full_name: string;
   room_number: string | null;
   is_active: number;
+  must_change_password: number;
 };
 
 type ResidentRow = {
@@ -60,6 +61,7 @@ function getDb() {
       role TEXT NOT NULL CHECK(role IN ('STUDENT','SECURITY','MANAGER')),
       password_hash TEXT NOT NULL,
       is_active INTEGER NOT NULL DEFAULT 1,
+      must_change_password INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY(resident_id) REFERENCES master_residents(id)
     );
@@ -102,6 +104,7 @@ function getDb() {
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
   `);
+  ensureColumn(database, "accounts", "must_change_password", "INTEGER NOT NULL DEFAULT 0");
   migrateLegacyDemoIds(database);
   seed(database);
   return database;
@@ -123,6 +126,11 @@ function seed(db: Database.Database) {
   ).run(normalizeBcaId(bcaId), fullName, bcrypt.hashSync(password, 12));
 }
 
+function ensureColumn(db: Database.Database, table: string, column: string, definition: string) {
+  const columns = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+  if (!columns.some((item) => item.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+}
+
 function migrateLegacyDemoIds(db: Database.Database) {
   db.prepare("UPDATE accounts SET bca_id = substr(bca_id, -4) WHERE bca_id LIKE 'BCA%'").run();
   db.prepare("UPDATE master_residents SET bca_id = substr(bca_id, -4) WHERE bca_id LIKE 'BCA%'").run();
@@ -136,26 +144,7 @@ export function verifyCredentials(bcaId: string, password: string) {
     .prepare("SELECT * FROM accounts WHERE bca_id = ?")
     .get(normalizeBcaId(bcaId)) as AccountRow | undefined;
   if (!account || !account.is_active || !bcrypt.compareSync(password, account.password_hash)) return null;
-  return { id: account.id, bcaId: account.bca_id, name: account.full_name, role: account.role, room: account.room_number };
-}
-
-export function activateStudent(input: { bcaId: string; fullName: string; room: string; password: string }) {
-  const db = getDb();
-  const bcaId = normalizeBcaId(input.bcaId);
-  if (!/^\d{6}$/.test(bcaId)) return { ok: false, message: "ID BCA mahasiswa harus terdiri dari 6 angka." };
-  const resident = db.prepare("SELECT * FROM master_residents WHERE bca_id = ?").get(bcaId) as ResidentRow | undefined;
-  if (!resident || resident.resident_status !== "ACTIVE") return { ok: false, message: "Data penghuni tidak ditemukan atau sudah tidak aktif." };
-  if (normalizeName(resident.full_name) !== normalizeName(input.fullName) || normalizeRoom(resident.room_number) !== normalizeRoom(input.room)) {
-    return { ok: false, message: "Nama lengkap atau nomor kamar tidak cocok dengan data RTB." };
-  }
-  const exists = db.prepare("SELECT id FROM accounts WHERE bca_id = ?").get(bcaId);
-  if (exists) return { ok: false, message: "Akun ini sudah aktif. Silakan masuk." };
-  const passwordHash = bcrypt.hashSync(input.password, 12);
-  const account = db
-    .prepare("INSERT INTO accounts (resident_id, bca_id, full_name, role, password_hash) VALUES (?, ?, ?, 'STUDENT', ?)")
-    .run(resident.id, bcaId, resident.full_name, passwordHash);
-  logAudit(Number(account.lastInsertRowid), "ACTIVATE_ACCOUNT", "account", String(account.lastInsertRowid));
-  return { ok: true, message: "Akun berhasil diaktifkan. Silakan masuk." };
+  return { id: account.id, bcaId: account.bca_id, name: account.full_name, role: account.role, room: account.room_number, mustChangePassword: Boolean(account.must_change_password) };
 }
 
 export function getStudentData(accountId: number) {
@@ -259,15 +248,18 @@ export function getManagerData() {
   return { stats, watchlist, residents, securityStaff };
 }
 
-export function addResident(actorId: number, input: { bcaId: string; fullName: string; room: string; className: string }) {
+export function addResident(actorId: number, input: { bcaId: string; fullName: string; room: string; className: string; password: string }) {
   const db = getDb();
-  if (!/^\d{6}$/.test(normalizeBcaId(input.bcaId))) return { ok: false, message: "ID BCA mahasiswa harus terdiri dari 6 angka." };
+  const bcaId = normalizeBcaId(input.bcaId);
+  if (!/^\d{6}$/.test(bcaId)) return { ok: false, message: "ID BCA mahasiswa harus terdiri dari 6 angka." };
   try {
-    const result = db.prepare(`
-      INSERT INTO master_residents (bca_id, full_name, room_number, class_name) VALUES (?, ?, ?, ?)
-    `).run(normalizeBcaId(input.bcaId), input.fullName.trim(), input.room.trim().toUpperCase(), input.className.trim());
-    logAudit(actorId, "CREATE_RESIDENT", "master_resident", String(result.lastInsertRowid));
-    return { ok: true, message: "Penghuni berhasil ditambahkan ke master data." };
+    const transaction = db.transaction(() => {
+      const resident = db.prepare("INSERT INTO master_residents (bca_id, full_name, room_number, class_name) VALUES (?, ?, ?, ?)").run(bcaId, input.fullName.trim(), input.room.trim().toUpperCase(), input.className.trim());
+      const account = db.prepare("INSERT INTO accounts (resident_id, bca_id, full_name, role, password_hash, must_change_password) VALUES (?, ?, ?, 'STUDENT', ?, 1)").run(resident.lastInsertRowid, bcaId, input.fullName.trim(), bcrypt.hashSync(input.password, 12));
+      logAudit(actorId, "CREATE_STUDENT_ACCOUNT", "account", String(account.lastInsertRowid));
+    });
+    transaction();
+    return { ok: true, message: "Akun mahasiswa berhasil dibuat. User wajib mengganti password saat login pertama." };
   } catch {
     return { ok: false, message: "ID BCA sudah terdaftar atau data tidak valid." };
   }
@@ -280,7 +272,7 @@ export function addSecurityStaff(actorId: number, input: { bcaId: string; fullNa
   try {
     const transaction = db.transaction(() => {
       db.prepare("INSERT INTO security_staff (bca_id, full_name, shift_label) VALUES (?, ?, ?)").run(bcaId, input.fullName.trim(), input.shiftLabel.trim());
-      db.prepare("INSERT INTO accounts (bca_id, full_name, role, password_hash) VALUES (?, ?, 'SECURITY', ?)").run(bcaId, input.fullName.trim(), bcrypt.hashSync(input.password, 12));
+      db.prepare("INSERT INTO accounts (bca_id, full_name, role, password_hash, must_change_password) VALUES (?, ?, 'SECURITY', ?, 1)").run(bcaId, input.fullName.trim(), bcrypt.hashSync(input.password, 12));
     });
     transaction();
     logAudit(actorId, "CREATE_SECURITY_STAFF", "security_staff", bcaId);
@@ -321,10 +313,19 @@ export function resetStudentPassword(input: { bcaId: string; fullName: string; r
     return { ok: false, message: "Data akun tidak dapat diverifikasi." };
   }
   const account = db.prepare("SELECT id FROM accounts WHERE resident_id = ? AND role = 'STUDENT' AND is_active = 1").get(resident.id) as { id: number } | undefined;
-  if (!account) return { ok: false, message: "Akun belum diaktifkan. Silakan lakukan aktivasi akun terlebih dahulu." };
-  db.prepare("UPDATE accounts SET password_hash = ? WHERE id = ?").run(bcrypt.hashSync(input.password, 12), account.id);
+  if (!account) return { ok: false, message: "Akun tidak ditemukan. Hubungi Pengelola RTB." };
+  db.prepare("UPDATE accounts SET password_hash = ?, must_change_password = 0 WHERE id = ?").run(bcrypt.hashSync(input.password, 12), account.id);
   logAudit(account.id, "RESET_PASSWORD", "account", String(account.id));
   return { ok: true, message: "Password berhasil diatur ulang. Silakan masuk dengan password baru." };
+}
+
+export function changePassword(accountId: number, input: { currentPassword: string; password: string }) {
+  const db = getDb();
+  const account = db.prepare("SELECT * FROM accounts WHERE id = ? AND is_active = 1").get(accountId) as AccountRow | undefined;
+  if (!account || !bcrypt.compareSync(input.currentPassword, account.password_hash)) return { ok: false, message: "Password saat ini tidak tepat." };
+  db.prepare("UPDATE accounts SET password_hash = ?, must_change_password = 0 WHERE id = ?").run(bcrypt.hashSync(input.password, 12), accountId);
+  logAudit(accountId, "CHANGE_PASSWORD", "account", String(accountId));
+  return { ok: true, message: "Password berhasil diperbarui." };
 }
 
 export function getDailyReport() {

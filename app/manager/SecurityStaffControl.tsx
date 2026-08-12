@@ -12,18 +12,18 @@ export function SecurityStaffControl({ staff }: { staff: Staff[] }) {
   const [open, setOpen] = useState(false);
   const [state, action, pending] = useActionState(addSecurityStaffAction, initialState);
   return (
-    <section className="mt-10">
+    <section className="security-card mt-5 p-5 sm:p-6">
       <div className="mb-3.5 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="font-mono text-[11px] tracking-[0.1em] text-signal">AKSES POS KEAMANAN</p>
-          <h2 className="mt-2 text-xl font-semibold">Master satpam</h2>
+          <p className="security-kicker">AKSES POS KEAMANAN</p>
+          <h2 className="mt-2 text-lg font-medium tracking-tight">Master satpam</h2>
           <p className="mt-1 text-sm text-muted">ID BCA satpam terdiri dari 6 angka dan seluruh akses dikelola pengelola.</p>
         </div>
         <button className={`${btn.base} ${btn.primary} shrink-0`} onClick={() => setOpen(true)}>
           <Plus size={16} /> Tambah satpam
         </button>
       </div>
-      <div className="overflow-auto border border-line bg-surface">
+      <div className="overflow-auto rounded-xl border border-line bg-white">
         <table className="w-full min-w-[600px] border-collapse">
           <thead>
             <tr>
@@ -86,6 +86,7 @@ export function SecurityStaffControl({ staff }: { staff: Staff[] }) {
                 Password awal
                 <input name="password" type="password" minLength={8} required />
               </label>
+              <p className="-mt-2 text-[11px] leading-relaxed text-muted">Satpam wajib mengganti password ini setelah login pertama.</p>
               {state.error && <p className={formMessage("error")}>{state.error}</p>}
               {state.success && <p className={formMessage("success")}>{state.success}</p>}
               <button className={`${btn.base} ${btn.primary} w-full`} disabled={pending}>

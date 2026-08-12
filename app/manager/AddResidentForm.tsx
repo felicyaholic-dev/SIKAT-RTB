@@ -43,6 +43,11 @@ export function AddResidentForm() {
                   <input name="className" placeholder="BCA Learning 2025" required />
                 </label>
               </div>
+              <label>
+                Password awal
+                <input name="password" type="password" minLength={8} placeholder="Minimal 8 karakter" required />
+              </label>
+              <p className="-mt-2 text-[11px] leading-relaxed text-muted">Mahasiswa menggunakan password ini untuk login pertama, lalu wajib membuat password pribadi.</p>
               {state.error && <p className={formMessage("error")}>{state.error}</p>}
               {state.success && <p className={formMessage("success")}>{state.success}</p>}
               <button className={`${btn.base} ${btn.primary} w-full`} disabled={pending}>
