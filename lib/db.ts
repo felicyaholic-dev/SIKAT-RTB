@@ -73,7 +73,6 @@ function getDb() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       bca_id TEXT NOT NULL UNIQUE,
       full_name TEXT NOT NULL,
-      shift_label TEXT NOT NULL DEFAULT 'Belum ditetapkan',
       gender TEXT NOT NULL DEFAULT 'TIDAK_DISEBUTKAN',
       staff_status TEXT NOT NULL DEFAULT 'ACTIVE',
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -336,7 +335,7 @@ export function getManagerData() {
     FROM master_residents r LEFT JOIN accounts a ON a.resident_id = r.id
     ORDER BY r.full_name ASC
   `).all() as Array<ResidentRow & { account_status: string }>;
-  const securityStaff = db.prepare("SELECT * FROM security_staff ORDER BY full_name ASC").all() as Array<{ id: number; bca_id: string; full_name: string; shift_label: string; gender: Gender; staff_status: string }>;
+  const securityStaff = db.prepare("SELECT * FROM security_staff ORDER BY full_name ASC").all() as Array<{ id: number; bca_id: string; full_name: string; gender: Gender; staff_status: string }>;
   return { stats, watchlist, weeklyActivity, residents, securityStaff };
 }
 
@@ -357,13 +356,13 @@ export function addResident(actorId: number, input: { bcaId: string; fullName: s
   }
 }
 
-export function addSecurityStaff(actorId: number, input: { bcaId: string; fullName: string; shiftLabel: string; gender: Gender; password: string }) {
+export function addSecurityStaff(actorId: number, input: { bcaId: string; fullName: string; gender: Gender; password: string }) {
   const db = getDb();
   const bcaId = normalizeBcaId(input.bcaId);
   if (!/^\d{6}$/.test(bcaId)) return { ok: false, message: "ID BCA satpam harus terdiri dari 6 angka." };
   try {
     const transaction = db.transaction(() => {
-      db.prepare("INSERT INTO security_staff (bca_id, full_name, shift_label, gender) VALUES (?, ?, ?, ?)").run(bcaId, input.fullName.trim(), input.shiftLabel.trim(), input.gender);
+      db.prepare("INSERT INTO security_staff (bca_id, full_name, gender) VALUES (?, ?, ?)").run(bcaId, input.fullName.trim(), input.gender);
       db.prepare("INSERT INTO accounts (bca_id, full_name, role, password_hash, must_change_password) VALUES (?, ?, 'SECURITY', ?, 1)").run(bcaId, input.fullName.trim(), bcrypt.hashSync(input.password, 12));
     });
     transaction();
@@ -372,11 +371,11 @@ export function addSecurityStaff(actorId: number, input: { bcaId: string; fullNa
   } catch { return { ok: false, message: "ID BCA satpam sudah digunakan atau data tidak valid." }; }
 }
 
-export function updateSecurityStaff(actorId: number, input: { id: number; fullName: string; shiftLabel: string; gender: Gender; staffStatus: "ACTIVE" | "INACTIVE" }) {
+export function updateSecurityStaff(actorId: number, input: { id: number; fullName: string; gender: Gender; staffStatus: "ACTIVE" | "INACTIVE" }) {
   const db = getDb();
   const staff = db.prepare("SELECT bca_id FROM security_staff WHERE id = ?").get(input.id) as { bca_id: string } | undefined;
   if (!staff) return { ok: false, message: "Data satpam tidak ditemukan." };
-  db.prepare("UPDATE security_staff SET full_name = ?, shift_label = ?, gender = ?, staff_status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(input.fullName.trim(), input.shiftLabel.trim(), input.gender, input.staffStatus, input.id);
+  db.prepare("UPDATE security_staff SET full_name = ?, gender = ?, staff_status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(input.fullName.trim(), input.gender, input.staffStatus, input.id);
   db.prepare("UPDATE accounts SET full_name = ?, is_active = ? WHERE bca_id = ? AND role = 'SECURITY'").run(input.fullName.trim(), input.staffStatus === "ACTIVE" ? 1 : 0, staff.bca_id);
   logAudit(actorId, "UPDATE_SECURITY_STAFF", "security_staff", String(input.id));
   return { ok: true, message: input.staffStatus === "INACTIVE" ? "Satpam dinonaktifkan dan aksesnya dicabut." : "Data satpam diperbarui." };

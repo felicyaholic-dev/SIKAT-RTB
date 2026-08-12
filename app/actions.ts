@@ -127,7 +127,7 @@ export async function changePasswordAction(_: FormState, formData: FormData): Pr
 
 export async function addSecurityStaffAction(_: FormState, formData: FormData): Promise<FormState> {
   const session = await requireRole("MANAGER");
-  const values = { bcaId: String(formData.get("bcaId") || ""), fullName: String(formData.get("fullName") || ""), shiftLabel: String(formData.get("shiftLabel") || ""), gender: String(formData.get("gender") || "") as Gender, password: String(formData.get("password") || "") };
+  const values = { bcaId: String(formData.get("bcaId") || ""), fullName: String(formData.get("fullName") || ""), gender: String(formData.get("gender") || "") as Gender, password: String(formData.get("password") || "") };
   if (Object.values(values).some((value) => !value.trim()) || !["LAKI_LAKI", "PEREMPUAN"].includes(values.gender) || values.password.length < 8) return { error: "Lengkapi data satpam, jenis kelamin, dan password minimal 8 karakter." };
   const result = addSecurityStaff(session.accountId, values);
   if (result.ok) revalidatePath("/manager/users");
@@ -136,8 +136,8 @@ export async function addSecurityStaffAction(_: FormState, formData: FormData): 
 
 export async function updateSecurityStaffAction(_: FormState, formData: FormData): Promise<FormState> {
   const session = await requireRole("MANAGER");
-  const values = { id: Number(formData.get("id")), fullName: String(formData.get("fullName") || ""), shiftLabel: String(formData.get("shiftLabel") || ""), gender: String(formData.get("gender") || "") as Gender, staffStatus: String(formData.get("staffStatus") || "ACTIVE") as "ACTIVE" | "INACTIVE" };
-  if (!values.id || !values.fullName.trim() || !values.shiftLabel.trim() || !["LAKI_LAKI", "PEREMPUAN"].includes(values.gender)) return { error: "Lengkapi data satpam dan jenis kelamin terlebih dahulu." };
+  const values = { id: Number(formData.get("id")), fullName: String(formData.get("fullName") || ""), gender: String(formData.get("gender") || "") as Gender, staffStatus: String(formData.get("staffStatus") || "ACTIVE") as "ACTIVE" | "INACTIVE" };
+  if (!values.id || !values.fullName.trim() || !["LAKI_LAKI", "PEREMPUAN"].includes(values.gender)) return { error: "Lengkapi data satpam dan jenis kelamin terlebih dahulu." };
   const result = updateSecurityStaff(session.accountId, values);
   if (result.ok) revalidatePath("/manager/users");
   return result.ok ? { success: result.message } : { error: result.message };

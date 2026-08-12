@@ -7,7 +7,7 @@ import { FormModal } from "@/components/FormModal";
 import { btn, formMessage, initials, pill } from "@/lib/ui";
 
 const initialState: FormState = {};
-type Staff = { id: number; bca_id: string; full_name: string; shift_label: string; gender: string; staff_status: string };
+type Staff = { id: number; bca_id: string; full_name: string; gender: string; staff_status: string };
 
 export function SecurityStaffControl({ staff }: { staff: Staff[] }) {
   const [open, setOpen] = useState(false);
@@ -25,12 +25,11 @@ export function SecurityStaffControl({ staff }: { staff: Staff[] }) {
         </button>
       </div>
       <div className="overflow-auto rounded-xl border border-line bg-white">
-        <table className="w-full min-w-[600px] border-collapse">
+        <table className="w-full min-w-[520px] border-collapse">
           <thead>
             <tr>
               <th className="px-4 py-3 text-left font-mono text-[10px] font-medium tracking-wide text-muted">Satpam</th>
               <th className="px-4 py-3 text-left font-mono text-[10px] font-medium tracking-wide text-muted">ID BCA</th>
-              <th className="px-4 py-3 text-left font-mono text-[10px] font-medium tracking-wide text-muted">Shift</th>
               <th className="px-4 py-3 text-left font-mono text-[10px] font-medium tracking-wide text-muted">Jenis kelamin</th>
               <th className="px-4 py-3 text-left font-mono text-[10px] font-medium tracking-wide text-muted">Status</th>
               <th className="px-4 py-3" />
@@ -51,7 +50,6 @@ export function SecurityStaffControl({ staff }: { staff: Staff[] }) {
                 <td className="px-4 py-3">
                   <code className="font-mono text-[10px] text-muted">{item.bca_id}</code>
                 </td>
-                <td className="px-4 py-3 text-xs">{item.shift_label}</td>
                 <td className="px-4 py-3 text-xs text-muted">{item.gender === "PEREMPUAN" ? "Perempuan" : item.gender === "LAKI_LAKI" ? "Laki-laki" : "—"}</td>
                 <td className="px-4 py-3">
                   <span className={pill(item.staff_status === "ACTIVE" ? "safe" : "muted")}>{item.staff_status === "ACTIVE" ? "AKTIF" : "NONAKTIF"}</span>
@@ -74,10 +72,6 @@ export function SecurityStaffControl({ staff }: { staff: Staff[] }) {
               <label>
                 Nama lengkap
                 <input name="fullName" required />
-              </label>
-              <label>
-                Shift
-                <input name="shiftLabel" placeholder="Shift sore" required />
               </label>
               <label>
                 Jenis kelamin
@@ -120,10 +114,6 @@ function EditStaff({ staff }: { staff: Staff }) {
               <label>
                 Nama lengkap
                 <input name="fullName" defaultValue={staff.full_name} required />
-              </label>
-              <label>
-                Shift
-                <input name="shiftLabel" defaultValue={staff.shift_label} required />
               </label>
               <label>
                 Jenis kelamin

@@ -17,6 +17,7 @@ const nav: Record<Role, Item[]> = {
     { href: "/student/apply", label: "Aktivitas", icon: ClipboardPlus },
     { href: "/student/permit", label: "QR aktif", icon: QrCode },
     { href: "/student/history", label: "Riwayat", icon: FileText },
+    { href: "/student/profile", label: "Profil", icon: UserRound },
   ],
   SECURITY: [
     { href: "/security", label: "Validasi", icon: ScanLine },
