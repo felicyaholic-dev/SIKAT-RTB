@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Clock3, MapPin, QrCode } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { PermitQr } from "@/components/PermitQr";
+import { StudentPermitDecisionWatcher } from "@/app/student/StudentPermitDecisionWatcher";
 import { requireRole } from "@/lib/auth";
 import { getStudentData } from "@/lib/db";
 import { generateQrSvg } from "@/lib/qr";
@@ -15,7 +16,7 @@ export default async function StudentPermitPage() {
   const session = await requireRole("STUDENT");
   const data = getStudentData(session.accountId);
   if (!data) return null;
-  const { activePermit } = data;
+  const { activePermit, history, latestDecision } = data;
   const isEntry = activePermit?.status === "MENUNGGU_MASUK";
   const hasQr = activePermit?.status === "MENUNGGU_KELUAR" || isEntry;
   const code = isEntry ? activePermit?.entry_code : activePermit?.permit_code;
@@ -30,7 +31,7 @@ export default async function StudentPermitPage() {
           <p className="mt-1 text-sm text-muted">QR keluar dan QR masuk dibuat terpisah, lalu divalidasi satpam satu kali.</p>
         </header>
 
-        <article className="max-w-xl border border-line bg-surface p-6">
+        <article className="relative min-h-[260px] max-w-xl overflow-hidden border border-line bg-surface p-6">
           {activePermit && qr && code ? (
             <div>
               <div className="flex items-center justify-between gap-3 pb-4">
@@ -85,6 +86,7 @@ export default async function StudentPermitPage() {
               </Link>
             </div>
           )}
+          <StudentPermitDecisionWatcher permitId={activePermit?.id ?? history[0]?.id ?? null} initialDecision={latestDecision ?? null} />
         </article>
       </div>
     </AppShell>

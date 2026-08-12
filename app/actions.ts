@@ -48,16 +48,11 @@ export async function validatePermitAction(_: FormState, formData: FormData): Pr
   if (!permitId) return { error: "Data validasi tidak lengkap." };
   if (!["APPROVE", "REJECT"].includes(decision)) return { error: "Pilih keputusan izin terlebih dahulu." };
   const result = decidePermit(session.accountId, permitId, decision);
-  if (result.ok) {
-    revalidatePath("/security");
-    revalidatePath("/security/outside");
-    revalidatePath("/manager");
-    revalidatePath("/manager/stats");
-    revalidatePath("/student");
-    revalidatePath("/student/permit");
-    revalidatePath("/student/history");
-    return { success: result.message };
-  }
+  // Do not revalidate while this action is open: the satpam needs to see the
+  // animated confirmation before its modal is allowed to close. The next
+  // navigation reads the new database state, while the student's QR page
+  // receives the result through its short polling endpoint.
+  if (result.ok) return { success: result.message };
   return { error: result.message };
 }
 

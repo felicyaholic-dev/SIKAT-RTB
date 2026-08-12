@@ -227,7 +227,26 @@ export function getStudentData(accountId: number) {
   const history = db.prepare(`
     SELECT * FROM permits WHERE resident_id = ? ORDER BY created_at DESC LIMIT 5
   `).all(resident.id) as PermitRow[];
-  return { resident, activePermit, history };
+  const latestDecision = db.prepare(`
+    SELECT p.id AS permit_id, e.event_type, e.occurred_at
+    FROM permit_events e
+    JOIN permits p ON p.id = e.permit_id
+    WHERE p.resident_id = ? AND e.event_type IN ('EXIT', 'ENTRY', 'EXIT_REJECTED')
+    ORDER BY e.occurred_at DESC, e.id DESC
+    LIMIT 1
+  `).get(resident.id) as StudentPermitDecision | undefined;
+  return { resident, activePermit, history, latestDecision };
+}
+
+export type StudentPermitDecision = {
+  permit_id: number;
+  event_type: "EXIT" | "ENTRY" | "EXIT_REJECTED";
+  occurred_at: string;
+};
+
+export function getStudentPermitDecision(accountId: number) {
+  const data = getStudentData(accountId);
+  return data?.latestDecision;
 }
 
 type PermitRow = {
