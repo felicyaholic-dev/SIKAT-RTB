@@ -39,19 +39,18 @@ export default async function SecurityOutsidePage() {
               {history.map((item) => {
                 const outcome = item.event_type === "EXIT" ? "IZIN KELUAR DISETUJUI" : item.event_type === "ENTRY" ? "MASUK DISETUJUI" : "IZIN DIBATALKAN";
                 const tone = item.event_type === "EXIT_REJECTED" ? "danger" : item.event_type === "ENTRY" ? "safe" : "amber";
-                return <div key={item.event_id} className="flex flex-wrap items-center gap-3 border-t border-line py-3.5 first:border-t-0 transition-colors duration-150 hover:bg-signal-soft/40">
-                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-signal-soft text-[10px] font-bold text-signal">{initials(item.full_name)}</span>
-                  <span className="min-w-0 flex-1">
+                return <div key={item.event_id} className="grid grid-cols-[40px_minmax(0,1fr)] gap-x-3 gap-y-2 border-t border-line py-4 first:border-t-0 transition-colors duration-150 hover:bg-signal-soft/40 md:grid-cols-[40px_minmax(0,1fr)_auto] md:items-center md:gap-y-0">
+                  <span className="row-span-2 grid h-10 w-10 place-items-center self-center rounded-xl bg-signal-soft text-[10px] font-bold text-signal">{initials(item.full_name)}</span>
+                  <span className="min-w-0">
                     <b className="block truncate text-[13px]">{item.full_name}</b>
-                    <small className="text-[11px] text-muted">
+                    <small className="mt-0.5 block truncate text-[11px] text-muted">
                       {item.class_name} · Kamar {item.room_number} · {item.destination}
                     </small>
                   </span>
-                  <span className="text-right">
-                    <small className="block text-[10px] text-muted">Divalidasi</small>
-                    <b className="font-mono text-xs">{time(item.occurred_at)}</b>
-                  </span>
-                  <span className={pill(tone)}>{outcome}</span>
+                  <div className="col-start-2 flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-line pt-3 md:col-start-auto md:row-span-2 md:border-0 md:pt-0">
+                    <span className="min-w-0"><small className="block text-[10px] text-muted">Divalidasi</small><b className="block whitespace-nowrap font-mono text-xs text-ink">{time(item.occurred_at)}</b></span>
+                    <span className={pill(tone)}>{outcome}</span>
+                  </div>
                 </div>;
               })}
             </div>
