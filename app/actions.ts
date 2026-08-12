@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { addResident, addSecurityStaff, changePassword, createBroadcast, createPermit, decidePermit, resetStudentPassword, updateManagerProfile, updateResident, updateSecurityStaff, verifyCredentials, type Gender } from "@/lib/db";
+import { addResident, addSecurityStaff, cancelPendingPermit, changePassword, createBroadcast, createPermit, decidePermit, resetStudentPassword, updateManagerProfile, updateResident, updateSecurityStaff, verifyCredentials, type Gender } from "@/lib/db";
 import { clearSession, createSession, requireRole, requireSession, roleHome } from "@/lib/auth";
 
 export type FormState = { error?: string; success?: string };
@@ -39,6 +39,22 @@ export async function createPermitAction(_: FormState, formData: FormData): Prom
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Izin tidak dapat dibuat." };
   }
+}
+
+export async function cancelPendingPermitAction(_: FormState, formData: FormData): Promise<FormState> {
+  const session = await requireRole("STUDENT");
+  const permitId = Number(formData.get("permitId"));
+  if (!permitId) return { error: "Data QR tidak valid." };
+  const result = cancelPendingPermit(session.accountId, permitId);
+  if (result.ok) {
+    revalidatePath("/student");
+    revalidatePath("/student/apply");
+    revalidatePath("/student/permit");
+    revalidatePath("/student/history");
+    revalidatePath("/manager");
+    revalidatePath("/manager/stats");
+  }
+  return result.ok ? { success: result.message } : { error: result.message };
 }
 
 export async function validatePermitAction(_: FormState, formData: FormData): Promise<FormState> {

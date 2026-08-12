@@ -289,6 +289,23 @@ export function createPermit(accountId: number, input: { destination?: string; p
   return { code: permitCode, mode: "EXIT" as const };
 }
 
+export function cancelPendingPermit(accountId: number, permitId: number) {
+  const db = getDb();
+  const transaction = db.transaction(() => {
+    const permit = db.prepare(`
+      SELECT p.id FROM permits p
+      JOIN master_residents r ON r.id = p.resident_id
+      JOIN accounts a ON a.resident_id = r.id
+      WHERE p.id = ? AND a.id = ? AND a.role = 'STUDENT'
+        AND p.status IN ('MENUNGGU_KELUAR', 'MENUNGGU_MASUK')
+    `).get(permitId, accountId) as { id: number } | undefined;
+    if (!permit) return false;
+    db.prepare("DELETE FROM permit_events WHERE permit_id = ?").run(permit.id);
+    return db.prepare("DELETE FROM permits WHERE id = ?").run(permit.id).changes === 1;
+  });
+  return transaction() ? { ok: true, message: "Pengajuan dan QR berhasil dibatalkan." } : { ok: false, message: "QR tidak dapat dibatalkan karena sudah diproses satpam." };
+}
+
 export function getPermitForSecurity(code: string) {
   const db = getDb();
   return db.prepare(`

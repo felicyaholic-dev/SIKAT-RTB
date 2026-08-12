@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { ArrowRight, CalendarDays, FilePlus2, IdCard, RotateCcw } from "lucide-react";
 import { createPermitAction, type FormState } from "@/app/actions";
 import { btn, formMessage } from "@/lib/ui";
@@ -14,9 +15,14 @@ function localValue() {
 }
 
 export function PermitForm({ mode, student }: { mode: "EXIT" | "ENTRY"; student: Student }) {
+  const router = useRouter();
   const [state, action, pending] = useActionState(createPermitAction, initialState);
   const now = localValue();
   const isEntry = mode === "ENTRY";
+
+  useEffect(() => {
+    if (state.success) router.refresh();
+  }, [router, state.success]);
 
   return (
     <form action={action} className="student-application security-card overflow-hidden">

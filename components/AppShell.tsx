@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, ClipboardPlus, FileText, History, LayoutDashboard, LogOut, QrCode, ScanLine, UserRound, UsersRound } from "lucide-react";
+import { BarChart3, ClipboardPlus, FileText, History, LayoutDashboard, LogOut, ScanLine, UserRound, UsersRound } from "lucide-react";
 import type { Role } from "@/lib/db";
 import { logoutAction } from "@/app/actions";
 import { Brand } from "@/components/Brand";
@@ -14,8 +14,7 @@ type Item = { href: string; label: string; icon: typeof LayoutDashboard };
 const nav: Record<Role, Item[]> = {
   STUDENT: [
     { href: "/student", label: "Beranda", icon: LayoutDashboard },
-    { href: "/student/apply", label: "Aktivitas", icon: ClipboardPlus },
-    { href: "/student/permit", label: "QR aktif", icon: QrCode },
+    { href: "/student/apply", label: "Ajukan izin", icon: ClipboardPlus },
     { href: "/student/history", label: "Riwayat", icon: FileText },
     { href: "/student/profile", label: "Profil", icon: UserRound },
   ],
