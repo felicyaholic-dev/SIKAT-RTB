@@ -2,13 +2,21 @@
 
 import { useActionState, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, CheckCircle2, CircleX, Clock3, MapPin, ShieldCheck, UserRound } from "lucide-react";
+import { Check, CheckCircle2, CircleX, Clock3, FileText, MapPin, ShieldCheck, UserRound } from "lucide-react";
 import { validatePermitAction, type FormState } from "@/app/actions";
 import { FormModal } from "@/components/FormModal";
 import { btn, formMessage, initials, pill, permitTone } from "@/lib/ui";
 
 const initialState: FormState = {};
-type Permit = { id: number; permit_code: string; entry_code: string | null; full_name: string; room_number: string; class_name: string; destination: string; planned_departure_at: string; planned_return_at: string; status: string };
+type Permit = { id: number; permit_code: string; entry_code: string | null; full_name: string; room_number: string; class_name: string; permit_type: string; destination: string; planned_departure_at: string; planned_return_at: string; status: string };
+
+const permitTypeLabel: Record<string, string> = {
+  IZIN_PRIBADI: "Izin pribadi",
+  IZIN_AKADEMIK: "Izin akademik",
+  IZIN_KESEHATAN: "Izin kesehatan",
+  KEPERLUAN_KELUARGA: "Keperluan keluarga",
+  LAINNYA: "Lainnya",
+};
 
 export function ValidatePermit({ permit }: { permit: Permit }) {
   const router = useRouter();
@@ -64,8 +72,12 @@ export function ValidatePermit({ permit }: { permit: Permit }) {
         </div>
         <dl className="mx-4 grid gap-0 rounded-2xl border border-line bg-white px-4 sm:mx-5">
           <div className="grid gap-1 border-b border-line py-3.5">
-            <dt className="flex items-center gap-1.5 text-[11px] text-muted"><MapPin size={14} /> Tujuan</dt>
-            <dd className="text-sm font-semibold text-ink">{permit.destination}</dd>
+            <dt className="flex items-center gap-1.5 text-[11px] text-muted"><FileText size={14} /> Jenis izin</dt>
+            <dd><span className="inline-flex rounded-pill bg-signal-soft px-2.5 py-1 text-xs font-semibold text-signal">{permitTypeLabel[permit.permit_type] ?? "Izin lainnya"}</span></dd>
+          </div>
+          <div className="grid gap-1 border-b border-line py-3.5">
+            <dt className="flex items-center gap-1.5 text-[11px] text-muted"><MapPin size={14} /> Keterangan izin</dt>
+            <dd className="whitespace-pre-wrap text-sm font-semibold leading-relaxed text-ink">{permit.destination}</dd>
           </div>
           <div className="grid gap-1 py-3.5">
             <dt className="flex items-center gap-1.5 text-[11px] text-muted"><Clock3 size={14} /> {incoming ? "Waktu kembali" : "Waktu keluar"}</dt>
