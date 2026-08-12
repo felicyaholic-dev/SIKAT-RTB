@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { addResident, addSecurityStaff, changePassword, createPermit, resetStudentPassword, updateResident, updateSecurityStaff, validatePermit, verifyCredentials } from "@/lib/db";
+import { addResident, addSecurityStaff, changePassword, createBroadcast, createPermit, resetStudentPassword, updateManagerProfile, updateResident, updateSecurityStaff, validatePermit, verifyCredentials, type Gender } from "@/lib/db";
 import { clearSession, createSession, requireRole, requireSession, roleHome } from "@/lib/auth";
 
 export type FormState = { error?: string; success?: string };
@@ -67,9 +67,10 @@ export async function addResidentAction(_: FormState, formData: FormData): Promi
     fullName: String(formData.get("fullName") || ""),
     room: String(formData.get("room") || ""),
     className: String(formData.get("className") || ""),
+    gender: String(formData.get("gender") || "") as Gender,
     password: String(formData.get("password") || ""),
   };
-  if (Object.values(values).some((value) => !value.trim()) || values.password.length < 8) return { error: "Lengkapi data penghuni dan gunakan password awal minimal 8 karakter." };
+  if (Object.values(values).some((value) => !value.trim()) || !["LAKI_LAKI", "PEREMPUAN"].includes(values.gender) || values.password.length < 8) return { error: "Lengkapi data penghuni, jenis kelamin, dan password awal minimal 8 karakter." };
   const result = addResident(session.accountId, values);
   if (result.ok) {
     revalidatePath("/manager/users");
@@ -87,9 +88,10 @@ export async function updateResidentAction(_: FormState, formData: FormData): Pr
     fullName: String(formData.get("fullName") || ""),
     room: String(formData.get("room") || ""),
     className: String(formData.get("className") || ""),
+    gender: String(formData.get("gender") || "") as Gender,
     residentStatus: String(formData.get("residentStatus") || "ACTIVE") as "ACTIVE" | "INACTIVE",
   };
-  if (!id || !values.fullName.trim() || !values.room.trim() || !values.className.trim()) return { error: "Lengkapi data penghuni terlebih dahulu." };
+  if (!id || !values.fullName.trim() || !values.room.trim() || !values.className.trim() || !["LAKI_LAKI", "PEREMPUAN"].includes(values.gender)) return { error: "Lengkapi data penghuni dan jenis kelamin terlebih dahulu." };
   const result = updateResident(session.accountId, values);
   if (result.ok) {
     revalidatePath("/manager/users");
@@ -126,8 +128,8 @@ export async function changePasswordAction(_: FormState, formData: FormData): Pr
 
 export async function addSecurityStaffAction(_: FormState, formData: FormData): Promise<FormState> {
   const session = await requireRole("MANAGER");
-  const values = { bcaId: String(formData.get("bcaId") || ""), fullName: String(formData.get("fullName") || ""), shiftLabel: String(formData.get("shiftLabel") || ""), password: String(formData.get("password") || "") };
-  if (Object.values(values).some((value) => !value.trim()) || values.password.length < 8) return { error: "Lengkapi data satpam dan gunakan password minimal 8 karakter." };
+  const values = { bcaId: String(formData.get("bcaId") || ""), fullName: String(formData.get("fullName") || ""), shiftLabel: String(formData.get("shiftLabel") || ""), gender: String(formData.get("gender") || "") as Gender, password: String(formData.get("password") || "") };
+  if (Object.values(values).some((value) => !value.trim()) || !["LAKI_LAKI", "PEREMPUAN"].includes(values.gender) || values.password.length < 8) return { error: "Lengkapi data satpam, jenis kelamin, dan password minimal 8 karakter." };
   const result = addSecurityStaff(session.accountId, values);
   if (result.ok) revalidatePath("/manager/users");
   return result.ok ? { success: result.message } : { error: result.message };
@@ -135,9 +137,37 @@ export async function addSecurityStaffAction(_: FormState, formData: FormData): 
 
 export async function updateSecurityStaffAction(_: FormState, formData: FormData): Promise<FormState> {
   const session = await requireRole("MANAGER");
-  const values = { id: Number(formData.get("id")), fullName: String(formData.get("fullName") || ""), shiftLabel: String(formData.get("shiftLabel") || ""), staffStatus: String(formData.get("staffStatus") || "ACTIVE") as "ACTIVE" | "INACTIVE" };
-  if (!values.id || !values.fullName.trim() || !values.shiftLabel.trim()) return { error: "Lengkapi data satpam terlebih dahulu." };
+  const values = { id: Number(formData.get("id")), fullName: String(formData.get("fullName") || ""), shiftLabel: String(formData.get("shiftLabel") || ""), gender: String(formData.get("gender") || "") as Gender, staffStatus: String(formData.get("staffStatus") || "ACTIVE") as "ACTIVE" | "INACTIVE" };
+  if (!values.id || !values.fullName.trim() || !values.shiftLabel.trim() || !["LAKI_LAKI", "PEREMPUAN"].includes(values.gender)) return { error: "Lengkapi data satpam dan jenis kelamin terlebih dahulu." };
   const result = updateSecurityStaff(session.accountId, values);
   if (result.ok) revalidatePath("/manager/users");
+  return result.ok ? { success: result.message } : { error: result.message };
+}
+
+export async function updateManagerProfileAction(_: FormState, formData: FormData): Promise<FormState> {
+  const session = await requireRole("MANAGER");
+  const result = updateManagerProfile(session.accountId, {
+    bcaId: String(formData.get("bcaId") || ""),
+    fullName: String(formData.get("fullName") || ""),
+  });
+  if (!result.ok) return { error: result.message };
+  await createSession({ ...session, bcaId: result.bcaId ?? session.bcaId, name: result.fullName ?? session.name });
+  revalidatePath("/manager");
+  revalidatePath("/manager/profile");
+  revalidatePath("/manager/users");
+  revalidatePath("/manager/stats");
+  return { success: result.message };
+}
+
+export async function createBroadcastAction(_: FormState, formData: FormData): Promise<FormState> {
+  const session = await requireRole("MANAGER");
+  const result = createBroadcast(session.accountId, {
+    title: String(formData.get("title") || ""),
+    body: String(formData.get("body") || ""),
+  });
+  if (result.ok) {
+    revalidatePath("/manager/users");
+    revalidatePath("/manager");
+  }
   return result.ok ? { success: result.message } : { error: result.message };
 }

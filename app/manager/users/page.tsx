@@ -2,13 +2,15 @@ import { AppShell } from "@/components/AppShell";
 import { AddResidentForm } from "@/app/manager/AddResidentForm";
 import { EditResidentForm } from "@/app/manager/EditResidentForm";
 import { SecurityStaffControl } from "@/app/manager/SecurityStaffControl";
+import { NotificationBroadcast } from "@/app/manager/NotificationBroadcast";
 import { requireRole } from "@/lib/auth";
-import { getManagerData } from "@/lib/db";
+import { getBroadcastHistory, getManagerData } from "@/lib/db";
 import { initials, pill } from "@/lib/ui";
 
 export default async function ManagerUsersPage() {
   const session = await requireRole("MANAGER");
   const { residents, securityStaff } = getManagerData();
+  const broadcasts = getBroadcastHistory();
 
   return (
     <AppShell role="MANAGER" name={session.name}>
@@ -26,18 +28,19 @@ export default async function ManagerUsersPage() {
             <div>
               <p className="security-kicker">DATA AKSES</p>
               <h2 className="mt-2 text-lg font-medium tracking-tight">Pengguna yang dapat masuk</h2>
-              <p className="mt-1 text-sm text-muted">ID BCA mahasiswa terdiri dari 6 angka dan dipakai sistem untuk aktivasi akun.</p>
+              <p className="mt-1 text-sm text-muted">ID BCA mahasiswa terdiri dari 6 angka dan dipakai sistem untuk membuat akun.</p>
             </div>
             <AddResidentForm />
           </div>
           <div className="overflow-auto rounded-xl border border-line bg-white">
-            <table className="w-full min-w-[710px] border-collapse">
+            <table className="w-full min-w-[790px] border-collapse">
               <thead>
                 <tr>
                   <th className="px-4 py-3 text-left font-mono text-[10px] font-medium tracking-wide text-muted">Penghuni</th>
                   <th className="px-4 py-3 text-left font-mono text-[10px] font-medium tracking-wide text-muted">ID BCA</th>
                   <th className="px-4 py-3 text-left font-mono text-[10px] font-medium tracking-wide text-muted">Kamar</th>
                   <th className="px-4 py-3 text-left font-mono text-[10px] font-medium tracking-wide text-muted">Kelas</th>
+                  <th className="px-4 py-3 text-left font-mono text-[10px] font-medium tracking-wide text-muted">Jenis kelamin</th>
                   <th className="px-4 py-3 text-left font-mono text-[10px] font-medium tracking-wide text-muted">Akun</th>
                   <th className="px-4 py-3" />
                 </tr>
@@ -59,6 +62,7 @@ export default async function ManagerUsersPage() {
                     </td>
                     <td className="px-4 py-3 text-xs">{resident.room_number}</td>
                     <td className="px-4 py-3 text-xs">{resident.class_name}</td>
+                    <td className="px-4 py-3 text-xs text-muted">{resident.gender === "PEREMPUAN" ? "Perempuan" : resident.gender === "LAKI_LAKI" ? "Laki-laki" : "—"}</td>
                     <td className="px-4 py-3">
                       <span className={pill(resident.account_status === "Aktif" ? "safe" : "muted")}>{resident.account_status}</span>
                     </td>
@@ -73,6 +77,7 @@ export default async function ManagerUsersPage() {
         </section>
 
         <SecurityStaffControl staff={securityStaff} />
+        <NotificationBroadcast broadcasts={broadcasts} />
       </div>
     </AppShell>
   );

@@ -342,7 +342,7 @@
   .manager-chart { border-bottom: 1px solid var(--color-line); background: repeating-linear-gradient(to top, transparent 0 30px, rgb(213 236 248 / .65) 30px 31px); }
   .manager-chart span { align-items: end; }
   .manager-chart small { padding-bottom: 6px; font-size: 9px; color: var(--color-muted); }
-  .manager-donut { width: 142px; height: 142px; margin-inline: auto; border-radius: 50%; background: conic-gradient(var(--color-safe) 0deg 290deg, var(--color-signal) 290deg 360deg); }
+  .manager-donut { width: 142px; height: 142px; margin-inline: auto; border-radius: 50%; background: var(--color-safe); }
   .manager-donut > span { display: grid; place-items: center; width: 100px; height: 100px; border-radius: 50%; background: #fff; }
   .manager-donut b { font-size: 24px; letter-spacing: -.06em; color: var(--color-ink); }
   .manager-donut small { margin-top: -5px; font-size: 9px; color: var(--color-muted); }

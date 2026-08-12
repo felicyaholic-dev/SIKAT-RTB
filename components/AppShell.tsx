@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Bell, ClipboardPlus, FileText, History, LayoutDashboard, LogOut, QrCode, ScanLine, UserRound, UsersRound } from "lucide-react";
+import { BarChart3, ClipboardPlus, FileText, History, LayoutDashboard, LogOut, QrCode, ScanLine, UserRound, UsersRound } from "lucide-react";
 import type { Role } from "@/lib/db";
 import { logoutAction } from "@/app/actions";
 import { Brand } from "@/components/Brand";
 import { initials } from "@/lib/ui";
+import { NotificationCenter } from "@/components/NotificationCenter";
 
 type Item = { href: string; label: string; icon: typeof LayoutDashboard };
 
@@ -99,7 +100,7 @@ export function AppShell({ role, name, children }: { role: Role; name: string; c
             <i aria-hidden className="h-1.5 w-1.5 rounded-full bg-safe not-italic" />
             <span className={operationsMode ? "font-sans text-[11px] font-medium text-muted" : ""}>Sistem aktif</span>
           </span>
-          {operationsMode ? <span className="flex items-center gap-3"><button type="button" aria-label="Notifikasi" className="grid h-9 w-9 place-items-center rounded-xl border border-line bg-white text-muted transition-colors hover:text-signal"><Bell size={16} /></button><span className="grid h-9 w-9 place-items-center rounded-xl bg-signal-soft text-[10px] font-extrabold text-signal">{initials(name)}</span></span> : <span className="hidden sm:inline">{new Intl.DateTimeFormat("id-ID", { weekday: "long", day: "numeric", month: "long" }).format(new Date())}</span>}
+          <span className="flex items-center gap-3"><NotificationCenter />{operationsMode ? <span className="grid h-9 w-9 place-items-center rounded-xl bg-signal-soft text-[10px] font-extrabold text-signal">{initials(name)}</span> : <span className="hidden sm:inline">{new Intl.DateTimeFormat("id-ID", { weekday: "long", day: "numeric", month: "long" }).format(new Date())}</span>}</span>
         </header>
         {children}
       </main>
