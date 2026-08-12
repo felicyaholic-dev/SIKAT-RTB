@@ -51,7 +51,7 @@ export default async function LandingPage() {
         <div className="relative z-[1] mx-auto grid min-h-[600px] max-w-6xl items-center gap-14 px-6 pb-24 pt-10 md:grid-cols-[0.94fr_1.06fr] lg:min-h-[620px] lg:px-0">
           <div className="landing-reveal max-w-xl" style={{ animationDelay: "120ms" }}>
             <p className="inline-flex items-center gap-2 rounded-full border border-white/80 bg-white/55 px-3 py-1.5 text-[11px] font-bold text-muted shadow-sm backdrop-blur-md">
-              <span className="h-2 w-2 rounded-full bg-safe shadow-[0_0_0_4px_rgb(18_185_122_/_0.11)]" />
+              <span className="h-2 w-2 rounded-full bg-safe shadow-[0_0_0_4px_rgb(7_140_255_/_0.11)]" />
               Rumah Talenta BCA · Sistem terintegrasi
             </p>
             <h1 className="mt-6 text-[clamp(3.1rem,6.3vw,5.5rem)] font-extrabold leading-[0.92] tracking-[-0.075em] text-ink">

@@ -27,14 +27,14 @@ export default async function StudentPage() {
         <section className="bg-hero-sky relative grid gap-6 p-7 text-ink md:grid-cols-[1.2fr_0.8fr] md:p-9">
           <div>
             <p className="flex items-center gap-2 font-mono text-[10px] text-muted">
-              <i aria-hidden className="h-1.5 w-1.5 rounded-full bg-safe not-italic" /> STATUS HUNIAN
+              <i aria-hidden className={`h-1.5 w-1.5 rounded-full not-italic ${isOutside ? "bg-amber" : "bg-signal"}`} /> STATUS HUNIAN
             </p>
             <h2 className="mt-5 text-3xl leading-tight font-medium">
               {isOutside ? (
                 <>
                   Kamu sedang
                   <br />
-                  <b className="font-semibold text-signal">di luar RTB.</b>
+                  <b className="font-semibold text-amber">di luar RTB.</b>
                 </>
               ) : (
                 <>

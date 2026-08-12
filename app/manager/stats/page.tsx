@@ -1,11 +1,13 @@
 import { ArrowUpRight, Building2, CheckCircle2, Clock3, DoorOpen, LogIn, LogOut, type LucideIcon } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
+import { LiveRefresh } from "@/components/LiveRefresh";
 import { requireRole } from "@/lib/auth";
 import { getReport, type ReportPeriod } from "@/lib/db";
 
 const statTone = {
   safe: "bg-safe-soft text-safe",
   blue: "bg-signal-soft text-signal",
+  amber: "bg-amber-soft text-amber",
   ink: "bg-mist text-navy",
 } as const;
 
@@ -31,7 +33,7 @@ export default async function ManagerStatsPage({ searchParams }: { searchParams:
             <h1 className="mt-2 text-[clamp(2rem,4vw,3.15rem)] font-medium tracking-[-0.06em] text-ink">Laporan</h1>
             <p className="mt-2 text-sm text-muted">{periodMeta.description} dan unduhan laporan.</p>
           </div>
-          <span className="rounded-pill bg-mist px-3 py-2 font-mono text-[10px] tracking-wide text-muted">{periodMeta.label.toUpperCase()}</span>
+          <span className="flex items-center gap-2"><span className="rounded-pill bg-mist px-3 py-2 font-mono text-[10px] tracking-wide text-muted">{periodMeta.label.toUpperCase()}</span><LiveRefresh /></span>
         </header>
 
         <nav className="mb-5 inline-flex rounded-2xl border border-line bg-white p-1.5 shadow-[0_8px_20px_rgb(11_103_146_/_0.05)]" aria-label="Periode laporan">
@@ -40,7 +42,7 @@ export default async function ManagerStatsPage({ searchParams }: { searchParams:
 
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <Stat icon={Building2} label="Pengajuan periode" value={report.summary.permits} note="izin tercatat" tone="safe" />
-          <Stat icon={DoorOpen} label="Keluar RTB" value={report.summary.exits} note="validasi keluar" tone="blue" />
+          <Stat icon={DoorOpen} label="Keluar RTB" value={report.summary.exits} note="validasi keluar" tone="amber" />
           <Stat icon={LogIn} label="Kembali ke RTB" value={report.summary.entries} note="validasi masuk" tone="safe" />
           <Stat icon={Clock3} label="Izin selesai" value={report.summary.completed} note="sudah kembali ke RTB" tone="ink" />
         </section>
@@ -50,7 +52,7 @@ export default async function ManagerStatsPage({ searchParams }: { searchParams:
           <h2 className="mt-2 text-2xl font-medium tracking-tight">{periodMeta.label}</h2>
           <div className="mt-5 grid border-t border-line sm:grid-cols-3">
             <span className="flex items-baseline gap-2.5 border-b border-line py-2.5">
-              <LogOut size={16} className="text-signal" /><b className="font-mono text-2xl text-signal">{report.summary.exits}</b>
+              <LogOut size={16} className="text-amber" /><b className="font-mono text-2xl text-amber">{report.summary.exits}</b>
               <small className="text-muted">keluar</small>
             </span>
             <span className="flex items-baseline gap-2.5 border-b border-line py-2.5">

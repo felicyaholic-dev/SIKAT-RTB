@@ -50,7 +50,7 @@ export function ValidatePermit({ permit }: { permit: Permit }) {
       onClose={close}
     >
       <div className="overflow-hidden rounded-2xl border border-line bg-[#fafdff]">
-        <div className="flex items-center justify-between gap-3 border-b border-[#cceedd] bg-safe-soft px-4 py-3 font-mono text-[10px] text-safe sm:px-5">
+        <div className="flex items-center justify-between gap-3 border-b border-line bg-safe-soft px-4 py-3 font-mono text-[10px] text-safe sm:px-5">
           <span className="flex items-center gap-1.5"><Check size={16} strokeWidth={1.8} /> QR DITEMUKAN</span>
           <span className={pill(permitTone(permit.status))}>{incoming ? "MENUNGGU MASUK" : "MENUNGGU KEPUTUSAN"}</span>
         </div>

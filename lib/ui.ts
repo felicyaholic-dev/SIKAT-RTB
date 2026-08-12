@@ -37,6 +37,8 @@ export function permitTone(status: string | undefined): Tone {
   if (!status) return "muted";
   if (status === "SELESAI") return "safe";
   if (status === "SEDANG_DI_LUAR") return "amber";
+  if (status === "DIBATALKAN") return "danger";
+  if (status === "MENUNGGU_KELUAR" || status === "MENUNGGU_MASUK") return "amber";
   return "muted";
 }
 
