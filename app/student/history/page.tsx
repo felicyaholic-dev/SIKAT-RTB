@@ -19,7 +19,7 @@ export default async function StudentHistoryPage() {
         <header className="mb-7">
           <p className="font-mono text-[11px] tracking-[0.1em] text-signal">RIWAYAT PRIBADI</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight text-ink md:text-4xl">Aktivitas keluar-masuk.</h1>
-          <p className="mt-1 text-sm text-muted">Lima izin terakhir yang pernah kamu ajukan.</p>
+          <p className="mt-1 text-sm text-muted">Lima aktivitas keluar-masuk terakhir yang kamu buat.</p>
         </header>
 
         <article className="border border-line bg-surface p-6">
@@ -33,7 +33,7 @@ export default async function StudentHistoryPage() {
                   <span className="min-w-0 flex-1">
                     <b className="block truncate text-[13px]">{permit.destination}</b>
                     <small className="text-[11px] text-muted">
-                      {permit.permit_code} · Kembali {formatDate(permit.planned_return_at)}
+                      {permit.permit_code} · Keluar {formatDate(permit.planned_departure_at)}
                     </small>
                   </span>
                   <span className={pill(permitTone(permit.status))}>{permit.status.replaceAll("_", " ")}</span>

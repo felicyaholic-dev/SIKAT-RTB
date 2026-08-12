@@ -6,7 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 export type Role = "STUDENT" | "SECURITY" | "MANAGER";
-export type PermitStatus = "MENUNGGU_KELUAR" | "SEDANG_DI_LUAR" | "TERLAMBAT" | "SELESAI" | "DIBATALKAN";
+export type PermitStatus = "MENUNGGU_KELUAR" | "SEDANG_DI_LUAR" | "MENUNGGU_MASUK" | "SELESAI" | "DIBATALKAN";
 export type Gender = "LAKI_LAKI" | "PEREMPUAN" | "TIDAK_DISEBUTKAN";
 export type ReportPeriod = "DAY" | "WEEK" | "MONTH";
 
@@ -87,6 +87,7 @@ function getDb() {
       destination TEXT NOT NULL,
       planned_departure_at TEXT NOT NULL,
       planned_return_at TEXT NOT NULL,
+      entry_code TEXT,
       status TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY(resident_id) REFERENCES master_residents(id)
@@ -133,6 +134,7 @@ function getDb() {
   ensureColumn(database, "accounts", "must_change_password", "INTEGER NOT NULL DEFAULT 0");
   ensureColumn(database, "master_residents", "gender", "TEXT NOT NULL DEFAULT 'TIDAK_DISEBUTKAN'");
   ensureColumn(database, "security_staff", "gender", "TEXT NOT NULL DEFAULT 'TIDAK_DISEBUTKAN'");
+  ensureColumn(database, "permits", "entry_code", "TEXT");
   migrateLegacyDemoIds(database);
   seed(database);
   return database;
@@ -198,6 +200,9 @@ function migrateLegacyDemoIds(db: Database.Database) {
   db.prepare("UPDATE accounts SET bca_id = '10' || bca_id WHERE role = 'STUDENT' AND length(bca_id) = 4 AND bca_id GLOB '[0-9]*'").run();
   db.prepare("UPDATE master_residents SET bca_id = '10' || bca_id WHERE length(bca_id) = 4 AND bca_id GLOB '[0-9]*'").run();
   db.prepare("UPDATE accounts SET bca_id = '900001' WHERE bca_id = 'SATPAM001'").run();
+  // The current movement model has no return deadline. Existing overdue
+  // records remain outside until the student creates a return QR.
+  db.prepare("UPDATE permits SET status = 'SEDANG_DI_LUAR' WHERE status = 'TERLAMBAT'").run();
 }
 
 export function verifyCredentials(bcaId: string, password: string) {
@@ -214,9 +219,8 @@ export function getStudentData(accountId: number) {
     SELECT r.* FROM master_residents r JOIN accounts a ON a.resident_id = r.id WHERE a.id = ?
   `).get(accountId) as ResidentRow | undefined;
   if (!resident) return null;
-  refreshOverdue(db);
   const activePermit = db.prepare(`
-    SELECT * FROM permits WHERE resident_id = ? AND status IN ('MENUNGGU_KELUAR','SEDANG_DI_LUAR','TERLAMBAT')
+    SELECT * FROM permits WHERE resident_id = ? AND status IN ('MENUNGGU_KELUAR','SEDANG_DI_LUAR','MENUNGGU_MASUK')
     ORDER BY created_at DESC LIMIT 1
   `).get(resident.id) as PermitRow | undefined;
   const history = db.prepare(`
@@ -233,43 +237,52 @@ type PermitRow = {
   destination: string;
   planned_departure_at: string;
   planned_return_at: string;
+  entry_code: string | null;
   status: PermitStatus;
   created_at: string;
 };
 
-export function createPermit(accountId: number, input: { destination: string; departure: string; returnAt: string }) {
+export function createPermit(accountId: number, input: { destination?: string; departure?: string; returnAt?: string }) {
   const db = getDb();
   const resident = db.prepare("SELECT r.* FROM master_residents r JOIN accounts a ON a.resident_id = r.id WHERE a.id = ?").get(accountId) as ResidentRow | undefined;
   if (!resident) throw new Error("Profil mahasiswa tidak ditemukan.");
-  const current = db.prepare("SELECT id FROM permits WHERE resident_id = ? AND status IN ('MENUNGGU_KELUAR','SEDANG_DI_LUAR','TERLAMBAT')").get(resident.id);
-  if (current) throw new Error("Masih ada izin aktif. Selesaikan atau batalkan izin tersebut terlebih dahulu.");
+  const current = db.prepare("SELECT * FROM permits WHERE resident_id = ? AND status IN ('MENUNGGU_KELUAR','SEDANG_DI_LUAR','MENUNGGU_MASUK') ORDER BY created_at DESC LIMIT 1").get(resident.id) as PermitRow | undefined;
+  if (current?.status === "MENUNGGU_KELUAR") throw new Error("QR keluar masih menunggu validasi satpam.");
+  if (current?.status === "MENUNGGU_MASUK") throw new Error("QR masuk masih menunggu validasi satpam.");
+  if (current?.status === "SEDANG_DI_LUAR") {
+    if (!input.returnAt) throw new Error("Masukkan waktu kembali ke RTB.");
+    const entryCode = `SKM-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
+    db.prepare("UPDATE permits SET entry_code = ?, planned_return_at = ?, status = 'MENUNGGU_MASUK' WHERE id = ?").run(entryCode, input.returnAt, current.id);
+    db.prepare("INSERT INTO permit_events (permit_id, event_type, performed_by_account_id) VALUES (?, 'ENTRY_REQUESTED', ?)").run(current.id, accountId);
+    return { code: entryCode, mode: "ENTRY" as const };
+  }
+  if (!input.destination?.trim() || !input.departure) throw new Error("Lengkapi tujuan dan waktu keluar.");
   const permitCode = `SKT-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
   const qrToken = crypto.randomUUID();
   const result = db.prepare(`
     INSERT INTO permits (resident_id, permit_code, qr_token, destination, planned_departure_at, planned_return_at, status)
     VALUES (?, ?, ?, ?, ?, ?, 'MENUNGGU_KELUAR')
-  `).run(resident.id, permitCode, qrToken, input.destination.trim(), input.departure, input.returnAt);
-  db.prepare("INSERT INTO permit_events (permit_id, event_type, performed_by_account_id) VALUES (?, 'SUBMITTED', ?)").run(result.lastInsertRowid, accountId);
-  return permitCode;
+  `).run(resident.id, permitCode, qrToken, input.destination.trim(), input.departure, input.departure);
+  db.prepare("INSERT INTO permit_events (permit_id, event_type, performed_by_account_id) VALUES (?, 'EXIT_REQUESTED', ?)").run(result.lastInsertRowid, accountId);
+  return { code: permitCode, mode: "EXIT" as const };
 }
 
 export function getPermitForSecurity(code: string) {
   const db = getDb();
-  refreshOverdue(db);
   return db.prepare(`
     SELECT p.*, r.full_name, r.room_number, r.class_name
     FROM permits p JOIN master_residents r ON r.id = p.resident_id
-    WHERE p.permit_code = ? OR p.qr_token = ?
-  `).get(code.trim().toUpperCase(), code.trim()) as (PermitRow & { full_name: string; room_number: string; class_name: string }) | undefined;
+    WHERE (p.status = 'MENUNGGU_KELUAR' AND (p.permit_code = ? OR p.qr_token = ?))
+       OR (p.status = 'MENUNGGU_MASUK' AND p.entry_code = ?)
+  `).get(code.trim().toUpperCase(), code.trim(), code.trim().toUpperCase()) as (PermitRow & { full_name: string; room_number: string; class_name: string }) | undefined;
 }
 
-export function validatePermit(accountId: number, permitId: number, event: "EXIT" | "ENTRY") {
+export function validatePermit(accountId: number, permitId: number) {
   const db = getDb();
-  refreshOverdue(db);
   const permit = db.prepare("SELECT * FROM permits WHERE id = ?").get(permitId) as PermitRow | undefined;
   if (!permit) return { ok: false, message: "Izin tidak ditemukan." };
-  const allowed = event === "EXIT" ? permit.status === "MENUNGGU_KELUAR" : ["SEDANG_DI_LUAR", "TERLAMBAT"].includes(permit.status);
-  if (!allowed) return { ok: false, message: "Status izin tidak dapat divalidasi untuk aksi ini." };
+  const event = permit.status === "MENUNGGU_KELUAR" ? "EXIT" : permit.status === "MENUNGGU_MASUK" ? "ENTRY" : null;
+  if (!event) return { ok: false, message: "QR ini sudah digunakan atau belum siap divalidasi." };
   const next = event === "EXIT" ? "SEDANG_DI_LUAR" : "SELESAI";
   const transaction = db.transaction(() => {
     db.prepare("UPDATE permits SET status = ? WHERE id = ?").run(next, permitId);
@@ -281,24 +294,21 @@ export function validatePermit(accountId: number, permitId: number, event: "EXIT
 
 export function getSecurityQueue() {
   const db = getDb();
-  refreshOverdue(db);
   return db.prepare(`
     SELECT p.*, r.full_name, r.room_number FROM permits p
     JOIN master_residents r ON r.id = p.resident_id
-    WHERE p.status IN ('SEDANG_DI_LUAR','TERLAMBAT') ORDER BY p.planned_return_at ASC
+    WHERE p.status IN ('SEDANG_DI_LUAR','MENUNGGU_MASUK') ORDER BY p.planned_departure_at ASC
   `).all() as Array<PermitRow & { full_name: string; room_number: string }>;
 }
 
 export function getManagerData() {
   const db = getDb();
-  refreshOverdue(db);
   const stats = db.prepare(`
     SELECT
       (SELECT COUNT(*) FROM master_residents WHERE resident_status = 'ACTIVE') AS residents,
-      (SELECT COUNT(*) FROM permits WHERE status IN ('SEDANG_DI_LUAR', 'TERLAMBAT')) AS outside,
-      (SELECT COUNT(*) FROM permits WHERE status = 'TERLAMBAT') AS overdue,
+      (SELECT COUNT(*) FROM permits WHERE status IN ('SEDANG_DI_LUAR', 'MENUNGGU_MASUK')) AS outside,
       (SELECT COUNT(*) FROM permits WHERE date(created_at) = date('now')) AS today
-  `).get() as { residents: number; outside: number; overdue: number; today: number };
+  `).get() as { residents: number; outside: number; today: number };
   const watchlist = getSecurityQueue();
   const activityRows = db.prepare(`
     SELECT date(occurred_at, 'localtime') AS day,
@@ -431,10 +441,9 @@ const reportPeriodWhere: Record<ReportPeriod, string> = {
 
 export function getReport(period: ReportPeriod) {
   const db = getDb();
-  refreshOverdue(db);
   const where = reportPeriodWhere[period];
   const rows = db.prepare(`
-    SELECT p.permit_code, r.bca_id, r.full_name, r.room_number, p.destination,
+    SELECT p.permit_code, p.entry_code, r.bca_id, r.full_name, r.room_number, p.destination,
       p.planned_departure_at, p.planned_return_at, p.status, p.created_at,
       MAX(CASE WHEN e.event_type = 'EXIT' THEN e.occurred_at END) AS actual_exit_at,
       MAX(CASE WHEN e.event_type = 'ENTRY' THEN e.occurred_at END) AS actual_entry_at
@@ -460,7 +469,6 @@ export function getReport(period: ReportPeriod) {
       exits: activity.exits || 0,
       entries: activity.entries || 0,
       completed: rows.filter((row) => row.status === "SELESAI").length,
-      overdue: rows.filter((row) => row.status === "TERLAMBAT").length,
     },
   };
 }
@@ -514,13 +522,6 @@ export function getNotifications(accountId: number) {
 
 export function markNotificationsRead(accountId: number) {
   getDb().prepare("UPDATE notification_deliveries SET read_at = CURRENT_TIMESTAMP WHERE account_id = ? AND read_at IS NULL").run(accountId);
-}
-
-function refreshOverdue(db: Database.Database) {
-  db.prepare(`
-    UPDATE permits SET status = 'TERLAMBAT'
-    WHERE status = 'SEDANG_DI_LUAR' AND datetime(planned_return_at) < datetime('now')
-  `).run();
 }
 
 function logAudit(actorId: number, action: string, entityType: string, entityId: string) {

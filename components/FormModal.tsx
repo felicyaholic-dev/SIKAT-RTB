@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 type FormModalProps = {
@@ -13,8 +14,10 @@ type FormModalProps = {
 
 export function FormModal({ eyebrow, title, description, onClose, children }: FormModalProps) {
   const headingId = `form-modal-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     const previousOverflow = document.body.style.overflow;
     const closeOnEscape = (event: KeyboardEvent) => event.key === "Escape" && onClose();
     document.body.style.overflow = "hidden";
@@ -25,7 +28,9 @@ export function FormModal({ eyebrow, title, description, onClose, children }: Fo
     };
   }, [onClose]);
 
-  return (
+  if (!mounted) return null;
+
+  return createPortal(
     <div className="fixed inset-0 z-[70] grid place-items-center bg-[#062e4a]/60 p-4 backdrop-blur-md" role="dialog" aria-modal="true" aria-labelledby={headingId} onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <section className="modal-enter relative max-h-[calc(100dvh-32px)] w-full max-w-[520px] overflow-y-auto rounded-[28px] border border-white/80 bg-white p-6 shadow-[0_32px_90px_rgb(0_37_62_/_0.35)] sm:p-9">
         <span aria-hidden className="pointer-events-none absolute -right-20 -top-20 h-44 w-44 rounded-full bg-[#dbf5ff] blur-2xl" />
@@ -42,6 +47,7 @@ export function FormModal({ eyebrow, title, description, onClose, children }: Fo
         {description && <div className="relative mt-2 text-sm leading-6 text-muted">{description}</div>}
         <div className="relative mt-7">{children}</div>
       </section>
-    </div>
+    </div>,
+    document.body,
   );
 }

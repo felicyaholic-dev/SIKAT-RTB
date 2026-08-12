@@ -14,8 +14,8 @@ type Item = { href: string; label: string; icon: typeof LayoutDashboard };
 const nav: Record<Role, Item[]> = {
   STUDENT: [
     { href: "/student", label: "Beranda", icon: LayoutDashboard },
-    { href: "/student/apply", label: "Ajukan izin", icon: ClipboardPlus },
-    { href: "/student/permit", label: "Izin aktif", icon: QrCode },
+    { href: "/student/apply", label: "Aktivitas", icon: ClipboardPlus },
+    { href: "/student/permit", label: "QR aktif", icon: QrCode },
     { href: "/student/history", label: "Riwayat", icon: FileText },
   ],
   SECURITY: [

@@ -7,33 +7,27 @@ import { btn, formMessage } from "@/lib/ui";
 
 const initialState: FormState = {};
 
-export function PermitForm({ disabled }: { disabled: boolean }) {
+export function PermitForm({ mode }: { mode: "EXIT" | "ENTRY" }) {
   const [state, action, pending] = useActionState(createPermitAction, initialState);
+  const now = new Date(Date.now() - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+  const isEntry = mode === "ENTRY";
   return (
     <form action={action} className="grid gap-4">
-      <label>
+      {!isEntry && <label>
         Tujuan
-        <input name="destination" placeholder="Contoh: Kota Kasablanka" disabled={disabled} required />
-      </label>
-      <div className="grid gap-3 sm:grid-cols-2">
+        <input name="destination" placeholder="Contoh: Kota Kasablanka" required />
+      </label>}
+      <div className="grid gap-3">
         <label>
-          Rencana keluar
-          <input name="departure" type="datetime-local" disabled={disabled} required />
-        </label>
-        <label>
-          Rencana kembali
-          <input name="returnAt" type="datetime-local" disabled={disabled} required />
+          {isEntry ? "Waktu kembali ke RTB" : "Waktu keluar dari RTB"}
+          <input name={isEntry ? "returnAt" : "departure"} type="datetime-local" defaultValue={now} required />
         </label>
       </div>
-      {disabled ? (
-        <p className="rounded-panel bg-mist px-4 py-3 text-[13px] text-muted">Selesaikan izin aktif sebelum membuat pengajuan baru.</p>
-      ) : (
-        <p className="text-[11px] leading-relaxed text-muted">QR dibuat setelah izin dikirim dan hanya digunakan di pos RTB.</p>
-      )}
+      <p className="rounded-panel bg-mist px-4 py-3 text-[13px] leading-relaxed text-muted">QR {isEntry ? "masuk" : "keluar"} dibuat setelah form dikirim dan hanya berlaku satu kali di pos RTB.</p>
       {state.error && <p className={formMessage("error")}>{state.error}</p>}
       {state.success && <p className={formMessage("success")}>{state.success}</p>}
-      <button className={`${btn.base} ${btn.primary} w-fit`} disabled={disabled || pending}>
-        {pending ? "Membuat izin…" : <>Buat izin & QR <ArrowRight size={16} /></>}
+      <button className={`${btn.base} ${isEntry ? btn.safe : btn.primary} w-fit`} disabled={pending}>
+        {pending ? "Membuat QR…" : <>{isEntry ? "Buat QR masuk" : "Buat izin & QR keluar"} <ArrowRight size={16} /></>}
       </button>
     </form>
   );

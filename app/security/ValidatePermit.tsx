@@ -6,11 +6,11 @@ import { validatePermitAction, type FormState } from "@/app/actions";
 import { btn, formMessage, initials, pill, permitTone } from "@/lib/ui";
 
 const initialState: FormState = {};
-type Permit = { id: number; permit_code: string; full_name: string; room_number: string; class_name: string; destination: string; planned_departure_at: string; planned_return_at: string; status: string };
+type Permit = { id: number; permit_code: string; entry_code: string | null; full_name: string; room_number: string; class_name: string; destination: string; planned_departure_at: string; planned_return_at: string; status: string };
 
 export function ValidatePermit({ permit }: { permit: Permit }) {
   const [state, action, pending] = useActionState(validatePermitAction, initialState);
-  const incoming = ["SEDANG_DI_LUAR", "TERLAMBAT"].includes(permit.status);
+  const incoming = permit.status === "MENUNGGU_MASUK";
   return (
     <section className="security-card min-h-[470px] overflow-hidden">
       <div className="flex items-center justify-between border-b border-[#cceedd] bg-safe-soft px-5 py-3 font-mono text-[10px] text-safe">
@@ -26,7 +26,7 @@ export function ValidatePermit({ permit }: { permit: Permit }) {
           <p className="mt-1 text-xs text-muted">
             {permit.class_name} · Kamar {permit.room_number}
           </p>
-          <small className="font-mono text-[10px] text-muted">{permit.permit_code}</small>
+          <small className="font-mono text-[10px] text-muted">{incoming ? permit.entry_code : permit.permit_code}</small>
         </div>
       </div>
       <dl className="mx-6 grid gap-0 rounded-2xl border border-line bg-[#fafdff] px-4">
@@ -38,16 +38,15 @@ export function ValidatePermit({ permit }: { permit: Permit }) {
         </div>
         <div className="grid gap-1 py-3.5">
           <dt className="flex items-center gap-1.5 text-[11px] text-muted">
-            <Clock3 size={14} /> Rencana kembali
+            <Clock3 size={14} /> {incoming ? "Waktu kembali" : "Waktu keluar"}
           </dt>
           <dd className="text-sm font-semibold">
-            {new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(permit.planned_return_at))}
+            {new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(incoming ? permit.planned_return_at : permit.planned_departure_at))}
           </dd>
         </div>
       </dl>
       <form action={action} className="mt-5 grid gap-2.5 border-t border-line px-6 pt-5 pb-6">
         <input type="hidden" name="permitId" value={permit.id} />
-        <input type="hidden" name="event" value={incoming ? "ENTRY" : "EXIT"} />
         {state.error && <p className={formMessage("error")}>{state.error}</p>}
         {state.success && <p className={formMessage("success")}>{state.success}</p>}
         <button className={`${btn.base} ${incoming ? btn.safe : btn.primary} w-full rounded-xl`} disabled={pending}>

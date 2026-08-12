@@ -26,7 +26,7 @@ export default async function SecurityOutsidePage() {
 
         <section className="mb-5 grid gap-4 md:grid-cols-3">
           <article className="security-stat-card"><span className="grid h-11 w-11 place-items-center rounded-xl bg-safe-soft text-safe"><UsersRound size={19} /></span><span><small>Mahasiswa di luar RTB</small><b>{queue.length}</b><em>Status saat ini</em></span></article>
-          <article className="security-stat-card"><span className="grid h-11 w-11 place-items-center rounded-xl bg-[#e4f5ff] text-signal"><Clock3 size={19} /></span><span><small>Perlu perhatian</small><b>{queue.filter((item) => item.status === "TERLAMBAT").length}</b><em>Izin terlambat</em></span></article>
+          <article className="security-stat-card"><span className="grid h-11 w-11 place-items-center rounded-xl bg-[#e4f5ff] text-signal"><Clock3 size={19} /></span><span><small>QR masuk dibuat</small><b>{queue.filter((item) => item.status === "MENUNGGU_MASUK").length}</b><em>Menunggu validasi</em></span></article>
           <article className="security-stat-card"><span className="grid h-11 w-11 place-items-center rounded-xl bg-[#efeaff] text-[#7271cf]"><FileCheck2 size={19} /></span><span><small>Pengajuan aktif</small><b>{queue.length}</b><em>Belum kembali</em></span></article>
         </section>
         <article className="security-card overflow-hidden p-5 sm:p-6">
@@ -43,10 +43,10 @@ export default async function SecurityOutsidePage() {
                     </small>
                   </span>
                   <span className="text-right">
-                    <small className="block text-[10px] text-muted">Rencana kembali</small>
-                    <b className="font-mono text-xs">{time(item.planned_return_at)}</b>
+                    <small className="block text-[10px] text-muted">Keluar tercatat</small>
+                    <b className="font-mono text-xs">{time(item.planned_departure_at)}</b>
                   </span>
-                  <span className={pill(item.status === "TERLAMBAT" ? "danger" : "safe")}>{item.status === "TERLAMBAT" ? "TERLAMBAT" : "DI LUAR"}</span>
+                  <span className={pill(item.status === "MENUNGGU_MASUK" ? "amber" : "safe")}>{item.status === "MENUNGGU_MASUK" ? "QR MASUK SIAP" : "DI LUAR"}</span>
                 </div>
               ))}
             </div>

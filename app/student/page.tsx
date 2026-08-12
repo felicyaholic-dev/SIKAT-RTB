@@ -10,7 +10,7 @@ export default async function StudentPage() {
   const data = getStudentData(session.accountId);
   if (!data) return null;
   const { resident, activePermit } = data;
-  const isOutside = activePermit?.status === "SEDANG_DI_LUAR" || activePermit?.status === "TERLAMBAT";
+  const isOutside = activePermit?.status === "SEDANG_DI_LUAR" || activePermit?.status === "MENUNGGU_MASUK";
 
   return (
     <AppShell role="STUDENT" name={session.name}>
@@ -44,9 +44,9 @@ export default async function StudentPage() {
                 </>
               )}
             </h2>
-            <p className="mt-2 text-[13px] text-muted">{activePermit ? `Izin ${activePermit.permit_code} · ${activePermit.destination}` : "Tidak ada izin aktif saat ini."}</p>
-            <Link href={activePermit ? "/student/permit" : "/student/apply"} className={`${btn.base} ${btn.primary} mt-6`}>
-              {activePermit ? "Lihat izin aktif" : "Ajukan izin"}
+            <p className="mt-2 text-[13px] text-muted">{activePermit ? `Aktivitas ${activePermit.permit_code} · ${activePermit.destination}` : "Tidak ada aktivitas aktif saat ini."}</p>
+            <Link href={activePermit?.status === "SEDANG_DI_LUAR" ? "/student/apply" : activePermit ? "/student/permit" : "/student/apply"} className={`${btn.base} ${btn.primary} mt-6`}>
+              {activePermit?.status === "SEDANG_DI_LUAR" ? "Buat QR masuk" : activePermit ? "Lihat QR aktif" : "Buat aktivitas"}
             </Link>
           </div>
           <div className="hidden items-center justify-center md:flex">

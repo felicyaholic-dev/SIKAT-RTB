@@ -35,16 +35,16 @@ export function toneText(tone: Tone) {
 
 export function permitTone(status: string | undefined): Tone {
   if (!status) return "muted";
-  if (status === "TERLAMBAT") return "danger";
   if (status === "SELESAI") return "safe";
-  return "amber";
+  if (status === "SEDANG_DI_LUAR") return "amber";
+  return "muted";
 }
 
 export function permitStatusLabel(status: string) {
   const labels: Record<string, string> = {
     MENUNGGU_KELUAR: "Menunggu validasi keluar",
     SEDANG_DI_LUAR: "Sedang di luar RTB",
-    TERLAMBAT: "Terlambat kembali",
+    MENUNGGU_MASUK: "Menunggu validasi masuk",
     SELESAI: "Izin selesai",
     DIBATALKAN: "Izin dibatalkan",
   };

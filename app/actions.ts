@@ -27,15 +27,13 @@ export async function createPermitAction(_: FormState, formData: FormData): Prom
   const destination = String(formData.get("destination") || "");
   const departure = String(formData.get("departure") || "");
   const returnAt = String(formData.get("returnAt") || "");
-  if (!destination || !departure || !returnAt) return { error: "Lengkapi tujuan dan rencana waktu izin." };
-  if (new Date(returnAt) <= new Date(departure)) return { error: "Waktu kembali harus setelah waktu keluar." };
   try {
-    createPermit(session.accountId, { destination, departure, returnAt });
+    const result = createPermit(session.accountId, { destination, departure, returnAt });
     revalidatePath("/student");
     revalidatePath("/student/apply");
     revalidatePath("/student/permit");
     revalidatePath("/student/history");
-    return { success: "Izin dibuat. QR siap ditunjukkan kepada satpam." };
+    return { success: result.mode === "EXIT" ? "QR keluar berhasil dibuat. Tunjukkan kepada satpam." : "QR masuk berhasil dibuat. Tunjukkan kepada satpam." };
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Izin tidak dapat dibuat." };
   }
@@ -44,9 +42,8 @@ export async function createPermitAction(_: FormState, formData: FormData): Prom
 export async function validatePermitAction(_: FormState, formData: FormData): Promise<FormState> {
   const session = await requireRole("SECURITY");
   const permitId = Number(formData.get("permitId"));
-  const event = String(formData.get("event")) as "EXIT" | "ENTRY";
-  if (!permitId || !["EXIT", "ENTRY"].includes(event)) return { error: "Data validasi tidak lengkap." };
-  const result = validatePermit(session.accountId, permitId, event);
+  if (!permitId) return { error: "Data validasi tidak lengkap." };
+  const result = validatePermit(session.accountId, permitId);
   if (result.ok) {
     revalidatePath("/security");
     revalidatePath("/security/outside");

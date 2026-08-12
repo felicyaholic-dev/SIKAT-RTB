@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowUpRight, Building2, CheckCircle2, Clock3, DoorOpen, LogIn, LogOut, type LucideIcon } from "lucide-react";
+import { ArrowUpRight, Building2, CheckCircle2, Clock3, DoorOpen, LogIn, LogOut, type LucideIcon } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { requireRole } from "@/lib/auth";
 import { getReport, type ReportPeriod } from "@/lib/db";
@@ -6,7 +6,6 @@ import { getReport, type ReportPeriod } from "@/lib/db";
 const statTone = {
   safe: "bg-safe-soft text-safe",
   blue: "bg-signal-soft text-signal",
-  danger: "bg-danger-soft text-danger",
   ink: "bg-mist text-navy",
 } as const;
 
@@ -49,7 +48,7 @@ export default async function ManagerStatsPage({ searchParams }: { searchParams:
         <article className="security-card mt-5 p-6 text-ink">
           <p className="security-kicker">RINGKASAN OPERASIONAL</p>
           <h2 className="mt-2 text-2xl font-medium tracking-tight">{periodMeta.label}</h2>
-          <div className="mt-5 grid border-t border-line sm:grid-cols-4">
+          <div className="mt-5 grid border-t border-line sm:grid-cols-3">
             <span className="flex items-baseline gap-2.5 border-b border-line py-2.5">
               <LogOut size={16} className="text-signal" /><b className="font-mono text-2xl text-signal">{report.summary.exits}</b>
               <small className="text-muted">keluar</small>
@@ -61,10 +60,6 @@ export default async function ManagerStatsPage({ searchParams }: { searchParams:
             <span className="flex items-baseline gap-2.5 border-b border-line py-2.5">
               <CheckCircle2 size={16} className="text-safe" /><b className="font-mono text-2xl text-signal">{report.summary.completed}</b>
               <small className="text-muted">selesai</small>
-            </span>
-            <span className="flex items-baseline gap-2.5 border-b border-line py-2.5">
-              <AlertTriangle size={16} className="text-danger" /><b className="font-mono text-2xl text-signal">{report.summary.overdue}</b>
-              <small className="text-muted">terlambat</small>
             </span>
           </div>
           <a href={`/api/reports/daily.csv?period=${period}`} className="mt-5 inline-flex items-center gap-1.5 border-b border-signal/50 pb-0.5 text-xs text-signal hover:border-signal">
