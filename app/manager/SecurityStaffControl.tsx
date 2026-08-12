@@ -18,7 +18,7 @@ export function SecurityStaffControl({ staff }: { staff: Staff[] }) {
         <div>
           <p className="security-kicker">AKSES POS KEAMANAN</p>
           <h2 className="mt-2 text-lg font-medium tracking-tight">Master satpam</h2>
-          <p className="mt-1 text-sm text-muted">ID BCA satpam terdiri dari 6 angka dan seluruh akses dikelola pengelola.</p>
+          <p className="mt-1 text-sm text-muted">ID satpam terdiri dari 5 angka dan seluruh akses dikelola pengelola.</p>
         </div>
         <button className={`${btn.base} ${btn.primary} shrink-0`} onClick={() => setOpen(true)}>
           <Plus size={16} /> Tambah satpam
@@ -66,8 +66,8 @@ export function SecurityStaffControl({ staff }: { staff: Staff[] }) {
         <FormModal eyebrow="AKUN SATPAM" title="Tambah satpam" description="Buat akses validasi gerbang beserta password awal untuk petugas." onClose={() => setOpen(false)}>
             <form action={action} className="grid gap-4">
               <label>
-                ID BCA · 6 angka
-                <input name="bcaId" inputMode="numeric" pattern="[0-9]{6}" placeholder="900001" required />
+                ID satpam · 5 angka
+                <input name="bcaId" inputMode="numeric" pattern="[0-9]{5}" minLength={5} maxLength={5} placeholder="90001" required />
               </label>
               <label>
                 Nama lengkap

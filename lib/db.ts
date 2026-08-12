@@ -359,7 +359,7 @@ export function addResident(actorId: number, input: { bcaId: string; fullName: s
 export function addSecurityStaff(actorId: number, input: { bcaId: string; fullName: string; gender: Gender; password: string }) {
   const db = getDb();
   const bcaId = normalizeBcaId(input.bcaId);
-  if (!/^\d{6}$/.test(bcaId)) return { ok: false, message: "ID BCA satpam harus terdiri dari 6 angka." };
+  if (!/^\d{5}$/.test(bcaId)) return { ok: false, message: "ID satpam harus terdiri dari 5 angka." };
   try {
     const transaction = db.transaction(() => {
       db.prepare("INSERT INTO security_staff (bca_id, full_name, gender) VALUES (?, ?, ?)").run(bcaId, input.fullName.trim(), input.gender);

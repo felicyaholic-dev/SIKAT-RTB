@@ -129,6 +129,7 @@ export async function addSecurityStaffAction(_: FormState, formData: FormData): 
   const session = await requireRole("MANAGER");
   const values = { bcaId: String(formData.get("bcaId") || ""), fullName: String(formData.get("fullName") || ""), gender: String(formData.get("gender") || "") as Gender, password: String(formData.get("password") || "") };
   if (Object.values(values).some((value) => !value.trim()) || !["LAKI_LAKI", "PEREMPUAN"].includes(values.gender) || values.password.length < 8) return { error: "Lengkapi data satpam, jenis kelamin, dan password minimal 8 karakter." };
+  if (!/^\d{5}$/.test(values.bcaId.trim())) return { error: "ID satpam harus terdiri dari tepat 5 angka." };
   const result = addSecurityStaff(session.accountId, values);
   if (result.ok) revalidatePath("/manager/users");
   return result.ok ? { success: result.message } : { error: result.message };

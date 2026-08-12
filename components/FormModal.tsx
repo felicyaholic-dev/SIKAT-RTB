@@ -31,8 +31,8 @@ export function FormModal({ eyebrow, title, description, onClose, children }: Fo
   if (!mounted) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[70] grid place-items-center bg-[#062e4a]/60 p-4 backdrop-blur-md" role="dialog" aria-modal="true" aria-labelledby={headingId} onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <section className="modal-enter relative max-h-[calc(100dvh-32px)] w-full max-w-[520px] overflow-y-auto rounded-[28px] border border-white/80 bg-white p-6 shadow-[0_32px_90px_rgb(0_37_62_/_0.35)] sm:p-9">
+    <div className="fixed inset-0 z-[70] flex min-w-0 items-center justify-center overflow-x-hidden bg-[#062e4a]/60 p-4 backdrop-blur-md" role="dialog" aria-modal="true" aria-labelledby={headingId} onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <section className="modal-enter relative max-h-[calc(100dvh-32px)] w-[calc(100vw-2rem)] max-w-[520px] min-w-0 overflow-x-hidden overflow-y-auto overscroll-contain rounded-[28px] border border-white/80 bg-white p-6 shadow-[0_32px_90px_rgb(0_37_62_/_0.35)] sm:p-9">
         <span aria-hidden className="pointer-events-none absolute -right-20 -top-20 h-44 w-44 rounded-full bg-[#dbf5ff] blur-2xl" />
         <span aria-hidden className="pointer-events-none absolute -bottom-24 -left-20 h-40 w-40 rounded-full bg-[#eaf8ff] blur-2xl" />
         <div className="relative flex items-start justify-between gap-4">
