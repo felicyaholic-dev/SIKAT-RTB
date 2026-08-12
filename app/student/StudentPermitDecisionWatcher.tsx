@@ -10,14 +10,14 @@ type Decision = {
   occurred_at: string;
 };
 
-const FIVE_MINUTES = 5 * 60 * 1000;
+const DISPLAY_DURATION = 30 * 1000;
 
 function age(decision: Decision) {
   return Date.now() - new Date(`${decision.occurred_at}Z`).getTime();
 }
 
 function isCurrent(decision: Decision | null, permitId: number | null) {
-  return Boolean(decision && permitId && decision.permit_id === permitId && age(decision) >= 0 && age(decision) < FIVE_MINUTES);
+  return Boolean(decision && permitId && decision.permit_id === permitId && age(decision) >= 0 && age(decision) < DISPLAY_DURATION);
 }
 
 export function StudentPermitDecisionWatcher({ permitId, initialDecision }: { permitId: number | null; initialDecision: Decision | null }) {
@@ -44,7 +44,7 @@ export function StudentPermitDecisionWatcher({ permitId, initialDecision }: { pe
 
   useEffect(() => {
     if (!decision) return;
-    const remaining = Math.max(0, FIVE_MINUTES - age(decision));
+    const remaining = Math.max(0, DISPLAY_DURATION - age(decision));
     const timeout = window.setTimeout(() => router.refresh(), remaining);
     return () => window.clearTimeout(timeout);
   }, [decision, router]);
@@ -65,7 +65,7 @@ export function StudentPermitDecisionWatcher({ permitId, initialDecision }: { pe
         <p className={`mt-6 font-mono text-[10px] font-bold tracking-[0.14em] ${rejected ? "text-danger" : "text-safe"}`}>{rejected ? "KEPUTUSAN SATPAM" : "IZIN TERKONFIRMASI"}</p>
         <h2 className="mt-2 text-2xl font-semibold tracking-tight text-ink">{title}</h2>
         <p className="mt-2 text-sm leading-relaxed text-muted">{copy}</p>
-        <span className="mt-5 flex items-center gap-1.5 text-[11px] text-muted"><ShieldCheck size={14} className={rejected ? "text-danger" : "text-safe"} /> Tampilan ini akan hilang otomatis dalam 5 menit.</span>
+        <span className="mt-5 flex items-center gap-1.5 text-[11px] text-muted"><ShieldCheck size={14} className={rejected ? "text-danger" : "text-safe"} /> Tampilan ini akan hilang otomatis dalam 30 detik.</span>
       </div>
     </div>
   );
