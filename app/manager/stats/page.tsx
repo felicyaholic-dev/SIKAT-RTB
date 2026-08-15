@@ -15,6 +15,8 @@ const periods: Array<{ value: ReportPeriod; label: string; description: string }
   { value: "DAY", label: "Hari ini", description: "Aktivitas sejak pukul 00.00 hari ini" },
   { value: "WEEK", label: "7 hari", description: "Aktivitas tujuh hari terakhir" },
   { value: "MONTH", label: "Bulan ini", description: "Aktivitas sejak awal bulan" },
+  { value: "YEAR", label: "Tahun ini", description: "Aktivitas sejak awal tahun" },
+  { value: "ALL", label: "Semua waktu", description: "Seluruh aktivitas sejak sistem digunakan" },
 ];
 
 export default async function ManagerStatsPage({ searchParams }: { searchParams: Promise<{ period?: string }> }) {

@@ -8,7 +8,7 @@ import path from "node:path";
 export type Role = "STUDENT" | "SECURITY" | "MANAGER";
 export type PermitStatus = "MENUNGGU_KELUAR" | "SEDANG_DI_LUAR" | "MENUNGGU_MASUK" | "SELESAI" | "DIBATALKAN";
 export type Gender = "LAKI_LAKI" | "PEREMPUAN" | "TIDAK_DISEBUTKAN";
-export type ReportPeriod = "DAY" | "WEEK" | "MONTH";
+export type ReportPeriod = "DAY" | "WEEK" | "MONTH" | "YEAR" | "ALL";
 
 type AccountRow = {
   id: number;
@@ -509,6 +509,8 @@ const reportPeriodWhere: Record<ReportPeriod, string> = {
   DAY: "date(p.created_at, 'localtime') = date('now', 'localtime')",
   WEEK: "date(p.created_at, 'localtime') >= date('now', '-6 days', 'localtime')",
   MONTH: "date(p.created_at, 'localtime') >= date('now', 'start of month', 'localtime')",
+  YEAR: "date(p.created_at, 'localtime') >= date('now', 'start of year', 'localtime')",
+  ALL: "1 = 1",
 };
 
 export function getReport(period: ReportPeriod) {
