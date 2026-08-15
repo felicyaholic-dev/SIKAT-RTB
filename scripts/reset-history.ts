@@ -10,7 +10,7 @@ if (!fs.existsSync(filePath)) {
   process.exit(0);
 }
 
-const db = new Database(filePath);
+const db: Database.Database = new Database(filePath);
 db.pragma("journal_mode = WAL");
 
 const counts = db.transaction(() => ({
