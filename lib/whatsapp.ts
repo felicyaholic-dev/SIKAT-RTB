@@ -18,6 +18,9 @@ function sessionDir() {
 let socket: WASocket | undefined;
 let connecting = false;
 
+const MAX_RECONNECT_ATTEMPTS = 5;
+let reconnectAttempts = 0;
+
 export async function initWhatsApp() {
   if (process.env.WHATSAPP_ENABLED !== "true") {
     console.log("[whatsapp] WHATSAPP_ENABLED bukan 'true', koneksi WA tidak dimulai.");
@@ -29,6 +32,15 @@ export async function initWhatsApp() {
 }
 
 async function connect() {
+  if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+    console.warn(`[whatsapp] Berhenti mencoba setelah ${MAX_RECONNECT_ATTEMPTS} percobaan gagal beruntun. Periksa WHATSAPP_ADMIN_NUMBER atau redeploy untuk mencoba lagi.`);
+    return;
+  }
+  reconnectAttempts += 1;
+  // Backs off before every attempt (including the first) so a crash-looping
+  // connection can't hammer WhatsApp's servers — that pattern is exactly
+  // what its automated abuse detection watches for on unofficial clients.
+  await sleep(Math.min(reconnectAttempts * 5000, 30000));
   const dir = sessionDir();
   fs.mkdirSync(dir, { recursive: true });
   // Baileys utility, not a React hook — the "use" prefix is a naming clash.
@@ -57,14 +69,20 @@ async function connect() {
       qrcodeTerminal.generate(qr, { small: true });
     }
     if (connection === "open") {
+      reconnectAttempts = 0;
       console.log("[whatsapp] Tersambung.");
     }
     if (connection === "close") {
       socket = undefined;
       const statusCode = (lastDisconnect?.error as { output?: { statusCode?: number } } | undefined)?.output?.statusCode;
       const loggedOut = statusCode === 401;
-      console.log(`[whatsapp] Koneksi terputus (status ${statusCode ?? "?"}).${loggedOut ? " Sesi keluar — hapus data/whatsapp-session lalu pairing ulang." : " Mencoba menyambung ulang…"}`);
-      if (!loggedOut) void connect();
+      if (loggedOut) {
+        console.log("[whatsapp] Sesi tidak valid (status 401) — membersihkan sesi lama dan meminta kode pairing baru…");
+        fs.rmSync(dir, { recursive: true, force: true });
+      } else {
+        console.log(`[whatsapp] Koneksi terputus (status ${statusCode ?? "?"}). Mencoba menyambung ulang…`);
+      }
+      void connect();
     }
   });
 }
