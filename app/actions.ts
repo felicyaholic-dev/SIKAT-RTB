@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { addResident, addSecurityStaff, cancelPendingPermit, changePassword, createBroadcast, createPermit, decidePermit, deleteBroadcast, resetStudentPassword, updateManagerProfile, updateResident, updateSecurityStaff, verifyCredentials, type Gender } from "@/lib/db";
+import { addResident, addSecurityStaff, cancelPendingPermit, changePassword, clearAttempts, createBroadcast, createPermit, decidePermit, deleteBroadcast, isRateLimited, recordFailedAttempt, resetStudentPassword, updateManagerProfile, updateResident, updateSecurityStaff, verifyCredentials, type Gender } from "@/lib/db";
 import { clearSession, createSession, requireRole, requireSession, roleHome } from "@/lib/auth";
 
 export type FormState = { error?: string; success?: string };
@@ -11,8 +11,13 @@ export async function loginAction(_: FormState, formData: FormData): Promise<For
   const bcaId = String(formData.get("bcaId") || "");
   const password = String(formData.get("password") || "");
   if (!bcaId || !password) return { error: "Masukkan ID BCA dan password." };
+  if (isRateLimited(bcaId, "LOGIN")) return { error: "Terlalu banyak percobaan masuk. Coba lagi dalam beberapa menit." };
   const account = verifyCredentials(bcaId, password);
-  if (!account) return { error: "ID BCA atau password tidak tepat." };
+  if (!account) {
+    recordFailedAttempt(bcaId, "LOGIN");
+    return { error: "ID BCA atau password tidak tepat." };
+  }
+  clearAttempts(bcaId, "LOGIN");
   await createSession({ accountId: account.id, bcaId: account.bcaId, name: account.name, role: account.role, room: account.room, mustChangePassword: account.mustChangePassword });
   redirect(account.mustChangePassword ? "/change-password" : roleHome(account.role));
 }
@@ -114,14 +119,18 @@ export async function updateResidentAction(_: FormState, formData: FormData): Pr
 }
 
 export async function resetPasswordAction(_: FormState, formData: FormData): Promise<FormState> {
+  const bcaId = String(formData.get("bcaId") || "");
   const password = String(formData.get("password") || "");
   if (password.length < 8) return { error: "Password minimal terdiri dari 8 karakter." };
+  if (isRateLimited(bcaId, "RESET_PASSWORD")) return { error: "Terlalu banyak percobaan reset. Coba lagi dalam beberapa menit." };
   const result = resetStudentPassword({
-    bcaId: String(formData.get("bcaId") || ""),
+    bcaId,
     fullName: String(formData.get("fullName") || ""),
     room: String(formData.get("room") || ""),
     password,
   });
+  if (result.ok) clearAttempts(bcaId, "RESET_PASSWORD");
+  else recordFailedAttempt(bcaId, "RESET_PASSWORD");
   return result.ok ? { success: result.message } : { error: result.message };
 }
 

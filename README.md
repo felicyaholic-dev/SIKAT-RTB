@@ -44,7 +44,10 @@ SIKAT RTB menggantikan pencatatan izin yang tersebar dengan satu alur digital: p
 flowchart TD
   Start([Mulai]) --> A["Pengelola tambah data penghuni + buat akun (password awal)"]
   A --> B["Mahasiswa login: ID BCA + password awal"]
-  B --> C{Login pertama kali?}
+  B --> RL{Lebih dari 5 percobaan gagal dalam 15 menit?}
+  RL -->|Ya| RL1[Login ditolak sementara]
+  RL1 --> Finish([Selesai])
+  RL -->|Tidak| C{Login pertama kali?}
   C -->|Ya| C1[Wajib buat password baru]
   C1 --> D[Login berhasil, ke dashboard]
   C -->|Tidak| D
@@ -127,7 +130,7 @@ QR yang tidak valid, kedaluwarsa, dibatalkan, atau dipakai pada status yang tida
 | Fitur | Tujuan | Cara dibangun |
 | --- | --- | --- |
 | Master Penghuni & akun mahasiswa | Satu sumber data penghuni sekaligus akun login, dibuat langsung oleh pengelola | CRUD pengelola; ID BCA unik; buat data penghuni + akun + password awal dalam satu transaksi; audit log |
-| Login berbasis ID BCA | Satu identitas konsisten di seluruh alur | Credential auth, password hash Argon2id, cookie sesi `httpOnly` |
+| Login berbasis ID BCA | Satu identitas konsisten di seluruh alur | Credential auth, password hash bcrypt, cookie sesi `httpOnly` |
 | RBAC | Memisahkan tampilan dan aksi tiap peran | `role` pada akun + middleware/guard server-side pada route dan action |
 | Pengajuan izin | Menghilangkan input berulang dan memberi jejak digital | Form tervalidasi, nomor izin unik, tabel `permits` |
 | QR izin | Mempercepat verifikasi di gerbang | Token acak per izin, QR generator, validasi token di server |
@@ -172,9 +175,11 @@ Aturan dasar:
 | Styling | Tailwind CSS v4 (CSS-first `@theme` tokens) + Geist/Geist Mono | Utility-first, tapi token warna/radius/motion tetap disentralkan lewat `app/globals.css` |
 | Database | SQLite | Ringan, cukup untuk MVP satu service dengan jumlah pengguna kecil |
 | Akses database | `better-sqlite3` + schema bootstrap | Sangat sederhana untuk satu service SQLite; schema dibuat idempotent ketika service mulai |
-| Validasi data | Zod | Validasi form di client dan server dari satu skema |
-| Password | Argon2id | Password tidak pernah disimpan dalam bentuk plaintext |
-| Session | Database-backed session + secure cookie | Logout/pencabutan sesi dapat dikontrol server |
+| Validasi data | Manual di tiap server action | Panjang, format (regex), dan kecocokan data dicek sebelum query dijalankan |
+| Password | bcrypt (`bcryptjs`), cost factor 12 | Password tidak pernah disimpan dalam bentuk plaintext |
+| Session | Stateless JWT (`jose`) + cookie `httpOnly` | Ditandatangani server, tidak disimpan di database; kedaluwarsa otomatis 8 jam |
+| Rate limiting | Tabel `login_attempts` di SQLite | Maksimal 5 percobaan gagal per 15 menit per ID BCA, untuk login maupun reset password |
+| Security header | `next.config.ts` `headers()` | CSP, `X-Frame-Options`, `Permissions-Policy` (kamera dibatasi ke situs sendiri), `Strict-Transport-Security` |
 | QR | `qrcode` (SVG inline, server-side) + browser scanner | QR dirender lokal tanpa panggilan API pihak ketiga; mendukung scan kamera dan fallback kode manual |
 | Deployment | Railway | Satu service web dengan persistent volume untuk database |
 | Testing | Vitest + Playwright | Menguji logic status/auth dan alur pengguna kritis |
@@ -190,8 +195,8 @@ accounts
   id, resident_id (nullable untuk staf), bca_id (unique), role,
   password_hash, is_activated, is_active, created_at, updated_at
 
-sessions
-  id, account_id, token_hash, expires_at, created_at
+login_attempts
+  id, identifier (ID BCA), action (LOGIN / RESET_PASSWORD), attempted_at
 
 permits
   id, resident_id, permit_code (unique), qr_token_hash,
@@ -211,13 +216,14 @@ audit_logs
 
 ## 10. Keamanan minimum
 
-- Password di-hash memakai Argon2id; tidak pernah disimpan di Excel atau database sebagai plaintext.
-- Cookie sesi memakai `httpOnly`, `secure` di production, dan `sameSite=lax` atau lebih ketat sesuai kebutuhan.
-- Rate limit diterapkan pada login dan reset password untuk menekan percobaan berulang.
+- Password di-hash memakai bcrypt; tidak pernah disimpan di Excel atau database sebagai plaintext.
+- Sesi berupa JWT bertanda tangan (`jose`, HS256) di cookie `httpOnly`, `secure` di production, `sameSite=lax`, kedaluwarsa 8 jam. `SESSION_SECRET` wajib diisi — server menolak menyala tanpanya.
+- Rate limit pada login dan reset password: maksimal 5 percobaan gagal per 15 menit untuk ID BCA yang sama (tabel `login_attempts`), lalu percobaan berikutnya ditolak sampai jendela waktu itu berakhir.
 - Error login tidak membocorkan apakah sebuah ID BCA ada atau tidak.
 - Validasi role dan kepemilikan izin dilakukan di server.
 - Token QR bersifat acak, tidak berisi data pribadi dalam plaintext, dan hanya valid untuk izin/status yang sesuai.
 - Catat aksi sensitif: perubahan master penghuni, pembuatan akun staf, pembatalan izin, dan validasi gerbang.
+- Security header aktif di semua route (`next.config.ts`): `Content-Security-Policy`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Strict-Transport-Security`, dan `Permissions-Policy` yang membatasi kamera hanya untuk situs sendiri (dipakai scanner QR satpam) serta menolak mikrofon/lokasi/pembayaran/USB.
 
 > Verifikasi ID BCA + nama + kamar pada reset password mandiri cukup untuk prototype, tetapi bukan bukti identitas yang kuat jika data tersebut mudah diketahui orang lain. Untuk penggunaan nyata, tambahkan OTP ke kanal resmi sebelum password baru diterima.
 

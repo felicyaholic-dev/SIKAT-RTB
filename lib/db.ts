@@ -109,6 +109,12 @@ function getDb() {
       entity_id TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
+    CREATE TABLE IF NOT EXISTS login_attempts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      identifier TEXT NOT NULL,
+      action TEXT NOT NULL,
+      attempted_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
     CREATE TABLE IF NOT EXISTS manager_bootstrap_links (
       bootstrap_bca_id TEXT PRIMARY KEY,
       account_id INTEGER NOT NULL UNIQUE,
@@ -204,6 +210,33 @@ function migrateLegacyDemoIds(db: Database.Database) {
   // The current movement model has no return deadline. Existing overdue
   // records remain outside until the student creates a return QR.
   db.prepare("UPDATE permits SET status = 'SEDANG_DI_LUAR' WHERE status = 'TERLAMBAT'").run();
+}
+
+const RATE_LIMIT_MAX_ATTEMPTS = 5;
+const RATE_LIMIT_WINDOW_MINUTES = 15;
+
+export type RateLimitAction = "LOGIN" | "RESET_PASSWORD";
+
+export function isRateLimited(identifier: string, action: RateLimitAction) {
+  const db = getDb();
+  const windowStart = `-${RATE_LIMIT_WINDOW_MINUTES} minutes`;
+  const { count } = db.prepare(`
+    SELECT COUNT(*) AS count FROM login_attempts
+    WHERE identifier = ? AND action = ? AND attempted_at >= datetime('now', ?)
+  `).get(normalizeBcaId(identifier), action, windowStart) as { count: number };
+  return count >= RATE_LIMIT_MAX_ATTEMPTS;
+}
+
+export function recordFailedAttempt(identifier: string, action: RateLimitAction) {
+  const db = getDb();
+  db.prepare("INSERT INTO login_attempts (identifier, action) VALUES (?, ?)").run(normalizeBcaId(identifier), action);
+  // Opportunistic cleanup so this table never grows unbounded; cheap enough
+  // to run on every write since it only touches already-expired rows.
+  db.prepare("DELETE FROM login_attempts WHERE attempted_at < datetime('now', '-1 day')").run();
+}
+
+export function clearAttempts(identifier: string, action: RateLimitAction) {
+  getDb().prepare("DELETE FROM login_attempts WHERE identifier = ? AND action = ?").run(normalizeBcaId(identifier), action);
 }
 
 export function verifyCredentials(bcaId: string, password: string) {
