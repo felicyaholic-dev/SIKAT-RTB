@@ -369,9 +369,10 @@ export function decidePermit(accountId: number, permitId: number, decision: "APP
   });
   if (!transaction()) return { ok: false, message: "Status izin sudah berubah. Silakan pindai ulang QR." };
   const resident = db.prepare("SELECT full_name, phone_number FROM master_residents WHERE id = ?").get(permit.resident_id) as { full_name: string; phone_number: string | null } | undefined;
-  if (event === "EXIT") return { ok: true, message: "Izin keluar disetujui. Mahasiswa kini berstatus di luar RTB.", event, resident };
-  if (event === "EXIT_REJECTED") return { ok: true, message: "Izin dibatalkan. Mahasiswa tetap berstatus di dalam RTB.", event, resident };
-  return { ok: true, message: "Masuk disetujui. Mahasiswa kini kembali tercatat di RTB.", event, resident };
+  const notif = { permitCode: permit.permit_code, entryCode: permit.entry_code, destination: permit.destination, departureAt: permit.planned_departure_at, returnAt: permit.planned_return_at };
+  if (event === "EXIT") return { ok: true, message: "Izin keluar disetujui. Mahasiswa kini berstatus di luar RTB.", event, resident, notif };
+  if (event === "EXIT_REJECTED") return { ok: true, message: "Izin dibatalkan. Mahasiswa tetap berstatus di dalam RTB.", event, resident, notif };
+  return { ok: true, message: "Masuk disetujui. Mahasiswa kini kembali tercatat di RTB.", event, resident, notif };
 }
 
 export function getSecurityQueue() {
@@ -623,7 +624,7 @@ export function createBroadcast(accountId: number, input: { title: string; body:
     SELECT full_name, phone_number FROM master_residents
     WHERE resident_status = 'ACTIVE' AND phone_number IS NOT NULL
   `).all() as Array<{ full_name: string; phone_number: string }>;
-  return { ok: true, message: "Notifikasi berhasil dikirim ke seluruh akun aktif.", recipients };
+  return { ok: true, message: "Notifikasi berhasil dikirim ke seluruh akun aktif.", recipients, title };
 }
 
 export function getBroadcastHistory() {
