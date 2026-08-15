@@ -31,6 +31,8 @@ export async function initWhatsApp() {
 async function connect() {
   const dir = sessionDir();
   fs.mkdirSync(dir, { recursive: true });
+  // Baileys utility, not a React hook — the "use" prefix is a naming clash.
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const { state, saveCreds } = await useMultiFileAuthState(dir);
 
   const sock = makeWASocket({ auth: state });
