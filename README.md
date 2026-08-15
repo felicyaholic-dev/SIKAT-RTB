@@ -42,18 +42,27 @@ SIKAT RTB menggantikan pencatatan izin yang tersebar dengan satu alur digital: p
 
 ```mermaid
 flowchart TD
-  A[Mahasiswa memberikan data ke pengelola] --> B[Pengelola merekap data awal]
-  B --> C[Pengelola input Master Penghuni ke SIKAT]
-  C --> D{Mahasiswa aktivasi akun}
-  D -->|ID BCA, nama, kamar cocok| E[Buat password dan sesi login]
-  D -->|Data tidak cocok| F[Tolak aktivasi]
-  E --> G[Dashboard mahasiswa]
-  G --> H[Ajukan izin]
-  H --> I[QR dan kode izin dibuat]
-  I --> J[Satpam scan QR saat keluar]
-  J --> K[Status: sedang di luar RTB]
-  K --> L[Satpam scan QR saat masuk]
-  L --> M[Status: selesai dan masuk riwayat]
+  Start([Mulai]) --> A[Pengelola input data ke Master Penghuni]
+  A --> B["Mahasiswa ajukan aktivasi: ID BCA + nama + kamar"]
+  B --> C{Cocok dengan Master Penghuni?}
+  C -->|Tidak| C1[Aktivasi ditolak, akun tidak dibuat]
+  C1 --> Finish([Selesai])
+  C -->|Ya| D[Akun aktif, mahasiswa buat password]
+  D --> E[Mahasiswa ajukan izin keluar]
+  E --> F["Status: MENUNGGU_KELUAR — kode SKT- + QR"]
+  F --> G{Satpam pindai QR}
+  G -->|Tolak| G1[Status: DIBATALKAN]
+  G1 --> Finish
+  F -.->|Mahasiswa batalkan sendiri| H1[Pengajuan dihapus dari sistem]
+  H1 --> Finish
+  G -->|Setuju| H[Status: SEDANG_DI_LUAR]
+  H --> I[Mahasiswa ajukan kembali, isi waktu kembali]
+  I --> J["Status: MENUNGGU_MASUK — kode SKM-"]
+  J --> K{Satpam pindai kode masuk}
+  K -->|Setuju| L[Status: SELESAI, masuk riwayat]
+  L --> Finish
+  J -.->|Mahasiswa batalkan sendiri| J1[Pengajuan dihapus dari sistem]
+  J1 --> Finish
 ```
 
 ### 4.1 Setup data oleh pengelola
