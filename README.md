@@ -24,7 +24,7 @@ SIKAT RTB menggantikan pencatatan izin yang tersebar dengan satu alur digital: p
 
 1. **Role ditentukan sistem, bukan dipilih saat login.** Akun menentukan apakah seseorang melihat pengalaman mahasiswa, satpam, atau pengelola.
 2. **Database adalah sumber kebenaran.** Excel hanya dipakai pengelola untuk merekap data awal dari mahasiswa; setelah data dimasukkan ke aplikasi, database SIKAT RTB menjadi master data.
-3. **Mahasiswa melakukan aktivasi, bukan pendaftaran bebas.** Mereka hanya dapat mengaktifkan akun apabila data mereka sudah terdaftar oleh pengelola.
+3. **Akun dibuat oleh pengelola, bukan pendaftaran bebas.** Mahasiswa tidak bisa membuat akun sendiri; pengelola menambahkan data penghuni sekaligus akun login dengan password awal.
 4. **Satpam memvalidasi pergerakan, bukan menyalin data.** QR/kode izin mengurangi input ulang dan antrean.
 5. **Pengelola memantau pengecualian.** Fokus dashboard pengelola adalah mahasiswa di luar RTB, bukan dekorasi chart.
 
@@ -42,12 +42,12 @@ SIKAT RTB menggantikan pencatatan izin yang tersebar dengan satu alur digital: p
 
 ```mermaid
 flowchart TD
-  Start([Mulai]) --> A[Pengelola input data ke Master Penghuni]
-  A --> B["Mahasiswa ajukan aktivasi: ID BCA + nama + kamar"]
-  B --> C{Cocok dengan Master Penghuni?}
-  C -->|Tidak| C1[Aktivasi ditolak, akun tidak dibuat]
-  C1 --> Finish([Selesai])
-  C -->|Ya| D[Akun aktif, mahasiswa buat password]
+  Start([Mulai]) --> A["Pengelola tambah data penghuni + buat akun (password awal)"]
+  A --> B["Mahasiswa login: ID BCA + password awal"]
+  B --> C{Login pertama kali?}
+  C -->|Ya| C1[Wajib buat password baru]
+  C1 --> D[Login berhasil, ke dashboard]
+  C -->|Tidak| D
   D --> E[Mahasiswa ajukan izin keluar]
   E --> F["Status: MENUNGGU_KELUAR — kode SKT- + QR"]
   F --> G{Satpam pindai QR}
@@ -68,27 +68,26 @@ flowchart TD
 ### 4.1 Setup data oleh pengelola
 
 1. Pengelola memperoleh daftar data penghuni dari proses internal mereka (misalnya Excel hasil rekap).
-2. Pengelola masuk ke **Master Penghuni**.
-3. Pengelola menambahkan data: ID BCA, nama lengkap, nomor kamar, kelas/angkatan, dan status penghuni.
-4. Sistem memvalidasi ID BCA unik dan mencatat siapa yang menambah/mengubah data.
-5. Data tersebut kini dapat dipakai mahasiswa untuk aktivasi akun.
+2. Pengelola masuk ke **Master Penghuni** dan menambahkan data: ID BCA, nama lengkap, nomor kamar, kelas/angkatan, jenis kelamin, dan password awal.
+3. Sistem membuat data penghuni sekaligus akun login mahasiswa dalam satu langkah, memvalidasi ID BCA unik, dan mencatat siapa yang menambah/mengubah data.
+4. Mahasiswa dapat langsung login memakai ID BCA dan password awal tersebut.
 
 Excel **tidak diunggah dan tidak menjadi database aplikasi** pada versi awal. Fitur bulk import dapat ditambahkan kemudian bila input satu per satu sudah tidak praktis.
 
-### 4.2 Aktivasi dan login mahasiswa
+### 4.2 Login, ganti password wajib, dan reset mandiri
 
 ```text
-Aktivasi akun
-→ isi ID BCA + nama lengkap + nomor kamar
-→ server mencocokkan data dengan Master Penghuni
-→ data valid dan akun belum aktif
-→ mahasiswa membuat password
-→ akun aktif dan mahasiswa dapat login
+Login pertama
+→ mahasiswa masuk dengan ID BCA + password awal dari pengelola
+→ sistem mendeteksi status wajib ganti password
+→ mahasiswa membuat password baru
+→ password tersimpan, sesi lanjut ke dashboard
 ```
 
-- Data tidak ditemukan atau tidak cocok: aktivasi gagal tanpa membuat akun.
-- Akun telah aktif: pengguna diarahkan untuk login atau reset password.
-- Satpam dan pengelola tidak melakukan aktivasi mandiri; akun mereka diprovisikan oleh pengelola yang berwenang.
+- Password awal hanya untuk login pertama; setiap akun baru (mahasiswa, satpam, maupun pengelola) wajib menggantinya sebelum bisa memakai sistem.
+- Lupa password? Mahasiswa dapat memverifikasi ulang ID BCA + nama lengkap + nomor kamar untuk mengatur password baru secara mandiri, tanpa melibatkan pengelola.
+- Data tidak ditemukan atau tidak cocok saat verifikasi: permintaan reset ditolak, password lama tidak berubah.
+- Satpam dan pengelola tidak memiliki reset password mandiri; perubahan akses mereka selalu melalui pengelola yang berwenang.
 
 ### 4.3 Pengajuan izin mahasiswa
 
@@ -127,8 +126,7 @@ QR yang tidak valid, kedaluwarsa, dibatalkan, atau dipakai pada status yang tida
 
 | Fitur | Tujuan | Cara dibangun |
 | --- | --- | --- |
-| Master Penghuni | Memastikan hanya penghuni yang sah dapat mengaktivasi akun | CRUD pengelola; validasi ID BCA unik; status aktif/nonaktif; audit log |
-| Aktivasi akun | Mencegah pendaftaran dengan ID fiktif | Cocokkan ID BCA + nama lengkap + kamar dengan master sebelum password dibuat |
+| Master Penghuni & akun mahasiswa | Satu sumber data penghuni sekaligus akun login, dibuat langsung oleh pengelola | CRUD pengelola; ID BCA unik; buat data penghuni + akun + password awal dalam satu transaksi; audit log |
 | Login berbasis ID BCA | Satu identitas konsisten di seluruh alur | Credential auth, password hash Argon2id, cookie sesi `httpOnly` |
 | RBAC | Memisahkan tampilan dan aksi tiap peran | `role` pada akun + middleware/guard server-side pada route dan action |
 | Pengajuan izin | Menghilangkan input berulang dan memberi jejak digital | Form tervalidasi, nomor izin unik, tabel `permits` |
@@ -215,13 +213,13 @@ audit_logs
 
 - Password di-hash memakai Argon2id; tidak pernah disimpan di Excel atau database sebagai plaintext.
 - Cookie sesi memakai `httpOnly`, `secure` di production, dan `sameSite=lax` atau lebih ketat sesuai kebutuhan.
-- Rate limit diterapkan pada login dan aktivasi untuk menekan percobaan berulang.
+- Rate limit diterapkan pada login dan reset password untuk menekan percobaan berulang.
 - Error login tidak membocorkan apakah sebuah ID BCA ada atau tidak.
 - Validasi role dan kepemilikan izin dilakukan di server.
 - Token QR bersifat acak, tidak berisi data pribadi dalam plaintext, dan hanya valid untuk izin/status yang sesuai.
-- Catat aksi sensitif: perubahan master penghuni, aktivasi staf, pembatalan izin, dan validasi gerbang.
+- Catat aksi sensitif: perubahan master penghuni, pembuatan akun staf, pembatalan izin, dan validasi gerbang.
 
-> Validasi ID BCA + nama + kamar cukup untuk prototype, tetapi bukan bukti identitas yang kuat jika data tersebut mudah diketahui orang lain. Untuk penggunaan nyata, tambahkan OTP ke kanal resmi atau kode aktivasi yang diberikan pengelola.
+> Verifikasi ID BCA + nama + kamar pada reset password mandiri cukup untuk prototype, tetapi bukan bukti identitas yang kuat jika data tersebut mudah diketahui orang lain. Untuk penggunaan nyata, tambahkan OTP ke kanal resmi sebelum password baru diterima.
 
 ## 11. Setup lokal
 
@@ -314,7 +312,7 @@ SQLite cocok pada tahap ini karena operasinya singkat dan jumlah pengguna sediki
 
 ### Fase 2 — Identitas dan data master
 
-- Login, logout, aktivasi mahasiswa, dan reset password.
+- Login, logout, pembuatan akun mahasiswa oleh pengelola, dan reset password mandiri.
 - CRUD Master Penghuni untuk pengelola.
 - Audit log perubahan data master.
 
