@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { addResident, addSecurityStaff, cancelPendingPermit, changePassword, clearAttempts, createBroadcast, createPermit, decidePermit, deleteBroadcast, isRateLimited, recordFailedAttempt, resetStudentPassword, updateManagerProfile, updateResident, updateSecurityStaff, verifyCredentials, type Gender } from "@/lib/db";
+import { addResident, addSecurityStaff, cancelPendingPermit, changePassword, clearAttempts, createBroadcast, createPermit, decidePermit, deleteBroadcast, deleteResident, deleteSecurityStaff, isRateLimited, recordFailedAttempt, resetStudentPassword, updateManagerProfile, updateResident, updateSecurityStaff, verifyCredentials, type Gender } from "@/lib/db";
 import { clearSession, createSession, requireRole, requireSession, roleHome } from "@/lib/auth";
 import { RESIDENT_CLASSES } from "@/lib/ui";
 import { sendPermitEntryConfirmed, sendPermitExitApproved, sendPermitExitRejected, sendWhatsAppBroadcast } from "@/lib/whatsapp";
@@ -212,6 +212,28 @@ export async function createBroadcastAction(_: FormState, formData: FormData): P
       void sendWhatsAppBroadcast(result.recipients, result.title);
     }
   }
+  return result.ok ? { success: result.message } : { error: result.message };
+}
+
+export async function deleteResidentAction(_: FormState, formData: FormData): Promise<FormState> {
+  const session = await requireRole("MANAGER");
+  const id = Number(formData.get("id"));
+  if (!id) return { error: "Data penghuni tidak valid." };
+  const result = deleteResident(session.accountId, id);
+  if (result.ok) {
+    revalidatePath("/manager/users");
+    revalidatePath("/manager/stats");
+    revalidatePath("/manager");
+  }
+  return result.ok ? { success: result.message } : { error: result.message };
+}
+
+export async function deleteSecurityStaffAction(_: FormState, formData: FormData): Promise<FormState> {
+  const session = await requireRole("MANAGER");
+  const id = Number(formData.get("id"));
+  if (!id) return { error: "Data satpam tidak valid." };
+  const result = deleteSecurityStaff(session.accountId, id);
+  if (result.ok) revalidatePath("/manager/users");
   return result.ok ? { success: result.message } : { error: result.message };
 }
 

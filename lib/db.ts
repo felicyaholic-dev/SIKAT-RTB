@@ -451,6 +451,11 @@ export function addResident(actorId: number, input: { bcaId: string; fullName: s
   if (!/^\d{6}$/.test(bcaId)) return { ok: false, message: "ID BCA mahasiswa harus terdiri dari 6 angka." };
   const phoneNumber = normalizePhoneNumber(input.phoneNumber);
   if (input.phoneNumber?.trim() && !phoneNumber) return { ok: false, message: "Nomor WA tidak valid. Gunakan format 08xxxxxxxxxx." };
+  const existing = db.prepare("SELECT id FROM accounts WHERE bca_id = ?").get(bcaId);
+  if (existing) return { ok: false, message: "ID BCA ini sudah terdaftar, pakai ID BCA lainnya." };
+  const room = input.room.trim().toUpperCase();
+  const occupants = db.prepare("SELECT COUNT(*) AS count FROM master_residents WHERE room_number = ? AND resident_status = 'ACTIVE'").get(room) as { count: number };
+  if (occupants.count >= 2) return { ok: false, message: `Kamar ${room} sudah dihuni 2 orang. Satu kamar hanya untuk maksimal 2 penghuni.` };
   try {
     const transaction = db.transaction(() => {
       const resident = db.prepare("INSERT INTO master_residents (bca_id, full_name, room_number, class_name, gender, phone_number) VALUES (?, ?, ?, ?, ?, ?)").run(bcaId, input.fullName.trim(), input.room.trim().toUpperCase(), input.className.trim(), input.gender, phoneNumber);
@@ -468,6 +473,8 @@ export function addSecurityStaff(actorId: number, input: { bcaId: string; fullNa
   const db = getDb();
   const bcaId = normalizeBcaId(input.bcaId);
   if (!/^\d{5}$/.test(bcaId)) return { ok: false, message: "ID satpam harus terdiri dari 5 angka." };
+  const existing = db.prepare("SELECT id FROM accounts WHERE bca_id = ?").get(bcaId);
+  if (existing) return { ok: false, message: "ID BCA ini sudah terdaftar, pakai ID BCA lainnya." };
   try {
     const transaction = db.transaction(() => {
       db.prepare("INSERT INTO security_staff (bca_id, full_name, gender) VALUES (?, ?, ?)").run(bcaId, input.fullName.trim(), input.gender);
@@ -489,21 +496,66 @@ export function updateSecurityStaff(actorId: number, input: { id: number; fullNa
   return { ok: true, message: input.staffStatus === "INACTIVE" ? "Satpam dinonaktifkan dan aksesnya dicabut." : "Data satpam diperbarui." };
 }
 
+export function deleteSecurityStaff(actorId: number, id: number) {
+  const db = getDb();
+  const staff = db.prepare("SELECT id, bca_id, full_name FROM security_staff WHERE id = ?").get(id) as { id: number; bca_id: string; full_name: string } | undefined;
+  if (!staff) return { ok: false, message: "Data satpam tidak ditemukan." };
+  const transaction = db.transaction(() => {
+    const account = db.prepare("SELECT id FROM accounts WHERE bca_id = ? AND role = 'SECURITY'").get(staff.bca_id) as { id: number } | undefined;
+    if (account) {
+      db.prepare("DELETE FROM notification_deliveries WHERE account_id = ?").run(account.id);
+      db.prepare("DELETE FROM accounts WHERE id = ?").run(account.id);
+    }
+    db.prepare("DELETE FROM security_staff WHERE id = ?").run(id);
+    logAudit(actorId, "DELETE_SECURITY_STAFF", "security_staff", String(id));
+  });
+  transaction();
+  return { ok: true, message: `Data satpam "${staff.full_name}" berhasil dihapus dari sistem.` };
+}
+
 export function updateResident(actorId: number, input: { id: number; fullName: string; room: string; className: string; gender: Gender; residentStatus: "ACTIVE" | "INACTIVE"; phoneNumber?: string }) {
   const db = getDb();
-  const resident = db.prepare("SELECT id FROM master_residents WHERE id = ?").get(input.id);
+  const resident = db.prepare("SELECT id, room_number, resident_status FROM master_residents WHERE id = ?").get(input.id) as { id: number; room_number: string; resident_status: string } | undefined;
   if (!resident) return { ok: false, message: "Data penghuni tidak ditemukan." };
   const phoneNumber = normalizePhoneNumber(input.phoneNumber);
   if (input.phoneNumber?.trim() && !phoneNumber) return { ok: false, message: "Nomor WA tidak valid. Gunakan format 08xxxxxxxxxx." };
+  const room = input.room.trim().toUpperCase();
+  const roomOrStatusChanged = room !== resident.room_number || input.residentStatus !== resident.resident_status;
+  if (input.residentStatus === "ACTIVE" && roomOrStatusChanged) {
+    const occupants = db.prepare("SELECT COUNT(*) AS count FROM master_residents WHERE room_number = ? AND resident_status = 'ACTIVE' AND id != ?").get(room, input.id) as { count: number };
+    if (occupants.count >= 2) return { ok: false, message: `Kamar ${room} sudah dihuni 2 orang. Satu kamar hanya untuk maksimal 2 penghuni.` };
+  }
   db.prepare(`
     UPDATE master_residents SET full_name = ?, room_number = ?, class_name = ?, gender = ?, resident_status = ?, phone_number = ?, updated_at = CURRENT_TIMESTAMP
     WHERE id = ?
-  `).run(input.fullName.trim(), input.room.trim().toUpperCase(), input.className.trim(), input.gender, input.residentStatus, phoneNumber, input.id);
+  `).run(input.fullName.trim(), room, input.className.trim(), input.gender, input.residentStatus, phoneNumber, input.id);
   if (input.residentStatus === "INACTIVE") {
     db.prepare("UPDATE accounts SET is_active = 0 WHERE resident_id = ?").run(input.id);
   }
   logAudit(actorId, "UPDATE_RESIDENT", "master_resident", String(input.id));
   return { ok: true, message: input.residentStatus === "INACTIVE" ? "Penghuni dinonaktifkan dan akses akunnya dicabut." : "Data penghuni berhasil diperbarui." };
+}
+
+// Permanent removal for residents who have genuinely left RTB — unlike the
+// INACTIVE status (which keeps the row for history but revokes login), this
+// erases the resident and their permit history entirely.
+export function deleteResident(actorId: number, id: number) {
+  const db = getDb();
+  const resident = db.prepare("SELECT id, full_name FROM master_residents WHERE id = ?").get(id) as { id: number; full_name: string } | undefined;
+  if (!resident) return { ok: false, message: "Data penghuni tidak ditemukan." };
+  const transaction = db.transaction(() => {
+    db.prepare("DELETE FROM permit_events WHERE permit_id IN (SELECT id FROM permits WHERE resident_id = ?)").run(id);
+    db.prepare("DELETE FROM permits WHERE resident_id = ?").run(id);
+    const account = db.prepare("SELECT id FROM accounts WHERE resident_id = ?").get(id) as { id: number } | undefined;
+    if (account) {
+      db.prepare("DELETE FROM notification_deliveries WHERE account_id = ?").run(account.id);
+      db.prepare("DELETE FROM accounts WHERE id = ?").run(account.id);
+    }
+    db.prepare("DELETE FROM master_residents WHERE id = ?").run(id);
+    logAudit(actorId, "DELETE_RESIDENT", "master_resident", String(id));
+  });
+  transaction();
+  return { ok: true, message: `Data penghuni "${resident.full_name}" berhasil dihapus dari sistem.` };
 }
 
 export function resetStudentPassword(input: { bcaId: string; fullName: string; room: string; password: string }) {

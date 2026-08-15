@@ -1,6 +1,6 @@
 import { AppShell } from "@/components/AppShell";
 import { AddResidentForm } from "@/app/manager/AddResidentForm";
-import { EditResidentForm } from "@/app/manager/EditResidentForm";
+import { DeleteResidentButton, EditResidentForm } from "@/app/manager/EditResidentForm";
 import { SecurityStaffControl } from "@/app/manager/SecurityStaffControl";
 import { NotificationBroadcast } from "@/app/manager/NotificationBroadcast";
 import { requireRole } from "@/lib/auth";
@@ -67,7 +67,10 @@ export default async function ManagerUsersPage() {
                       <span className={pill(resident.account_status === "Aktif" ? "safe" : "muted")}>{resident.account_status}</span>
                     </td>
                     <td className="px-4 py-3">
-                      <EditResidentForm resident={resident} />
+                      <span className="flex items-center gap-2">
+                        <EditResidentForm resident={resident} />
+                        <DeleteResidentButton resident={resident} />
+                      </span>
                     </td>
                   </tr>
                 ))}

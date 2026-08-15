@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import { Pencil } from "lucide-react";
-import { updateResidentAction, type FormState } from "@/app/actions";
+import { useActionState, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Pencil, Trash2 } from "lucide-react";
+import { deleteResidentAction, updateResidentAction, type FormState } from "@/app/actions";
 import { FormModal } from "@/components/FormModal";
 import { btn, formMessage, RESIDENT_CLASSES } from "@/lib/ui";
 
@@ -76,6 +77,53 @@ export function EditResidentForm({ resident }: { resident: Resident }) {
                 {pending ? "Menyimpan…" : "Simpan perubahan"}
               </button>
             </form>
+        </FormModal>
+      )}
+    </>
+  );
+}
+
+export function DeleteResidentButton({ resident }: { resident: Resident }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [state, action, pending] = useActionState(deleteResidentAction, initialState);
+
+  useEffect(() => {
+    if (state.success) {
+      setOpen(false);
+      router.refresh();
+    }
+  }, [router, state.success]);
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label={`Hapus ${resident.full_name}`}
+        className="grid h-8 w-8 place-items-center bg-danger-soft text-danger transition-colors hover:bg-danger hover:text-white"
+      >
+        <Trash2 size={15} />
+      </button>
+      {open && (
+        <FormModal
+          eyebrow="HAPUS MASTER PENGHUNI"
+          title="Hapus data penghuni ini?"
+          description={<>Data <b className="text-ink">{resident.full_name}</b> (ID BCA <code className="rounded bg-mist px-1.5 py-0.5 font-mono text-[11px] text-ink">{resident.bca_id}</code>) beserta akun dan riwayat izinnya akan dihapus permanen. Gunakan hanya jika penghuni ini sudah tidak lagi berada di RTB — tindakan ini tidak dapat dibatalkan.</>}
+          onClose={() => setOpen(false)}
+        >
+          <form action={action} className="grid gap-3">
+            <input type="hidden" name="id" value={resident.id} />
+            {state.error && <p className={formMessage("error")}>{state.error}</p>}
+            <div className="grid gap-2.5 sm:grid-cols-2">
+              <button type="button" onClick={() => setOpen(false)} className={`${btn.base} w-full rounded-xl border border-line bg-white text-ink hover:bg-mist`} disabled={pending}>
+                Batal
+              </button>
+              <button className={`${btn.base} w-full rounded-xl border border-danger/30 bg-danger-soft text-danger hover:bg-danger hover:text-white`} disabled={pending}>
+                <Trash2 size={15} /> {pending ? "Menghapus…" : "Ya, hapus"}
+              </button>
+            </div>
+          </form>
         </FormModal>
       )}
     </>

@@ -78,8 +78,9 @@ flowchart TD
 
 1. Pengelola memperoleh daftar data penghuni dari proses internal mereka (misalnya Excel hasil rekap).
 2. Pengelola masuk ke **Master Penghuni** dan menambahkan data: ID BCA, nama lengkap, nomor kamar, kelas/angkatan, jenis kelamin, dan password awal.
-3. Sistem membuat data penghuni sekaligus akun login mahasiswa dalam satu langkah, memvalidasi ID BCA unik, dan mencatat siapa yang menambah/mengubah data.
+3. Sistem membuat data penghuni sekaligus akun login mahasiswa dalam satu langkah. ID BCA divalidasi unik lintas seluruh akun (mahasiswa, satpam, pengelola) — bila sudah dipakai, sistem menolak dengan pesan "ID BCA ini sudah terdaftar, pakai ID BCA lainnya". Nomor kamar dibatasi maksimal 2 penghuni aktif; permintaan ketiga di kamar yang sama ditolak. Setiap penambahan/perubahan dicatat di audit log.
 4. Mahasiswa dapat langsung login memakai ID BCA dan password awal tersebut.
+5. Saat penghuni atau satpam sudah tidak lagi berada/bertugas di RTB, pengelola dapat **menonaktifkan** (mencabut akses login, riwayat tetap tersimpan) atau **menghapus permanen** (data, akun, dan riwayat izinnya dihapus dari sistem) dari halaman yang sama.
 
 Excel **tidak diunggah dan tidak menjadi database aplikasi** pada versi awal. Fitur bulk import dapat ditambahkan kemudian bila input satu per satu sudah tidak praktis.
 
@@ -137,7 +138,7 @@ QR yang tidak valid, kedaluwarsa, dibatalkan, atau dipakai pada status yang tida
 
 | Fitur | Tujuan | Cara dibangun |
 | --- | --- | --- |
-| Master Penghuni & akun mahasiswa | Satu sumber data penghuni sekaligus akun login, dibuat langsung oleh pengelola | CRUD pengelola; ID BCA unik; kelas dipilih dari daftar tetap (PPBP/PPTI); buat data penghuni + akun + password awal dalam satu transaksi; audit log |
+| Master Penghuni & Master Satpam | Satu sumber data penghuni/satpam sekaligus akun login, dibuat, diubah, dinonaktifkan, atau dihapus permanen langsung oleh pengelola | CRUD penuh oleh pengelola; ID BCA unik lintas seluruh akun (pesan "ID BCA ini sudah terdaftar, pakai ID BCA lainnya" bila dobel); kelas dipilih dari daftar tetap (PPBP/PPTI); satu kamar dibatasi maksimal 2 penghuni aktif; hapus permanen (beserta akun dan riwayat izinnya) untuk penghuni/satpam yang sudah tidak berada di RTB, terpisah dari nonaktifkan yang hanya mencabut akses; audit log |
 | Laporan tersaring | Pengelola bisa fokus ke kelas/periode/jenis data tertentu tanpa menyaring manual | Filter kelas, periode, dan jenis data (aktivitas keluar-masuk vs penghuni di dalam RTB) di `getReport`/`getResidentsInside`; unduhan CSV mengikuti filter yang sama |
 | Notifikasi WA otomatis (opsional) | Mahasiswa tahu izinnya disetujui/ditolak atau ada pengumuman baru tanpa buka aplikasi terus-menerus | Kirim pesan template lewat WhatsApp Cloud API resmi (`lib/whatsapp.ts`) saat izin diputuskan satpam atau Pengelola broadcast; nonaktif kalau `WHATSAPP_CLOUD_API_TOKEN` belum di-set, lihat §10a |
 | Login berbasis ID BCA | Satu identitas konsisten di seluruh alur | Credential auth, password hash bcrypt, cookie sesi `httpOnly` |
