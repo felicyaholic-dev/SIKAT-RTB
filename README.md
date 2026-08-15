@@ -41,6 +41,7 @@ SIKAT RTB menggantikan pencatatan izin yang tersebar dengan satu alur digital: p
 ## 4. Alur end-to-end
 
 ```mermaid
+%%{init: {'flowchart': {'curve': 'linear'}}}%%
 flowchart TD
   Start([Mulai]) --> A["Pengelola tambah data penghuni + buat akun (password awal)"]
   A --> B["Mahasiswa login: ID BCA + password awal"]
@@ -53,19 +54,21 @@ flowchart TD
   C -->|Tidak| D
   D --> E[Mahasiswa ajukan izin keluar]
   E --> F["Status: MENUNGGU_KELUAR — kode SKT- + QR"]
-  F --> G{Satpam pindai QR}
+  F --> FD{Dibatalkan mahasiswa sebelum diproses satpam?}
+  FD -->|Ya| H1[Pengajuan dihapus dari sistem]
+  H1 --> Finish
+  FD -->|Tidak| G{Satpam pindai QR}
   G -->|Tolak| G1[Status: DIBATALKAN]
   G1 --> Finish
-  F -.->|Mahasiswa batalkan sendiri| H1[Pengajuan dihapus dari sistem]
-  H1 --> Finish
   G -->|Setuju| H[Status: SEDANG_DI_LUAR]
   H --> I[Mahasiswa ajukan kembali, isi waktu kembali]
   I --> J["Status: MENUNGGU_MASUK — kode SKM-"]
-  J --> K{Satpam pindai kode masuk}
-  K -->|Setuju| L[Status: SELESAI, masuk riwayat]
-  L --> Finish
-  J -.->|Mahasiswa batalkan sendiri| J1[Pengajuan dihapus dari sistem]
+  J --> JD{Dibatalkan mahasiswa sebelum diproses satpam?}
+  JD -->|Ya| J1[Pengajuan dihapus dari sistem]
   J1 --> Finish
+  JD -->|Tidak| K[Satpam setujui masuk]
+  K --> L[Status: SELESAI, masuk riwayat]
+  L --> Finish
 ```
 
 ### 4.1 Setup data oleh pengelola
@@ -115,6 +118,8 @@ QR yang tidak valid, kedaluwarsa, dibatalkan, atau dipakai pada status yang tida
 
 - Dashboard menampilkan penghuni di dalam dan di luar.
 - Pengelola dapat membuka riwayat izin dan audit log.
+- Laporan bisa difilter berdasarkan kelas, periode (hari ini/7 hari/bulan ini/tahun ini/semua waktu), dan jenis data:
+  aktivitas keluar-masuk, atau daftar penghuni yang sedang di dalam RTB saat ini. Kedua jenis data bisa diunduh sebagai CSV.
 
 ## 5. Siklus hidup izin
 
@@ -129,7 +134,8 @@ QR yang tidak valid, kedaluwarsa, dibatalkan, atau dipakai pada status yang tida
 
 | Fitur | Tujuan | Cara dibangun |
 | --- | --- | --- |
-| Master Penghuni & akun mahasiswa | Satu sumber data penghuni sekaligus akun login, dibuat langsung oleh pengelola | CRUD pengelola; ID BCA unik; buat data penghuni + akun + password awal dalam satu transaksi; audit log |
+| Master Penghuni & akun mahasiswa | Satu sumber data penghuni sekaligus akun login, dibuat langsung oleh pengelola | CRUD pengelola; ID BCA unik; kelas dipilih dari daftar tetap (PPBP/PPTI); buat data penghuni + akun + password awal dalam satu transaksi; audit log |
+| Laporan tersaring | Pengelola bisa fokus ke kelas/periode/jenis data tertentu tanpa menyaring manual | Filter kelas, periode, dan jenis data (aktivitas keluar-masuk vs penghuni di dalam RTB) di `getReport`/`getResidentsInside`; unduhan CSV mengikuti filter yang sama |
 | Login berbasis ID BCA | Satu identitas konsisten di seluruh alur | Credential auth, password hash bcrypt, cookie sesi `httpOnly` |
 | RBAC | Memisahkan tampilan dan aksi tiap peran | `role` pada akun + middleware/guard server-side pada route dan action |
 | Pengajuan izin | Menghilangkan input berulang dan memberi jejak digital | Form tervalidasi, nomor izin unik, tabel `permits` |
