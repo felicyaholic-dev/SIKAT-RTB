@@ -578,6 +578,19 @@ export function getBroadcastHistory() {
   `).all() as Array<{ id: number; title: string; body: string; created_at: string; sender_name: string; recipient_count: number; read_count: number }>;
 }
 
+export function deleteBroadcast(actorId: number, notificationId: number) {
+  const db = getDb();
+  const notification = db.prepare("SELECT id, title FROM broadcast_notifications WHERE id = ?").get(notificationId) as { id: number; title: string } | undefined;
+  if (!notification) return { ok: false, message: "Notifikasi tidak ditemukan." };
+  const transaction = db.transaction(() => {
+    db.prepare("DELETE FROM notification_deliveries WHERE notification_id = ?").run(notificationId);
+    db.prepare("DELETE FROM broadcast_notifications WHERE id = ?").run(notificationId);
+    logAudit(actorId, "DELETE_BROADCAST_NOTIFICATION", "broadcast_notification", String(notificationId));
+  });
+  transaction();
+  return { ok: true, message: `Notifikasi "${notification.title}" berhasil dihapus dari seluruh akun.` };
+}
+
 export function getNotifications(accountId: number) {
   const db = getDb();
   const notifications = db.prepare(`

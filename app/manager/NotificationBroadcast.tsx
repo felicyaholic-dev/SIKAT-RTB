@@ -1,8 +1,10 @@
 "use client";
 
-import { useActionState } from "react";
-import { BellRing, Megaphone, Send, UsersRound } from "lucide-react";
-import { createBroadcastAction, type FormState } from "@/app/actions";
+import { useActionState, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { BellRing, Megaphone, Send, Trash2, UsersRound } from "lucide-react";
+import { createBroadcastAction, deleteBroadcastAction, type FormState } from "@/app/actions";
+import { FormModal } from "@/components/FormModal";
 import { btn, formMessage } from "@/lib/ui";
 
 type Broadcast = { id: number; title: string; body: string; created_at: string; sender_name: string; recipient_count: number; read_count: number };
@@ -39,10 +41,47 @@ export function NotificationBroadcast({ broadcasts }: { broadcasts: Broadcast[] 
         <div className="min-w-0 rounded-[20px] border border-line bg-white p-5">
           <div className="flex items-center justify-between gap-3"><div><p className="security-kicker">RIWAYAT KIRIM</p><h3 className="mt-1 text-base font-semibold tracking-tight text-ink">Pengumuman terakhir</h3></div><BellRing size={18} className="text-signal" /></div>
           <div className="mt-4 divide-y divide-line">
-            {broadcasts.length ? broadcasts.map((item) => <article key={item.id} className="py-4 first:pt-0 last:pb-0"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><h4 className="truncate text-sm font-semibold text-ink">{item.title}</h4><p className="mt-1 line-clamp-2 text-[12px] leading-relaxed text-muted">{item.body}</p></div><span className="shrink-0 rounded-pill bg-safe-soft px-2 py-1 font-mono text-[9px] text-safe">TERKIRIM</span></div><p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-muted"><span>{timestamp(item.created_at)} · {item.sender_name}</span><span>{item.recipient_count} penerima · dibaca {item.read_count}</span></p></article>) : <div className="grid min-h-[220px] place-items-center text-center"><div><BellRing size={24} className="mx-auto text-signal" /><p className="mt-3 text-sm font-medium text-ink">Belum ada pengumuman</p><p className="mt-1 text-[12px] text-muted">Broadcast yang dikirim akan tercatat di sini.</p></div></div>}
+            {broadcasts.length ? broadcasts.map((item) => <article key={item.id} className="py-4 first:pt-0 last:pb-0"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><h4 className="truncate text-sm font-semibold text-ink">{item.title}</h4><p className="mt-1 line-clamp-2 text-[12px] leading-relaxed text-muted">{item.body}</p></div><span className="flex shrink-0 items-center gap-2"><span className="rounded-pill bg-safe-soft px-2 py-1 font-mono text-[9px] text-safe">TERKIRIM</span><DeleteBroadcastButton id={item.id} title={item.title} /></span></div><p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-muted"><span>{timestamp(item.created_at)} · {item.sender_name}</span><span>{item.recipient_count} penerima · dibaca {item.read_count}</span></p></article>) : <div className="grid min-h-[220px] place-items-center text-center"><div><BellRing size={24} className="mx-auto text-signal" /><p className="mt-3 text-sm font-medium text-ink">Belum ada pengumuman</p><p className="mt-1 text-[12px] text-muted">Broadcast yang dikirim akan tercatat di sini.</p></div></div>}
           </div>
         </div>
       </div>
     </section>
+  );
+}
+
+function DeleteBroadcastButton({ id, title }: { id: number; title: string }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [state, action, pending] = useActionState(deleteBroadcastAction, initialState);
+
+  useEffect(() => {
+    if (state.success) {
+      setOpen(false);
+      router.refresh();
+    }
+  }, [router, state.success]);
+
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)} aria-label={`Hapus notifikasi ${title}`} className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-muted transition-colors hover:bg-danger-soft hover:text-danger">
+        <Trash2 size={13} />
+      </button>
+      {open && (
+        <FormModal eyebrow="HAPUS NOTIFIKASI" title="Hapus pengumuman ini?" description={<>Notifikasi <b className="text-ink">&ldquo;{title}&rdquo;</b> akan hilang dari pusat notifikasi seluruh akun yang menerimanya. Tindakan ini tidak dapat dibatalkan &mdash; gunakan untuk notifikasi yang salah kirim.</>} onClose={() => setOpen(false)}>
+          <form action={action} className="grid gap-3">
+            <input type="hidden" name="notificationId" value={id} />
+            {state.error && <p className={formMessage("error")}>{state.error}</p>}
+            <div className="grid gap-2.5 sm:grid-cols-2">
+              <button type="button" onClick={() => setOpen(false)} className={`${btn.base} w-full rounded-xl border border-line bg-white text-ink hover:bg-mist`} disabled={pending}>
+                Batal
+              </button>
+              <button className={`${btn.base} w-full rounded-xl border border-danger/30 bg-danger-soft text-danger hover:bg-danger hover:text-white`} disabled={pending}>
+                <Trash2 size={15} /> {pending ? "Menghapus…" : "Ya, hapus"}
+              </button>
+            </div>
+          </form>
+        </FormModal>
+      )}
+    </>
   );
 }

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { addResident, addSecurityStaff, cancelPendingPermit, changePassword, createBroadcast, createPermit, decidePermit, resetStudentPassword, updateManagerProfile, updateResident, updateSecurityStaff, verifyCredentials, type Gender } from "@/lib/db";
+import { addResident, addSecurityStaff, cancelPendingPermit, changePassword, createBroadcast, createPermit, decidePermit, deleteBroadcast, resetStudentPassword, updateManagerProfile, updateResident, updateSecurityStaff, verifyCredentials, type Gender } from "@/lib/db";
 import { clearSession, createSession, requireRole, requireSession, roleHome } from "@/lib/auth";
 
 export type FormState = { error?: string; success?: string };
@@ -178,6 +178,18 @@ export async function createBroadcastAction(_: FormState, formData: FormData): P
     title: String(formData.get("title") || ""),
     body: String(formData.get("body") || ""),
   });
+  if (result.ok) {
+    revalidatePath("/manager/users");
+    revalidatePath("/manager");
+  }
+  return result.ok ? { success: result.message } : { error: result.message };
+}
+
+export async function deleteBroadcastAction(_: FormState, formData: FormData): Promise<FormState> {
+  const session = await requireRole("MANAGER");
+  const notificationId = Number(formData.get("notificationId"));
+  if (!notificationId) return { error: "Notifikasi tidak valid." };
+  const result = deleteBroadcast(session.accountId, notificationId);
   if (result.ok) {
     revalidatePath("/manager/users");
     revalidatePath("/manager");

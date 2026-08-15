@@ -10,7 +10,7 @@ SIKAT RTB menggantikan pencatatan izin yang tersebar dengan satu alur digital: p
 
 - Pengajuan dan pencatatan keluar-masuk berpotensi lambat, tidak konsisten, dan sulit ditelusuri.
 - Satpam perlu memeriksa identitas serta status izin dengan cepat di pos.
-- Pengelola perlu mengetahui siapa yang berada di luar RTB dan siapa yang terlambat kembali.
+- Pengelola perlu mengetahui siapa yang berada di luar RTB.
 - Identitas penghuni tidak boleh dibuat sembarang oleh pengguna yang tidak terdaftar.
 
 ### Hasil yang dituju
@@ -26,7 +26,7 @@ SIKAT RTB menggantikan pencatatan izin yang tersebar dengan satu alur digital: p
 2. **Database adalah sumber kebenaran.** Excel hanya dipakai pengelola untuk merekap data awal dari mahasiswa; setelah data dimasukkan ke aplikasi, database SIKAT RTB menjadi master data.
 3. **Mahasiswa melakukan aktivasi, bukan pendaftaran bebas.** Mereka hanya dapat mengaktifkan akun apabila data mereka sudah terdaftar oleh pengelola.
 4. **Satpam memvalidasi pergerakan, bukan menyalin data.** QR/kode izin mengurangi input ulang dan antrean.
-5. **Pengelola memantau pengecualian.** Fokus dashboard pengelola adalah mahasiswa di luar RTB dan keterlambatan, bukan dekorasi chart.
+5. **Pengelola memantau pengecualian.** Fokus dashboard pengelola adalah mahasiswa di luar RTB, bukan dekorasi chart.
 
 ## 3. Peran dan hak akses
 
@@ -34,7 +34,7 @@ SIKAT RTB menggantikan pencatatan izin yang tersebar dengan satu alur digital: p
 | --- | --- | --- |
 | Mahasiswa/penghuni | Mengajukan dan melacak izin pribadi | Beranda, ajukan izin, QR izin aktif, riwayat sendiri, profil |
 | Satpam | Memvalidasi status keluar/masuk secara cepat | Scanner/kode izin, konfirmasi keluar/masuk, daftar penghuni di luar |
-| Pengelola | Mengelola data master dan memantau kondisi RTB | Dashboard monitoring, master penghuni, keterlambatan, laporan, pengaturan |
+| Pengelola | Mengelola data master dan memantau kondisi RTB | Dashboard monitoring, master penghuni, laporan, pengaturan |
 
 > Semua pemeriksaan hak akses dilakukan di server. Menyembunyikan menu di frontend bukan mekanisme keamanan.
 
@@ -54,8 +54,6 @@ flowchart TD
   J --> K[Status: sedang di luar RTB]
   K --> L[Satpam scan QR saat masuk]
   L --> M[Status: selesai dan masuk riwayat]
-  K --> N{Lewat estimasi kembali?}
-  N -->|Ya| O[Status: terlambat dan terlihat pengelola]
 ```
 
 ### 4.1 Setup data oleh pengelola
@@ -104,10 +102,8 @@ QR yang tidak valid, kedaluwarsa, dibatalkan, atau dipakai pada status yang tida
 
 ### 4.5 Monitoring pengelola
 
-- Dashboard menampilkan penghuni di dalam, di luar, dan terlambat.
-- Daftar keterlambatan mendapat prioritas visual tertinggi.
+- Dashboard menampilkan penghuni di dalam dan di luar.
 - Pengelola dapat membuka riwayat izin dan audit log.
-- Status `TERLAMBAT` dihitung ketika waktu sekarang melewati estimasi kembali sementara belum ada event masuk.
 
 ## 5. Siklus hidup izin
 
@@ -115,7 +111,6 @@ QR yang tidak valid, kedaluwarsa, dibatalkan, atau dipakai pada status yang tida
 | --- | --- | --- |
 | `MENUNGGU_KELUAR` | Izin dibuat, penghuni belum melewati gerbang | Mahasiswa mengajukan izin |
 | `SEDANG_DI_LUAR` | Satpam telah mencatat penghuni keluar | Satpam menekan Catat keluar |
-| `TERLAMBAT` | Estimasi kembali sudah lewat, belum tercatat masuk | Pemeriksaan waktu otomatis / saat dashboard dimuat |
 | `SELESAI` | Penghuni telah tercatat masuk kembali | Satpam menekan Catat masuk |
 | `DIBATALKAN` | Izin tidak berlaku lagi | Mahasiswa/pengelola membatalkan sesuai kebijakan |
 
@@ -131,7 +126,6 @@ QR yang tidak valid, kedaluwarsa, dibatalkan, atau dipakai pada status yang tida
 | QR izin | Mempercepat verifikasi di gerbang | Token acak per izin, QR generator, validasi token di server |
 | Scan/kode manual | Tetap cepat saat kamera atau QR bermasalah | Web camera scanner dengan input kode sebagai fallback |
 | Pencatatan keluar/masuk | Status penghuni selalu mutakhir | Transaksi database singkat yang membuat event dan memperbarui status izin |
-| Monitoring keterlambatan | Memprioritaskan tindak lanjut pengelola | Query izin aktif dengan estimasi kembali sebelum waktu saat ini |
 | Riwayat & audit | Menjawab pertanyaan siapa melakukan apa dan kapan | Tabel event izin dan audit log yang append-only |
 
 ## 7. Arah UI/UX
@@ -323,7 +317,7 @@ SQLite cocok pada tahap ini karena operasinya singkat dan jumlah pengguna sediki
 
 ### Fase 4 — Monitoring dan kualitas
 
-- Dashboard pengelola, keterlambatan, filter, dan laporan.
+- Dashboard pengelola, filter, dan laporan.
 - Pengujian auth, role, transisi izin, dan responsivitas.
 - Accessibility pass, backup, deployment Railway, dan demo script.
 
@@ -333,7 +327,7 @@ SQLite cocok pada tahap ini karena operasinya singkat dan jumlah pengguna sediki
 - Pengelola membuat akun mahasiswa dan satpam dengan password awal; seluruh akun mengganti password pada login pertama.
 - Mahasiswa hanya dapat melihat izin miliknya sendiri.
 - Satpam dapat memvalidasi QR/kode keluar dan masuk.
-- Pengelola dapat melihat daftar penghuni di luar dan terlambat.
+- Pengelola dapat melihat daftar penghuni di luar.
 - Seluruh validasi meninggalkan event/audit trail.
 - Data tetap ada setelah redeploy Railway.
 - Tampilan nyaman pada ponsel mahasiswa, tablet satpam, dan desktop pengelola.
