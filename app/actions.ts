@@ -79,6 +79,8 @@ export async function validatePermitAction(_: FormState, formData: FormData): Pr
     if (result.resident) {
       const text = result.event === "EXIT"
         ? `Halo ${result.resident.full_name}, izin keluar RTB kamu sudah disetujui satpam. Selamat beraktivitas, jangan lupa buat QR masuk di SIKAT RTB saat kembali ya.`
+        : result.event === "EXIT_REJECTED"
+        ? `Halo ${result.resident.full_name}, pengajuan izin keluar RTB kamu ditolak satpam di gerbang. Kamu tetap tercatat berada di dalam RTB — silakan hubungi satpam untuk info lebih lanjut.`
         : `Halo ${result.resident.full_name}, kamu sudah tercatat kembali masuk RTB. Terima kasih sudah lapor tepat waktu lewat SIKAT RTB.`;
       void sendWhatsAppMessage(result.resident.phone_number, text);
     }
