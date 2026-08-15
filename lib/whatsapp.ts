@@ -35,13 +35,24 @@ async function connect() {
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const { state, saveCreds } = await useMultiFileAuthState(dir);
 
-  const sock = makeWASocket({ auth: state });
+  const pairingNumber = normalizePhoneNumber(process.env.WHATSAPP_ADMIN_NUMBER);
+  const usePairingCode = Boolean(pairingNumber) && !state.creds.registered;
+  const sock = makeWASocket({ auth: state, printQRInTerminal: false });
   socket = sock;
   sock.ev.on("creds.update", saveCreds);
 
+  if (usePairingCode && pairingNumber) {
+    try {
+      const code = await sock.requestPairingCode(pairingNumber);
+      console.log(`[whatsapp] KODE PAIRING: ${code} — buka WhatsApp di ${process.env.WHATSAPP_ADMIN_NUMBER} > Perangkat Tertaut > Tautkan Perangkat > Tautkan dengan nomor telepon, lalu masukkan kode ini.`);
+    } catch (error) {
+      console.warn("[whatsapp] Gagal minta kode pairing:", error instanceof Error ? error.message : error);
+    }
+  }
+
   sock.ev.on("connection.update", (update) => {
     const { connection, lastDisconnect, qr } = update;
-    if (qr) {
+    if (qr && !usePairingCode) {
       console.log("[whatsapp] Scan QR ini dengan WhatsApp di HP admin untuk menyambungkan:");
       qrcodeTerminal.generate(qr, { small: true });
     }
@@ -52,7 +63,7 @@ async function connect() {
       socket = undefined;
       const statusCode = (lastDisconnect?.error as { output?: { statusCode?: number } } | undefined)?.output?.statusCode;
       const loggedOut = statusCode === 401;
-      console.log(`[whatsapp] Koneksi terputus (status ${statusCode ?? "?"}).${loggedOut ? " Sesi keluar — hapus data/whatsapp-session lalu scan ulang." : " Mencoba menyambung ulang…"}`);
+      console.log(`[whatsapp] Koneksi terputus (status ${statusCode ?? "?"}).${loggedOut ? " Sesi keluar — hapus data/whatsapp-session lalu pairing ulang." : " Mencoba menyambung ulang…"}`);
       if (!loggedOut) void connect();
     }
   });
