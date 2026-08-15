@@ -244,6 +244,11 @@ Mahasiswa dapat menerima pesan WA otomatis saat izin keluar/masuknya disetujui *
 Pengelola mengirim broadcast baru. Fitur ini **nonaktif secara default** (`WHATSAPP_CLOUD_API_TOKEN` belum di-set)
 dan tidak memengaruhi fitur lain jika tidak diaktifkan.
 
+> **Status saat ini (15 Agustus 2026):** pendaftaran akun WhatsApp Business Platform resmi sedang berjalan; nomor
+> yang direncanakan sempat kena pembatasan pengiriman sementara (bukan blokir permanen) akibat pemakaian gateway
+> tidak resmi sebelumnya, jadi pendaftaran dilanjutkan setelah pembatasannya reda. Kredensial belum tersedia,
+> sehingga fitur ini masih nonaktif di production sampai keempat template di bawah disetujui Meta.
+
 **Cara kerja teknis:** pesan dikirim lewat **WhatsApp Business Platform (Cloud API)** resmi dari Meta — satu
 panggilan HTTP POST per pesan ke Graph API (`lib/whatsapp.ts`), tanpa koneksi atau sesi persisten di server ini.
 Karena ini jalur resmi, pesan proaktif (di luar jendela obrolan yang dimulai pengguna) **wajib** memakai template
@@ -275,19 +280,26 @@ yang sudah disetujui Meta — tidak bisa teks bebas.
   mengisi nomor otomatis dilewati, tidak menyebabkan error.
 - Ada kuota gratis bulanan dari Meta untuk percakapan kategori utility; di luar kuota itu berbayar (biasanya masih
   murah untuk skala satu RTB).
+- Nomor yang sebelumnya pernah kena pembatasan pengiriman oleh WhatsApp (misalnya bekas dipakai gateway tidak
+  resmi) sebaiknya menunggu masa pembatasannya selesai dan berhenti dipakai lewat gateway itu sama sekali, sebelum
+  didaftarkan ke Cloud API — reputasi pembatasan menempel ke nomornya, bukan ke aplikasi pengirimnya.
 
 **Cara mengaktifkan:**
 
 1. Buat/masuk ke Meta Business Account di [business.facebook.com](https://business.facebook.com), lalu buat App
    bertipe Business di [developers.facebook.com](https://developers.facebook.com) dan tambahkan produk WhatsApp.
-2. Di WhatsApp Manager, buat keempat template pada tabel di atas persis sesuai teksnya, kirim untuk direview.
-3. Setelah nomor bisnis diverifikasi, catat **Phone Number ID** dan **Access Token** (token permanen lewat System
-   User untuk production, bukan token sementara 24 jam).
-4. Set `WHATSAPP_CLOUD_API_TOKEN=<access token>` dan `WHATSAPP_PHONE_NUMBER_ID=<phone number id>` sebagai
+2. Selesaikan **Business Verification** (Business Settings → Security Center) dengan dokumen identitas/usaha —
+   proses ini yang biasanya paling lama, dari beberapa jam sampai beberapa hari.
+3. Daftarkan nomor bisnis di WhatsApp → API Setup → Add phone number, lalu verifikasi lewat OTP SMS/panggilan ke
+   nomor tersebut.
+4. Di WhatsApp Manager, buat keempat template pada tabel di atas persis sesuai teksnya dengan kategori **Utility**,
+   kirim untuk direview.
+5. Setelah nomor dan template disetujui, catat **Phone Number ID** dan **Access Token** (token permanen lewat
+   System User untuk production, bukan token sementara 24 jam).
+6. Set `WHATSAPP_CLOUD_API_TOKEN=<access token>` dan `WHATSAPP_PHONE_NUMBER_ID=<phone number id>` sebagai
    environment variable (lokal: `.env.local`; production: pengaturan Railway) — jangan pernah commit nilai ini ke
-   git.
-5. Deploy ulang. Notifikasi otomatis aktif begitu keempat template berstatus disetujui dan variabelnya terbaca;
-   sebelum disetujui, panggilan API akan gagal dengan pesan error dari Meta yang tercatat di log, tanpa
+   git — lalu deploy ulang. Notifikasi otomatis aktif begitu keempat template berstatus disetujui dan variabelnya
+   terbaca; sebelum disetujui, panggilan API akan gagal dengan pesan error dari Meta yang tercatat di log, tanpa
    mengganggu proses lain.
 
 ## 11. Setup lokal
