@@ -7,7 +7,7 @@ import { FormModal } from "@/components/FormModal";
 import { btn, formMessage, RESIDENT_CLASSES } from "@/lib/ui";
 
 const initialState: FormState = {};
-type Resident = { id: number; bca_id: string; full_name: string; room_number: string; class_name: string; gender: string; resident_status: string };
+type Resident = { id: number; bca_id: string; full_name: string; room_number: string; class_name: string; gender: string; resident_status: string; phone_number: string | null };
 
 export function EditResidentForm({ resident }: { resident: Resident }) {
   const [open, setOpen] = useState(false);
@@ -49,14 +49,20 @@ export function EditResidentForm({ resident }: { resident: Resident }) {
                   </select>
                 </label>
               </div>
-              <label>
-                Jenis kelamin
-                <select name="gender" defaultValue={["LAKI_LAKI", "PEREMPUAN"].includes(resident.gender) ? resident.gender : ""} required>
-                  <option value="" disabled>Pilih jenis kelamin</option>
-                  <option value="LAKI_LAKI">Laki-laki</option>
-                  <option value="PEREMPUAN">Perempuan</option>
-                </select>
-              </label>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label>
+                  Jenis kelamin
+                  <select name="gender" defaultValue={["LAKI_LAKI", "PEREMPUAN"].includes(resident.gender) ? resident.gender : ""} required>
+                    <option value="" disabled>Pilih jenis kelamin</option>
+                    <option value="LAKI_LAKI">Laki-laki</option>
+                    <option value="PEREMPUAN">Perempuan</option>
+                  </select>
+                </label>
+                <label>
+                  Nomor WA <span className="font-normal text-muted">(opsional)</span>
+                  <input name="phoneNumber" inputMode="numeric" defaultValue={resident.phone_number ?? ""} placeholder="08xxxxxxxxxx" />
+                </label>
+              </div>
               <label>
                 Status penghuni
                 <select name="residentStatus" defaultValue={resident.resident_status}>

@@ -29,6 +29,7 @@ type ResidentRow = {
   class_name: string;
   gender: Gender;
   resident_status: string;
+  phone_number: string | null;
 };
 
 let database: Database.Database | undefined;
@@ -139,6 +140,7 @@ function getDb() {
   `);
   ensureColumn(database, "accounts", "must_change_password", "INTEGER NOT NULL DEFAULT 0");
   ensureColumn(database, "master_residents", "gender", "TEXT NOT NULL DEFAULT 'TIDAK_DISEBUTKAN'");
+  ensureColumn(database, "master_residents", "phone_number", "TEXT");
   ensureColumn(database, "security_staff", "gender", "TEXT NOT NULL DEFAULT 'TIDAK_DISEBUTKAN'");
   ensureColumn(database, "permits", "entry_code", "TEXT");
   ensureColumn(database, "permits", "permit_type", "TEXT NOT NULL DEFAULT 'IZIN_PRIBADI'");
@@ -366,9 +368,10 @@ export function decidePermit(accountId: number, permitId: number, decision: "APP
     return true;
   });
   if (!transaction()) return { ok: false, message: "Status izin sudah berubah. Silakan pindai ulang QR." };
-  if (event === "EXIT") return { ok: true, message: "Izin keluar disetujui. Mahasiswa kini berstatus di luar RTB." };
-  if (event === "EXIT_REJECTED") return { ok: true, message: "Izin dibatalkan. Mahasiswa tetap berstatus di dalam RTB." };
-  return { ok: true, message: "Masuk disetujui. Mahasiswa kini kembali tercatat di RTB." };
+  const resident = db.prepare("SELECT full_name, phone_number FROM master_residents WHERE id = ?").get(permit.resident_id) as { full_name: string; phone_number: string | null } | undefined;
+  if (event === "EXIT") return { ok: true, message: "Izin keluar disetujui. Mahasiswa kini berstatus di luar RTB.", event, resident };
+  if (event === "EXIT_REJECTED") return { ok: true, message: "Izin dibatalkan. Mahasiswa tetap berstatus di dalam RTB.", event, resident: undefined };
+  return { ok: true, message: "Masuk disetujui. Mahasiswa kini kembali tercatat di RTB.", event, resident };
 }
 
 export function getSecurityQueue() {
@@ -441,13 +444,15 @@ export function getManagerData() {
   return { stats, watchlist, weeklyActivity, residents, securityStaff };
 }
 
-export function addResident(actorId: number, input: { bcaId: string; fullName: string; room: string; className: string; gender: Gender; password: string }) {
+export function addResident(actorId: number, input: { bcaId: string; fullName: string; room: string; className: string; gender: Gender; password: string; phoneNumber?: string }) {
   const db = getDb();
   const bcaId = normalizeBcaId(input.bcaId);
   if (!/^\d{6}$/.test(bcaId)) return { ok: false, message: "ID BCA mahasiswa harus terdiri dari 6 angka." };
+  const phoneNumber = normalizePhoneNumber(input.phoneNumber);
+  if (input.phoneNumber?.trim() && !phoneNumber) return { ok: false, message: "Nomor WA tidak valid. Gunakan format 08xxxxxxxxxx." };
   try {
     const transaction = db.transaction(() => {
-      const resident = db.prepare("INSERT INTO master_residents (bca_id, full_name, room_number, class_name, gender) VALUES (?, ?, ?, ?, ?)").run(bcaId, input.fullName.trim(), input.room.trim().toUpperCase(), input.className.trim(), input.gender);
+      const resident = db.prepare("INSERT INTO master_residents (bca_id, full_name, room_number, class_name, gender, phone_number) VALUES (?, ?, ?, ?, ?, ?)").run(bcaId, input.fullName.trim(), input.room.trim().toUpperCase(), input.className.trim(), input.gender, phoneNumber);
       const account = db.prepare("INSERT INTO accounts (resident_id, bca_id, full_name, role, password_hash, must_change_password) VALUES (?, ?, ?, 'STUDENT', ?, 1)").run(resident.lastInsertRowid, bcaId, input.fullName.trim(), bcrypt.hashSync(input.password, 12));
       logAudit(actorId, "CREATE_STUDENT_ACCOUNT", "account", String(account.lastInsertRowid));
     });
@@ -483,14 +488,16 @@ export function updateSecurityStaff(actorId: number, input: { id: number; fullNa
   return { ok: true, message: input.staffStatus === "INACTIVE" ? "Satpam dinonaktifkan dan aksesnya dicabut." : "Data satpam diperbarui." };
 }
 
-export function updateResident(actorId: number, input: { id: number; fullName: string; room: string; className: string; gender: Gender; residentStatus: "ACTIVE" | "INACTIVE" }) {
+export function updateResident(actorId: number, input: { id: number; fullName: string; room: string; className: string; gender: Gender; residentStatus: "ACTIVE" | "INACTIVE"; phoneNumber?: string }) {
   const db = getDb();
   const resident = db.prepare("SELECT id FROM master_residents WHERE id = ?").get(input.id);
   if (!resident) return { ok: false, message: "Data penghuni tidak ditemukan." };
+  const phoneNumber = normalizePhoneNumber(input.phoneNumber);
+  if (input.phoneNumber?.trim() && !phoneNumber) return { ok: false, message: "Nomor WA tidak valid. Gunakan format 08xxxxxxxxxx." };
   db.prepare(`
-    UPDATE master_residents SET full_name = ?, room_number = ?, class_name = ?, gender = ?, resident_status = ?, updated_at = CURRENT_TIMESTAMP
+    UPDATE master_residents SET full_name = ?, room_number = ?, class_name = ?, gender = ?, resident_status = ?, phone_number = ?, updated_at = CURRENT_TIMESTAMP
     WHERE id = ?
-  `).run(input.fullName.trim(), input.room.trim().toUpperCase(), input.className.trim(), input.gender, input.residentStatus, input.id);
+  `).run(input.fullName.trim(), input.room.trim().toUpperCase(), input.className.trim(), input.gender, input.residentStatus, phoneNumber, input.id);
   if (input.residentStatus === "INACTIVE") {
     db.prepare("UPDATE accounts SET is_active = 0 WHERE resident_id = ?").run(input.id);
   }
@@ -612,7 +619,11 @@ export function createBroadcast(accountId: number, input: { title: string; body:
     logAudit(accountId, "CREATE_BROADCAST_NOTIFICATION", "broadcast_notification", String(notification.lastInsertRowid));
   });
   transaction();
-  return { ok: true, message: "Notifikasi berhasil dikirim ke seluruh akun aktif." };
+  const recipients = db.prepare(`
+    SELECT full_name, phone_number FROM master_residents
+    WHERE resident_status = 'ACTIVE' AND phone_number IS NOT NULL
+  `).all() as Array<{ full_name: string; phone_number: string }>;
+  return { ok: true, message: "Notifikasi berhasil dikirim ke seluruh akun aktif.", recipients };
 }
 
 export function getBroadcastHistory() {
@@ -667,3 +678,12 @@ function logAudit(actorId: number, action: string, entityType: string, entityId:
 function normalizeBcaId(value: string) { return value.trim().toUpperCase(); }
 function normalizeName(value: string) { return value.trim().replace(/\s+/g, " ").toLocaleLowerCase("id-ID"); }
 function normalizeRoom(value: string) { return value.trim().replace(/\s+/g, "").toUpperCase(); }
+
+// Stores Indonesian phone numbers in international format (62xxxxxxxxxx,
+// no leading +) since that is what a WhatsApp JID needs downstream.
+export function normalizePhoneNumber(value: string | undefined): string | null {
+  if (!value?.trim()) return null;
+  const digits = value.trim().replace(/[^\d+]/g, "").replace(/^\+/, "");
+  const withCountryCode = digits.startsWith("0") ? `62${digits.slice(1)}` : digits;
+  return /^62\d{8,13}$/.test(withCountryCode) ? withCountryCode : null;
+}

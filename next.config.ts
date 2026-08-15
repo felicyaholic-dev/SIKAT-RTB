@@ -28,7 +28,7 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["better-sqlite3"],
+  serverExternalPackages: ["better-sqlite3", "@whiskeysockets/baileys", "sharp"],
   // The redesigned shell has its own fixed sidebar/bottom-nav chrome, which the
   // dev-only route indicator badge visually collides with. Dev-only, so this
   // has no effect on production.

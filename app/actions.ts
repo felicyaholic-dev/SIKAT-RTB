@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { addResident, addSecurityStaff, cancelPendingPermit, changePassword, clearAttempts, createBroadcast, createPermit, decidePermit, deleteBroadcast, isRateLimited, recordFailedAttempt, resetStudentPassword, updateManagerProfile, updateResident, updateSecurityStaff, verifyCredentials, type Gender } from "@/lib/db";
 import { clearSession, createSession, requireRole, requireSession, roleHome } from "@/lib/auth";
 import { RESIDENT_CLASSES } from "@/lib/ui";
+import { sendWhatsAppBroadcast, sendWhatsAppMessage } from "@/lib/whatsapp";
 
 export type FormState = { error?: string; success?: string };
 
@@ -74,7 +75,15 @@ export async function validatePermitAction(_: FormState, formData: FormData): Pr
   // animated confirmation before its modal is allowed to close. The next
   // navigation reads the new database state, while the student's QR page
   // receives the result through its short polling endpoint.
-  if (result.ok) return { success: result.message };
+  if (result.ok) {
+    if (result.resident) {
+      const text = result.event === "EXIT"
+        ? `Halo ${result.resident.full_name}, izin keluar RTB kamu sudah disetujui satpam. Selamat beraktivitas, jangan lupa buat QR masuk di SIKAT RTB saat kembali ya.`
+        : `Halo ${result.resident.full_name}, kamu sudah tercatat kembali masuk RTB. Terima kasih sudah lapor tepat waktu lewat SIKAT RTB.`;
+      void sendWhatsAppMessage(result.resident.phone_number, text);
+    }
+    return { success: result.message };
+  }
   return { error: result.message };
 }
 
@@ -88,9 +97,10 @@ export async function addResidentAction(_: FormState, formData: FormData): Promi
     gender: String(formData.get("gender") || "") as Gender,
     password: String(formData.get("password") || ""),
   };
+  const phoneNumber = String(formData.get("phoneNumber") || "");
   if (Object.values(values).some((value) => !value.trim()) || !["LAKI_LAKI", "PEREMPUAN"].includes(values.gender) || values.password.length < 8) return { error: "Lengkapi data penghuni, jenis kelamin, dan password awal minimal 8 karakter." };
   if (!(RESIDENT_CLASSES as readonly string[]).includes(values.className)) return { error: "Pilih kelas dari daftar yang tersedia." };
-  const result = addResident(session.accountId, values);
+  const result = addResident(session.accountId, { ...values, phoneNumber });
   if (result.ok) {
     revalidatePath("/manager/users");
     revalidatePath("/manager/stats");
@@ -110,8 +120,9 @@ export async function updateResidentAction(_: FormState, formData: FormData): Pr
     gender: String(formData.get("gender") || "") as Gender,
     residentStatus: String(formData.get("residentStatus") || "ACTIVE") as "ACTIVE" | "INACTIVE",
   };
+  const phoneNumber = String(formData.get("phoneNumber") || "");
   if (!id || !values.fullName.trim() || !values.room.trim() || !values.className.trim() || !["LAKI_LAKI", "PEREMPUAN"].includes(values.gender)) return { error: "Lengkapi data penghuni dan jenis kelamin terlebih dahulu." };
-  const result = updateResident(session.accountId, values);
+  const result = updateResident(session.accountId, { ...values, phoneNumber });
   if (result.ok) {
     revalidatePath("/manager/users");
     revalidatePath("/manager/stats");
@@ -192,6 +203,9 @@ export async function createBroadcastAction(_: FormState, formData: FormData): P
   if (result.ok) {
     revalidatePath("/manager/users");
     revalidatePath("/manager");
+    if (result.recipients?.length) {
+      void sendWhatsAppBroadcast(result.recipients, (fullName) => `Halo ${fullName}, ada pengumuman baru di SIKAT RTB. Silakan buka aplikasi untuk melihat detailnya.`);
+    }
   }
   return result.ok ? { success: result.message } : { error: result.message };
 }

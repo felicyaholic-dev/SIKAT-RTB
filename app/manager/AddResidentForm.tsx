@@ -42,14 +42,20 @@ export function AddResidentForm() {
                   </select>
                 </label>
               </div>
-              <label>
-                Jenis kelamin
-                <select name="gender" defaultValue="" required>
-                  <option value="" disabled>Pilih jenis kelamin</option>
-                  <option value="LAKI_LAKI">Laki-laki</option>
-                  <option value="PEREMPUAN">Perempuan</option>
-                </select>
-              </label>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label>
+                  Jenis kelamin
+                  <select name="gender" defaultValue="" required>
+                    <option value="" disabled>Pilih jenis kelamin</option>
+                    <option value="LAKI_LAKI">Laki-laki</option>
+                    <option value="PEREMPUAN">Perempuan</option>
+                  </select>
+                </label>
+                <label>
+                  Nomor WA <span className="font-normal text-muted">(opsional)</span>
+                  <input name="phoneNumber" inputMode="numeric" placeholder="08xxxxxxxxxx" />
+                </label>
+              </div>
               <label>
                 Password awal
                 <input name="password" type="password" minLength={8} placeholder="Minimal 8 karakter" required />

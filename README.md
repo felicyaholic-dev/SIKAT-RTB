@@ -136,6 +136,7 @@ QR yang tidak valid, kedaluwarsa, dibatalkan, atau dipakai pada status yang tida
 | --- | --- | --- |
 | Master Penghuni & akun mahasiswa | Satu sumber data penghuni sekaligus akun login, dibuat langsung oleh pengelola | CRUD pengelola; ID BCA unik; kelas dipilih dari daftar tetap (PPBP/PPTI); buat data penghuni + akun + password awal dalam satu transaksi; audit log |
 | Laporan tersaring | Pengelola bisa fokus ke kelas/periode/jenis data tertentu tanpa menyaring manual | Filter kelas, periode, dan jenis data (aktivitas keluar-masuk vs penghuni di dalam RTB) di `getReport`/`getResidentsInside`; unduhan CSV mengikuti filter yang sama |
+| Notifikasi WA otomatis (opsional) | Mahasiswa tahu izinnya disetujui atau ada pengumuman baru tanpa buka aplikasi terus-menerus | Kirim pesan lewat sesi WhatsApp Web (`lib/whatsapp.ts`) saat izin disetujui satpam atau Pengelola broadcast; nonaktif kalau `WHATSAPP_ENABLED` belum di-set, lihat §10a |
 | Login berbasis ID BCA | Satu identitas konsisten di seluruh alur | Credential auth, password hash bcrypt, cookie sesi `httpOnly` |
 | RBAC | Memisahkan tampilan dan aksi tiap peran | `role` pada akun + middleware/guard server-side pada route dan action |
 | Pengajuan izin | Menghilangkan input berulang dan memberi jejak digital | Form tervalidasi, nomor izin unik, tabel `permits` |
@@ -187,6 +188,7 @@ Aturan dasar:
 | Rate limiting | Tabel `login_attempts` di SQLite | Maksimal 5 percobaan gagal per 15 menit per ID BCA, untuk login maupun reset password |
 | Security header | `next.config.ts` `headers()` | CSP, `X-Frame-Options`, `Permissions-Policy` (kamera dibatasi ke situs sendiri), `Strict-Transport-Security` |
 | QR | `qrcode` (SVG inline, server-side) + browser scanner | QR dirender lokal tanpa panggilan API pihak ketiga; mendukung scan kamera dan fallback kode manual |
+| Notifikasi WA (opsional) | `@whiskeysockets/baileys` | Kirim pesan WA otomatis lewat sesi WhatsApp Web tanpa akun pihak ketiga berbayar — lihat §10a untuk batasan dan risikonya |
 | Deployment | Railway | Satu service web dengan persistent volume untuk database |
 | Testing | Vitest + Playwright | Menguji logic status/auth dan alur pengguna kritis |
 
@@ -195,7 +197,7 @@ Aturan dasar:
 ```text
 master_residents
   id, bca_id (unique), full_name, room_number, class_name,
-  resident_status, created_at, updated_at
+  resident_status, phone_number (nullable), created_at, updated_at
 
 accounts
   id, resident_id (nullable untuk staf), bca_id (unique), role,
@@ -232,6 +234,33 @@ audit_logs
 - Security header aktif di semua route (`next.config.ts`): `Content-Security-Policy`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Strict-Transport-Security`, dan `Permissions-Policy` yang membatasi kamera hanya untuk situs sendiri (dipakai scanner QR satpam) serta menolak mikrofon/lokasi/pembayaran/USB.
 
 > Verifikasi ID BCA + nama + kamar pada reset password mandiri cukup untuk prototype, tetapi bukan bukti identitas yang kuat jika data tersebut mudah diketahui orang lain. Untuk penggunaan nyata, tambahkan OTP ke kanal resmi sebelum password baru diterima.
+
+## 10a. Notifikasi WhatsApp (opsional)
+
+Mahasiswa dapat menerima pesan WA otomatis saat izin keluar/masuknya disetujui satpam, dan saat Pengelola mengirim
+broadcast baru. Fitur ini **nonaktif secara default** (`WHATSAPP_ENABLED` belum di-set) dan tidak memengaruhi fitur
+lain jika tidak diaktifkan.
+
+**Cara kerja teknis:** `@whiskeysockets/baileys` menyambungkan satu nomor WhatsApp admin ke sistem lewat protokol
+WhatsApp Web (bukan API resmi Meta), jadi gratis dan tidak perlu akun pihak ketiga. Sesi login disimpan di volume
+persisten yang sama dengan database (`data/whatsapp-session/`), supaya tidak perlu scan ulang tiap redeploy.
+
+**Batasan yang perlu disadari:**
+
+- Ini **di luar Business API resmi WhatsApp** — nomor yang dipakai berisiko diblokir WhatsApp jika terdeteksi
+  mengirim pesan otomatis dalam pola yang mencurigakan (volume tinggi, terlalu cepat berturut-turut). Broadcast ke
+  banyak penghuni sengaja diberi jeda antar-pesan untuk menekan risiko ini, tapi risikonya tidak nol.
+- Mahasiswa perlu mengisi nomor WA di Master Penghuni (kolom opsional) supaya bisa menerima notifikasi; yang belum
+  mengisi nomor otomatis dilewati, tidak menyebabkan error.
+- Kalau nomor admin logout dari WhatsApp Web (misalnya dari HP-nya sendiri), sesi terputus dan perlu scan ulang.
+
+**Cara mengaktifkan:**
+
+1. Set `WHATSAPP_ENABLED=true` di environment variable (lokal: `.env.local`; production: pengaturan Railway).
+2. Jalankan/deploy ulang aplikasi. Kode QR akan muncul di log server (`railway logs` untuk production, terminal
+   untuk lokal).
+3. Scan kode QR itu dari HP yang memegang nomor admin, lewat menu **Perangkat Tertaut** di aplikasi WhatsApp.
+4. Setelah tersambung (log menampilkan "Tersambung"), notifikasi otomatis mulai berjalan.
 
 ## 11. Setup lokal
 

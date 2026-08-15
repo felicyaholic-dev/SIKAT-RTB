@@ -11,12 +11,14 @@
     "db:reset-history": "tsx scripts/reset-history.ts"
   },
   "dependencies": {
+    "@whiskeysockets/baileys": "7.0.0-rc14",
     "bcryptjs": "^2.4.3",
     "better-sqlite3": "^11.8.1",
     "jose": "^5.10.0",
     "lucide-react": "^0.468.0",
     "next": "^15.1.4",
     "qrcode": "^1.5.4",
+    "qrcode-terminal": "^0.12.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
@@ -24,6 +26,7 @@
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^22.10.5",
     "@types/qrcode": "^1.5.6",
+    "@types/qrcode-terminal": "^0.12.2",
     "@types/react": "^19.0.3",
     "@types/react-dom": "^19.0.2",
     "eslint": "^9.17.0",
