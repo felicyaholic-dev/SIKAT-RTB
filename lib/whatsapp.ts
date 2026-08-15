@@ -1,102 +1,23 @@
 import "server-only";
 
-import fs from "node:fs";
-import path from "node:path";
-import makeWASocket, { useMultiFileAuthState, type WASocket } from "@whiskeysockets/baileys";
-import qrcodeTerminal from "qrcode-terminal";
 import { normalizePhoneNumber } from "@/lib/db";
 
-// Reuses the same persistent volume as the SQLite database (mounted at
-// DATABASE_URL's directory in production) so the paired session survives
-// redeploys instead of needing a new QR scan every time.
-function sessionDir() {
-  const configured = process.env.DATABASE_URL?.replace(/^file:/, "");
-  const dataDir = configured ? path.dirname(path.resolve(configured)) : path.join(process.cwd(), "data");
-  return path.join(dataDir, "whatsapp-session");
-}
-
-let socket: WASocket | undefined;
-let connecting = false;
-
-const MAX_RECONNECT_ATTEMPTS = 5;
-let reconnectAttempts = 0;
-
-export async function initWhatsApp() {
-  if (process.env.WHATSAPP_ENABLED !== "true") {
-    console.log("[whatsapp] WHATSAPP_ENABLED bukan 'true', koneksi WA tidak dimulai.");
-    return;
-  }
-  if (connecting || socket) return;
-  connecting = true;
-  await connect();
-}
-
-async function connect() {
-  if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-    console.warn(`[whatsapp] Berhenti mencoba setelah ${MAX_RECONNECT_ATTEMPTS} percobaan gagal beruntun. Periksa WHATSAPP_ADMIN_NUMBER atau redeploy untuk mencoba lagi.`);
-    return;
-  }
-  reconnectAttempts += 1;
-  // Backs off before every attempt (including the first) so a crash-looping
-  // connection can't hammer WhatsApp's servers — that pattern is exactly
-  // what its automated abuse detection watches for on unofficial clients.
-  await sleep(Math.min(reconnectAttempts * 5000, 30000));
-  const dir = sessionDir();
-  fs.mkdirSync(dir, { recursive: true });
-  // Baileys utility, not a React hook — the "use" prefix is a naming clash.
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  const { state, saveCreds } = await useMultiFileAuthState(dir);
-
-  const pairingNumber = normalizePhoneNumber(process.env.WHATSAPP_ADMIN_NUMBER);
-  const usePairingCode = Boolean(pairingNumber) && !state.creds.registered;
-  const sock = makeWASocket({ auth: state, printQRInTerminal: false });
-  socket = sock;
-  sock.ev.on("creds.update", saveCreds);
-
-  if (usePairingCode && pairingNumber) {
-    try {
-      const code = await sock.requestPairingCode(pairingNumber);
-      console.log(`[whatsapp] KODE PAIRING: ${code} — buka WhatsApp di ${process.env.WHATSAPP_ADMIN_NUMBER} > Perangkat Tertaut > Tautkan Perangkat > Tautkan dengan nomor telepon, lalu masukkan kode ini.`);
-    } catch (error) {
-      console.warn("[whatsapp] Gagal minta kode pairing:", error instanceof Error ? error.message : error);
-    }
-  }
-
-  sock.ev.on("connection.update", (update) => {
-    const { connection, lastDisconnect, qr } = update;
-    if (qr && !usePairingCode) {
-      console.log("[whatsapp] Scan QR ini dengan WhatsApp di HP admin untuk menyambungkan:");
-      qrcodeTerminal.generate(qr, { small: true });
-    }
-    if (connection === "open") {
-      reconnectAttempts = 0;
-      console.log("[whatsapp] Tersambung.");
-    }
-    if (connection === "close") {
-      socket = undefined;
-      const statusCode = (lastDisconnect?.error as { output?: { statusCode?: number } } | undefined)?.output?.statusCode;
-      const loggedOut = statusCode === 401;
-      if (loggedOut) {
-        console.log("[whatsapp] Sesi tidak valid (status 401) — membersihkan sesi lama dan meminta kode pairing baru…");
-        fs.rmSync(dir, { recursive: true, force: true });
-      } else {
-        console.log(`[whatsapp] Koneksi terputus (status ${statusCode ?? "?"}). Mencoba menyambung ulang…`);
-      }
-      void connect();
-    }
-  });
-}
+const FONNTE_SEND_URL = "https://api.fonnte.com/send";
 
 export async function sendWhatsAppMessage(phoneNumber: string | null | undefined, message: string) {
-  if (process.env.WHATSAPP_ENABLED !== "true") return;
+  const token = process.env.FONNTE_API_KEY;
+  if (!token) return;
   const normalized = normalizePhoneNumber(phoneNumber ?? undefined);
   if (!normalized) return;
-  if (!socket) {
-    console.warn("[whatsapp] Belum tersambung, notifikasi dilewati.");
-    return;
-  }
   try {
-    await socket.sendMessage(`${normalized}@s.whatsapp.net`, { text: message });
+    const response = await fetch(FONNTE_SEND_URL, {
+      method: "POST",
+      headers: { Authorization: token, "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ target: normalized, message }),
+    });
+    if (!response.ok) {
+      console.warn("[whatsapp] Fonnte merespons error:", response.status, await response.text());
+    }
   } catch (error) {
     console.warn("[whatsapp] Gagal mengirim pesan:", error instanceof Error ? error.message : error);
   }
@@ -107,10 +28,10 @@ function sleep(ms: number) {
 }
 
 // Broadcasts go out with a short gap between sends instead of all at once —
-// bursts of outbound messages are one of the patterns WhatsApp's automated
-// abuse detection flags on unofficial connections like this one.
+// gentler on Fonnte's own rate limits and less likely to look like a spam
+// burst to WhatsApp on their end.
 export async function sendWhatsAppBroadcast(recipients: Array<{ phone_number: string; full_name: string }>, message: (fullName: string) => string) {
-  if (process.env.WHATSAPP_ENABLED !== "true") return;
+  if (!process.env.FONNTE_API_KEY) return;
   for (const recipient of recipients) {
     await sendWhatsAppMessage(recipient.phone_number, message(recipient.full_name));
     await sleep(1500);
