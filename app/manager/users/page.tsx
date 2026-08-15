@@ -1,6 +1,9 @@
 import { AppShell } from "@/components/AppShell";
 import { AddResidentForm } from "@/app/manager/AddResidentForm";
 import { DeleteResidentButton, EditResidentForm } from "@/app/manager/EditResidentForm";
+import { DeleteResidentsByClass } from "@/app/manager/DeleteResidentsByClass";
+import { ImportResidentsForm } from "@/app/manager/ImportResidentsForm";
+import { ResetHistoryControl } from "@/app/manager/ResetHistoryControl";
 import { SecurityStaffControl } from "@/app/manager/SecurityStaffControl";
 import { NotificationBroadcast } from "@/app/manager/NotificationBroadcast";
 import { requireRole } from "@/lib/auth";
@@ -30,7 +33,11 @@ export default async function ManagerUsersPage() {
               <h2 className="mt-2 text-lg font-medium tracking-tight">Pengguna yang dapat masuk</h2>
               <p className="mt-1 text-sm text-muted">ID BCA mahasiswa terdiri dari 6 angka dan dipakai sistem untuk membuat akun.</p>
             </div>
-            <AddResidentForm />
+            <div className="flex flex-wrap items-center gap-2.5">
+              <ImportResidentsForm />
+              <DeleteResidentsByClass />
+              <AddResidentForm />
+            </div>
           </div>
           <div className="overflow-auto rounded-xl border border-line bg-white">
             <table className="w-full min-w-[790px] border-collapse">
@@ -80,6 +87,7 @@ export default async function ManagerUsersPage() {
         </section>
 
         <SecurityStaffControl staff={securityStaff} />
+        <ResetHistoryControl />
         <NotificationBroadcast broadcasts={broadcasts} />
       </div>
     </AppShell>

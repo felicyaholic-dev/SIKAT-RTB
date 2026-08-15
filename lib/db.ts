@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import Database from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
+import { RESIDENT_CLASSES } from "@/lib/ui";
 
 export type Role = "STUDENT" | "SECURITY" | "MANAGER";
 export type PermitStatus = "MENUNGGU_KELUAR" | "SEDANG_DI_LUAR" | "MENUNGGU_MASUK" | "SELESAI" | "DIBATALKAN";
@@ -445,10 +446,23 @@ export function getManagerData() {
   return { stats, watchlist, weeklyActivity, residents, securityStaff };
 }
 
-export function addResident(actorId: number, input: { bcaId: string; fullName: string; room: string; className: string; gender: Gender; password: string; phoneNumber?: string }) {
+function normalizeGender(value: string | undefined): Gender | null {
+  const v = (value ?? "").trim().toUpperCase();
+  if (["L", "LAKI-LAKI", "LAKI LAKI", "LAKI_LAKI"].includes(v)) return "LAKI_LAKI";
+  if (["P", "PEREMPUAN"].includes(v)) return "PEREMPUAN";
+  return null;
+}
+
+// Shared by the single-resident form and the bulk Excel import so both paths
+// enforce identical rules (unique ID BCA, known class, 2-per-room cap).
+function insertResidentRow(actorId: number, input: { bcaId: string; fullName: string; room: string; className: string; gender: Gender; password: string; phoneNumber?: string }): { ok: boolean; message: string } {
   const db = getDb();
   const bcaId = normalizeBcaId(input.bcaId);
-  if (!/^\d{6}$/.test(bcaId)) return { ok: false, message: "ID BCA mahasiswa harus terdiri dari 6 angka." };
+  if (!/^\d{6}$/.test(bcaId)) return { ok: false, message: "ID BCA harus terdiri dari 6 angka." };
+  if (!input.fullName.trim() || !input.room.trim()) return { ok: false, message: "Nama lengkap dan kamar wajib diisi." };
+  if (!(RESIDENT_CLASSES as readonly string[]).includes(input.className)) return { ok: false, message: `Kelas "${input.className}" tidak dikenal.` };
+  if (!["LAKI_LAKI", "PEREMPUAN"].includes(input.gender)) return { ok: false, message: "Jenis kelamin tidak valid." };
+  if (input.password.length < 8) return { ok: false, message: "Password awal minimal 8 karakter." };
   const phoneNumber = normalizePhoneNumber(input.phoneNumber);
   if (input.phoneNumber?.trim() && !phoneNumber) return { ok: false, message: "Nomor WA tidak valid. Gunakan format 08xxxxxxxxxx." };
   const existing = db.prepare("SELECT id FROM accounts WHERE bca_id = ?").get(bcaId);
@@ -458,15 +472,41 @@ export function addResident(actorId: number, input: { bcaId: string; fullName: s
   if (occupants.count >= 2) return { ok: false, message: `Kamar ${room} sudah dihuni 2 orang. Satu kamar hanya untuk maksimal 2 penghuni.` };
   try {
     const transaction = db.transaction(() => {
-      const resident = db.prepare("INSERT INTO master_residents (bca_id, full_name, room_number, class_name, gender, phone_number) VALUES (?, ?, ?, ?, ?, ?)").run(bcaId, input.fullName.trim(), input.room.trim().toUpperCase(), input.className.trim(), input.gender, phoneNumber);
+      const resident = db.prepare("INSERT INTO master_residents (bca_id, full_name, room_number, class_name, gender, phone_number) VALUES (?, ?, ?, ?, ?, ?)").run(bcaId, input.fullName.trim(), room, input.className, input.gender, phoneNumber);
       const account = db.prepare("INSERT INTO accounts (resident_id, bca_id, full_name, role, password_hash, must_change_password) VALUES (?, ?, ?, 'STUDENT', ?, 1)").run(resident.lastInsertRowid, bcaId, input.fullName.trim(), bcrypt.hashSync(input.password, 12));
       logAudit(actorId, "CREATE_STUDENT_ACCOUNT", "account", String(account.lastInsertRowid));
     });
     transaction();
-    return { ok: true, message: "Akun mahasiswa berhasil dibuat. User wajib mengganti password saat login pertama." };
+    return { ok: true, message: "Berhasil ditambahkan." };
   } catch {
     return { ok: false, message: "ID BCA sudah terdaftar atau data tidak valid." };
   }
+}
+
+export function addResident(actorId: number, input: { bcaId: string; fullName: string; room: string; className: string; gender: Gender; password: string; phoneNumber?: string }) {
+  const result = insertResidentRow(actorId, input);
+  return result.ok ? { ok: true, message: "Akun mahasiswa berhasil dibuat. User wajib mengganti password saat login pertama." } : result;
+}
+
+// Bulk-create residents from a parsed Excel/CSV sheet. Each row is validated
+// and inserted independently (not one big transaction) so a handful of bad
+// rows don't block the hundreds of good ones — mirrors how spreadsheet
+// importers are expected to behave.
+export function importResidents(actorId: number, rows: Array<{ bcaId: string; fullName: string; room: string; className: string; gender: string; password: string; phoneNumber?: string }>) {
+  const results: Array<{ row: number; ok: boolean; message: string }> = [];
+  rows.forEach((input, index) => {
+    const rowNumber = index + 2; // spreadsheet row, accounting for the header row
+    const gender = normalizeGender(input.gender);
+    if (!gender) {
+      results.push({ row: rowNumber, ok: false, message: `Jenis kelamin "${input.gender}" tidak dikenal (pakai L atau P).` });
+      return;
+    }
+    const result = insertResidentRow(actorId, { ...input, gender });
+    results.push({ row: rowNumber, ok: result.ok, message: result.message });
+  });
+  const successCount = results.filter((r) => r.ok).length;
+  if (successCount > 0) logAudit(actorId, "IMPORT_RESIDENTS", "master_resident", `${successCount} baris berhasil dari ${rows.length}`);
+  return { successCount, failCount: results.length - successCount, results };
 }
 
 export function addSecurityStaff(actorId: number, input: { bcaId: string; fullName: string; gender: Gender; password: string }) {
@@ -556,6 +596,25 @@ export function deleteResident(actorId: number, id: number) {
   });
   transaction();
   return { ok: true, message: `Data penghuni "${resident.full_name}" berhasil dihapus dari sistem.` };
+}
+
+// Bulk version of deleteResident for the yearly turnover case — remove every
+// resident (and their accounts/permit history) in one class at once instead
+// of deleting them one by one.
+export function deleteResidentsByClass(actorId: number, className: string) {
+  const db = getDb();
+  const count = (db.prepare("SELECT COUNT(*) AS count FROM master_residents WHERE class_name = ?").get(className) as { count: number }).count;
+  if (count === 0) return { ok: false, message: `Tidak ada data penghuni di kelas ${className}.` };
+  const transaction = db.transaction(() => {
+    db.prepare(`DELETE FROM permit_events WHERE permit_id IN (SELECT p.id FROM permits p JOIN master_residents r ON r.id = p.resident_id WHERE r.class_name = ?)`).run(className);
+    db.prepare(`DELETE FROM permits WHERE resident_id IN (SELECT id FROM master_residents WHERE class_name = ?)`).run(className);
+    db.prepare(`DELETE FROM notification_deliveries WHERE account_id IN (SELECT a.id FROM accounts a JOIN master_residents r ON r.id = a.resident_id WHERE r.class_name = ?)`).run(className);
+    db.prepare(`DELETE FROM accounts WHERE resident_id IN (SELECT id FROM master_residents WHERE class_name = ?)`).run(className);
+    db.prepare(`DELETE FROM master_residents WHERE class_name = ?`).run(className);
+    logAudit(actorId, "DELETE_RESIDENTS_BY_CLASS", "class", className);
+  });
+  transaction();
+  return { ok: true, message: `${count} data penghuni kelas ${className} berhasil dihapus dari sistem.` };
 }
 
 export function resetStudentPassword(input: { bcaId: string; fullName: string; room: string; password: string }) {
@@ -704,6 +763,38 @@ export function deleteBroadcast(actorId: number, notificationId: number) {
   });
   transaction();
   return { ok: true, message: `Notifikasi "${notification.title}" berhasil dihapus dari seluruh akun.` };
+}
+
+// Yearly cleanup: wipe exit/entry history (and, for the all-classes case,
+// broadcast notifications too) after the manager has archived a report.
+// Accounts, master data, and audit log are never touched.
+export function resetHistory(actorId: number, className?: string) {
+  const db = getDb();
+  const transaction = db.transaction(() => {
+    if (className) {
+      const permitEvents = db.prepare(`
+        DELETE FROM permit_events WHERE permit_id IN (
+          SELECT p.id FROM permits p JOIN master_residents r ON r.id = p.resident_id WHERE r.class_name = ?
+        )
+      `).run(className).changes;
+      const permits = db.prepare(`DELETE FROM permits WHERE resident_id IN (SELECT id FROM master_residents WHERE class_name = ?)`).run(className).changes;
+      logAudit(actorId, "RESET_HISTORY_CLASS", "class", className);
+      return { permitEvents, permits, notificationDeliveries: 0, broadcastNotifications: 0 };
+    }
+    const permitEvents = db.prepare("DELETE FROM permit_events").run().changes;
+    const permits = db.prepare("DELETE FROM permits").run().changes;
+    const notificationDeliveries = db.prepare("DELETE FROM notification_deliveries").run().changes;
+    const broadcastNotifications = db.prepare("DELETE FROM broadcast_notifications").run().changes;
+    logAudit(actorId, "RESET_HISTORY_ALL", "system", "all");
+    return { permitEvents, permits, notificationDeliveries, broadcastNotifications };
+  });
+  const counts = transaction();
+  return {
+    ok: true,
+    message: className
+      ? `Riwayat keluar-masuk kelas ${className} berhasil dihapus (${counts.permits} izin).`
+      : `Riwayat keluar-masuk & notifikasi seluruh sistem berhasil dihapus (${counts.permits} izin).`,
+  };
 }
 
 export function getNotifications(accountId: number) {

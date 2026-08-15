@@ -2,12 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { addResident, addSecurityStaff, cancelPendingPermit, changePassword, clearAttempts, createBroadcast, createPermit, decidePermit, deleteBroadcast, deleteResident, deleteSecurityStaff, isRateLimited, recordFailedAttempt, resetStudentPassword, updateManagerProfile, updateResident, updateSecurityStaff, verifyCredentials, type Gender } from "@/lib/db";
+import { addResident, addSecurityStaff, cancelPendingPermit, changePassword, clearAttempts, createBroadcast, createPermit, decidePermit, deleteBroadcast, deleteResident, deleteResidentsByClass, deleteSecurityStaff, importResidents, isRateLimited, recordFailedAttempt, resetHistory, resetStudentPassword, updateManagerProfile, updateResident, updateSecurityStaff, verifyCredentials, type Gender } from "@/lib/db";
 import { clearSession, createSession, requireRole, requireSession, roleHome } from "@/lib/auth";
+import { parseResidentSheet } from "@/lib/excel-import";
 import { RESIDENT_CLASSES } from "@/lib/ui";
 import { sendPermitEntryConfirmed, sendPermitExitApproved, sendPermitExitRejected, sendWhatsAppBroadcast } from "@/lib/whatsapp";
 
-export type FormState = { error?: string; success?: string };
+export type FormState = { error?: string; success?: string; detail?: string[] };
 
 function formatWaktu(value: string) {
   return new Intl.DateTimeFormat("id-ID", { dateStyle: "long", timeStyle: "short", timeZone: "Asia/Makassar" }).format(new Date(value));
@@ -226,6 +227,58 @@ export async function deleteResidentAction(_: FormState, formData: FormData): Pr
     revalidatePath("/manager");
   }
   return result.ok ? { success: result.message } : { error: result.message };
+}
+
+export async function deleteResidentsByClassAction(_: FormState, formData: FormData): Promise<FormState> {
+  const session = await requireRole("MANAGER");
+  const className = String(formData.get("className") || "");
+  if (!(RESIDENT_CLASSES as readonly string[]).includes(className)) return { error: "Pilih kelas yang valid." };
+  const result = deleteResidentsByClass(session.accountId, className);
+  if (result.ok) {
+    revalidatePath("/manager/users");
+    revalidatePath("/manager/stats");
+    revalidatePath("/manager");
+  }
+  return result.ok ? { success: result.message } : { error: result.message };
+}
+
+export async function resetHistoryAction(_: FormState, formData: FormData): Promise<FormState> {
+  const session = await requireRole("MANAGER");
+  const scope = String(formData.get("scope") || "ALL");
+  const className = String(formData.get("className") || "");
+  if (scope === "CLASS" && !(RESIDENT_CLASSES as readonly string[]).includes(className)) return { error: "Pilih kelas yang valid." };
+  const result = resetHistory(session.accountId, scope === "CLASS" ? className : undefined);
+  revalidatePath("/manager/stats");
+  revalidatePath("/manager");
+  return result.ok ? { success: result.message } : { error: result.message };
+}
+
+export async function importResidentsAction(_: FormState, formData: FormData): Promise<FormState> {
+  const session = await requireRole("MANAGER");
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) return { error: "Pilih file Excel (.xlsx) terlebih dahulu." };
+  if (!file.name.toLowerCase().endsWith(".xlsx")) return { error: "File harus berformat .xlsx." };
+  let rows: Awaited<ReturnType<typeof parseResidentSheet>>;
+  try {
+    rows = await parseResidentSheet(await file.arrayBuffer());
+  } catch {
+    return { error: "Gagal membaca file Excel. Pastikan formatnya sesuai template." };
+  }
+  if (!rows.length) return { error: "Tidak ada data ditemukan di file tersebut." };
+  if (rows.length > 1000) return { error: "Maksimal 1000 baris per impor." };
+
+  const result = importResidents(session.accountId, rows);
+  if (result.successCount > 0) {
+    revalidatePath("/manager/users");
+    revalidatePath("/manager/stats");
+    revalidatePath("/manager");
+  }
+  const failedLines = result.results.filter((r) => !r.ok).map((r) => `Baris ${r.row}: ${r.message}`);
+  if (result.successCount === 0) return { error: `Semua ${result.failCount} baris gagal diimpor.`, detail: failedLines.slice(0, 20) };
+  return {
+    success: `${result.successCount} penghuni berhasil diimpor${result.failCount > 0 ? `, ${result.failCount} baris gagal` : ""}.`,
+    detail: failedLines.length ? failedLines.slice(0, 20) : undefined,
+  };
 }
 
 export async function deleteSecurityStaffAction(_: FormState, formData: FormData): Promise<FormState> {

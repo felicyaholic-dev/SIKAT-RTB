@@ -77,12 +77,11 @@ flowchart TD
 ### 4.1 Setup data oleh pengelola
 
 1. Pengelola memperoleh daftar data penghuni dari proses internal mereka (misalnya Excel hasil rekap).
-2. Pengelola masuk ke **Master Penghuni** dan menambahkan data: ID BCA, nama lengkap, nomor kamar, kelas/angkatan, jenis kelamin, dan password awal.
-3. Sistem membuat data penghuni sekaligus akun login mahasiswa dalam satu langkah. ID BCA divalidasi unik lintas seluruh akun (mahasiswa, satpam, pengelola) — bila sudah dipakai, sistem menolak dengan pesan "ID BCA ini sudah terdaftar, pakai ID BCA lainnya". Nomor kamar dibatasi maksimal 2 penghuni aktif; permintaan ketiga di kamar yang sama ditolak. Setiap penambahan/perubahan dicatat di audit log.
+2. Pengelola masuk ke **Master Penghuni** dan menambahkan data satu per satu (ID BCA, nama lengkap, nomor kamar, kelas/angkatan, jenis kelamin, password awal), **atau** mengimpor banyak penghuni sekaligus lewat **Impor Excel** — unggah file `.xlsx` dengan kolom ID BCA/Nama Lengkap/Kamar/Kelas/Jenis Kelamin/Password Awal/Nomor WA, tiap baris divalidasi dan disimpan independen sehingga baris yang tidak valid dilaporkan tanpa membatalkan baris lain yang valid.
+3. Sistem membuat data penghuni sekaligus akun login mahasiswa dalam satu langkah, baik lewat form maupun impor. ID BCA divalidasi unik lintas seluruh akun (mahasiswa, satpam, pengelola) — bila sudah dipakai, sistem menolak dengan pesan "ID BCA ini sudah terdaftar, pakai ID BCA lainnya". Nomor kamar dibatasi maksimal 2 penghuni aktif; permintaan ketiga di kamar yang sama ditolak. Setiap penambahan/perubahan dicatat di audit log.
 4. Mahasiswa dapat langsung login memakai ID BCA dan password awal tersebut.
-5. Saat penghuni atau satpam sudah tidak lagi berada/bertugas di RTB, pengelola dapat **menonaktifkan** (mencabut akses login, riwayat tetap tersimpan) atau **menghapus permanen** (data, akun, dan riwayat izinnya dihapus dari sistem) dari halaman yang sama.
-
-Excel **tidak diunggah dan tidak menjadi database aplikasi** pada versi awal. Fitur bulk import dapat ditambahkan kemudian bila input satu per satu sudah tidak praktis.
+5. Saat penghuni atau satpam sudah tidak lagi berada/bertugas di RTB, pengelola dapat **menonaktifkan** (mencabut akses login, riwayat tetap tersimpan), **menghapus satu per satu**, atau **menghapus satu kelas sekaligus** (dipakai saat pergantian angkatan) — ketiganya menghapus data, akun, dan riwayat izin terkait secara permanen, kecuali nonaktifkan yang hanya mencabut akses.
+6. Setiap pergantian tahun ajaran, pengelola dapat mengekspor laporan riwayat penuh (halaman Laporan, periode "Semua waktu") sebagai arsip, lalu **Reset riwayat** (seluruh sistem atau per kelas) untuk mengosongkan riwayat izin lama tanpa menghapus akun/master data.
 
 ### 4.2 Login, ganti password wajib, dan reset mandiri
 
@@ -138,7 +137,9 @@ QR yang tidak valid, kedaluwarsa, dibatalkan, atau dipakai pada status yang tida
 
 | Fitur | Tujuan | Cara dibangun |
 | --- | --- | --- |
-| Master Penghuni & Master Satpam | Satu sumber data penghuni/satpam sekaligus akun login, dibuat, diubah, dinonaktifkan, atau dihapus permanen langsung oleh pengelola | CRUD penuh oleh pengelola; ID BCA unik lintas seluruh akun (pesan "ID BCA ini sudah terdaftar, pakai ID BCA lainnya" bila dobel); kelas dipilih dari daftar tetap (PPBP/PPTI); satu kamar dibatasi maksimal 2 penghuni aktif; hapus permanen (beserta akun dan riwayat izinnya) untuk penghuni/satpam yang sudah tidak berada di RTB, terpisah dari nonaktifkan yang hanya mencabut akses; audit log |
+| Master Penghuni & Master Satpam | Satu sumber data penghuni/satpam sekaligus akun login, dibuat, diubah, dinonaktifkan, atau dihapus permanen langsung oleh pengelola | CRUD penuh oleh pengelola; ID BCA unik lintas seluruh akun (pesan "ID BCA ini sudah terdaftar, pakai ID BCA lainnya" bila dobel); kelas dipilih dari daftar tetap (PPBP/PPTI); satu kamar dibatasi maksimal 2 penghuni aktif; hapus permanen satu per satu atau sekelas sekaligus (beserta akun dan riwayat izinnya), terpisah dari nonaktifkan yang hanya mencabut akses; audit log |
+| Impor Excel massal | Onboarding puluhan-ratusan penghuni tiap pergantian angkatan tanpa input satu per satu | Unggah `.xlsx` (kolom ID BCA/Nama/Kamar/Kelas/Jenis Kelamin/Password/Nomor WA), diparsing dengan `exceljs`, tiap baris divalidasi & disimpan independen (`importResidents`) sehingga baris tidak valid dilaporkan tanpa membatalkan baris lain |
+| Reset riwayat keluar-masuk | Mengosongkan data izin lama setiap pergantian tahun ajaran tanpa menyentuh akun/master data | `resetHistory` di halaman Pengaturan pengelola, cakupan seluruh sistem atau per kelas; dianjurkan ekspor CSV "Semua waktu" sebagai arsip dulu sebelum reset, lihat §11a |
 | Laporan tersaring | Pengelola bisa fokus ke kelas/periode/jenis data tertentu tanpa menyaring manual | Filter kelas, periode, dan jenis data (aktivitas keluar-masuk vs penghuni di dalam RTB) di `getReport`/`getResidentsInside`; unduhan CSV mengikuti filter yang sama |
 | Notifikasi WA otomatis (opsional) | Mahasiswa tahu izinnya disetujui/ditolak atau ada pengumuman baru tanpa buka aplikasi terus-menerus | Kirim pesan template lewat WhatsApp Cloud API resmi (`lib/whatsapp.ts`) saat izin diputuskan satpam atau Pengelola broadcast; nonaktif kalau `WHATSAPP_CLOUD_API_TOKEN` belum di-set, lihat §10a |
 | Login berbasis ID BCA | Satu identitas konsisten di seluruh alur | Credential auth, password hash bcrypt, cookie sesi `httpOnly` |
@@ -193,6 +194,7 @@ Aturan dasar:
 | Security header | `next.config.ts` `headers()` | CSP, `X-Frame-Options`, `Permissions-Policy` (kamera dibatasi ke situs sendiri), `Strict-Transport-Security` |
 | QR | `qrcode` (SVG inline, server-side) + browser scanner | QR dirender lokal tanpa panggilan API pihak ketiga; mendukung scan kamera dan fallback kode manual |
 | Notifikasi WA (opsional) | WhatsApp Business Platform (Cloud API resmi Meta) | Panggilan HTTP berbasis template per pesan, tanpa koneksi/sesi persisten di server — lihat §10a |
+| Impor Excel | `exceljs` | Parser `.xlsx` yang aktif dipelihara; sengaja bukan paket `xlsx` npm karena versi yang dipublikasikan di npm (0.18.5) punya CVE prototype-pollution/ReDoS yang belum ada perbaikannya di registry npm |
 | Deployment | Railway | Satu service web dengan persistent volume untuk database |
 | Testing | Vitest + Playwright | Menguji logic status/auth dan alur pengguna kritis |
 
@@ -346,6 +348,20 @@ INITIAL_MANAGERS=[{"bcaId":"033245","name":"Nama Pengelola","password":"password
 
 Setiap Pengelola bootstrap wajib mengganti password pada login pertama. Proses ini idempotent: akun Pengelola yang sudah ada tidak akan ditimpa atau di-reset ketika aplikasi redeploy. Variabel lama `INITIAL_MANAGER_BCA_ID`, `INITIAL_MANAGER_PASSWORD`, dan `INITIAL_MANAGER_NAME` masih didukung untuk satu akun demi kompatibilitas.
 
+## 11a. Reset riwayat tahunan
+
+Setiap pergantian tahun ajaran, jumlah baris `permits`/`permit_events` bisa menumpuk tanpa pernah dibersihkan. Pengelola dapat mengosongkannya lewat halaman **Pengaturan** → **Reset riwayat**, dengan dua cakupan:
+
+- **Seluruh sistem** — menghapus semua `permits`, `permit_events`, `notification_deliveries`, dan `broadcast_notifications`.
+- **Kelas tertentu** — hanya menghapus izin & event milik penghuni di kelas itu; notifikasi broadcast (bersifat untuk seluruh akun, bukan per kelas) tidak ikut terhapus.
+
+Akun, Master Penghuni/Satpam, dan audit log **tidak pernah** ikut terhapus oleh fitur ini. Karena tindakan ini permanen, urutan yang dianjurkan:
+
+1. Buka halaman **Laporan**, pilih periode **"Semua waktu"**, unduh CSV sebagai arsip tahunan (opsional: per kelas).
+2. Baru jalankan **Reset riwayat** dengan cakupan yang sesuai.
+
+Skrip CLI `pnpm db:reset-history` (`scripts/reset-history.ts`) melakukan hal yang sama untuk seluruh sistem dan tetap tersedia untuk reset database lokal saat pengembangan; skrip ini membaca `DATABASE_URL` sehingga menjalankannya dari komputer lokal **tidak akan** memengaruhi database production di Railway — gunakan fitur di halaman Pengaturan (atau `railway run pnpm db:reset-history` untuk cakupan seluruh sistem) saat menyasar production.
+
 ## 12. Deployment Railway
 
 ### Arsitektur
@@ -425,6 +441,5 @@ SQLite cocok pada tahap ini karena operasinya singkat dan jumlah pengguna sediki
 
 - Integrasi langsung dengan sistem ID BCA/Oracle.
 - OTP email/SMS atau SSO.
-- Import Excel massal.
 
 Fitur-fitur tersebut dapat ditambahkan setelah alur inti stabil dan kebutuhan operasional RTB dikonfirmasi.
