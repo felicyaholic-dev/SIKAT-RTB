@@ -426,8 +426,5 @@ SQLite cocok pada tahap ini karena operasinya singkat dan jumlah pengguna sediki
 - Integrasi langsung dengan sistem ID BCA/Oracle.
 - OTP email/SMS atau SSO.
 - Import Excel massal.
-- Notifikasi WhatsApp/email otomatis.
-- Multi-asrama dan multi-tenant.
-- Aplikasi native iOS/Android.
 
 Fitur-fitur tersebut dapat ditambahkan setelah alur inti stabil dan kebutuhan operasional RTB dikonfirmasi.
