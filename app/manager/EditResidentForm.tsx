@@ -4,7 +4,7 @@ import { useActionState, useState } from "react";
 import { Pencil } from "lucide-react";
 import { updateResidentAction, type FormState } from "@/app/actions";
 import { FormModal } from "@/components/FormModal";
-import { btn, formMessage } from "@/lib/ui";
+import { btn, formMessage, RESIDENT_CLASSES } from "@/lib/ui";
 
 const initialState: FormState = {};
 type Resident = { id: number; bca_id: string; full_name: string; room_number: string; class_name: string; gender: string; resident_status: string };
@@ -39,7 +39,14 @@ export function EditResidentForm({ resident }: { resident: Resident }) {
                 </label>
                 <label>
                   Kelas
-                  <input name="className" defaultValue={resident.class_name} required />
+                  <select name="className" defaultValue={resident.class_name} required>
+                    {!(RESIDENT_CLASSES as readonly string[]).includes(resident.class_name) && (
+                      <option value={resident.class_name}>{resident.class_name} (lama)</option>
+                    )}
+                    {RESIDENT_CLASSES.map((className) => (
+                      <option key={className} value={className}>{className}</option>
+                    ))}
+                  </select>
                 </label>
               </div>
               <label>

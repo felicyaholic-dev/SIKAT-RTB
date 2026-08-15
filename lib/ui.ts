@@ -1,5 +1,21 @@
 export type Tone = "safe" | "amber" | "danger" | "muted";
 
+export const RESIDENT_CLASSES = [
+  "PPBP 7",
+  "PPBP 8",
+  "PPBP 9",
+  "PPBP 10",
+  "PPTI 20",
+  "PPTI 21",
+  "PPTI 22",
+  "PPTI 23",
+  "PPTI 24",
+  "PPTI 25",
+  "PPTI 26",
+  "PPTI 27",
+  "PPTI 28",
+] as const;
+
 const toneClasses: Record<Tone, string> = {
   safe: "bg-safe-soft text-safe",
   amber: "bg-amber-soft text-amber",

@@ -546,29 +546,32 @@ const reportPeriodWhere: Record<ReportPeriod, string> = {
   ALL: "1 = 1",
 };
 
-export function getReport(period: ReportPeriod) {
+export function getReport(period: ReportPeriod, className?: string) {
   const db = getDb();
   const where = reportPeriodWhere[period];
+  const classFilter = className ? "AND r.class_name = ?" : "";
+  const params = className ? [className] : [];
   const rows = db.prepare(`
-    SELECT p.permit_code, p.entry_code, r.bca_id, r.full_name, r.room_number, p.destination, p.permit_type,
+    SELECT p.permit_code, p.entry_code, r.bca_id, r.full_name, r.room_number, r.class_name, p.destination, p.permit_type,
       p.planned_departure_at, p.planned_return_at, p.status, p.created_at,
       MAX(CASE WHEN e.event_type = 'EXIT' THEN e.occurred_at END) AS actual_exit_at,
       MAX(CASE WHEN e.event_type = 'ENTRY' THEN e.occurred_at END) AS actual_entry_at
     FROM permits p
     JOIN master_residents r ON r.id = p.resident_id
     LEFT JOIN permit_events e ON e.permit_id = p.id
-    WHERE ${where}
+    WHERE ${where} ${classFilter}
     GROUP BY p.id
     ORDER BY p.created_at DESC
-  `).all() as Array<Record<string, string | null>>;
+  `).all(...params) as Array<Record<string, string | null>>;
   const activity = db.prepare(`
     SELECT
       SUM(CASE WHEN e.event_type = 'EXIT' THEN 1 ELSE 0 END) AS exits,
       SUM(CASE WHEN e.event_type = 'ENTRY' THEN 1 ELSE 0 END) AS entries
     FROM permit_events e
     JOIN permits p ON p.id = e.permit_id
-    WHERE ${where}
-  `).get() as { exits: number | null; entries: number | null };
+    JOIN master_residents r ON r.id = p.resident_id
+    WHERE ${where} ${classFilter}
+  `).get(...params) as { exits: number | null; entries: number | null };
   return {
     rows,
     summary: {
@@ -582,6 +585,19 @@ export function getReport(period: ReportPeriod) {
 
 export function getDailyReport() {
   return getReport("DAY").rows;
+}
+
+export function getResidentsInside(className?: string) {
+  const db = getDb();
+  const classFilter = className ? "AND r.class_name = ?" : "";
+  const params = className ? [className] : [];
+  return db.prepare(`
+    SELECT r.bca_id, r.full_name, r.room_number, r.class_name, r.gender
+    FROM master_residents r
+    WHERE r.resident_status = 'ACTIVE' ${classFilter}
+      AND r.id NOT IN (SELECT resident_id FROM permits WHERE status IN ('SEDANG_DI_LUAR', 'MENUNGGU_MASUK'))
+    ORDER BY r.room_number ASC
+  `).all(...params) as Array<{ bca_id: string; full_name: string; room_number: string; class_name: string; gender: Gender }>;
 }
 
 export function createBroadcast(accountId: number, input: { title: string; body: string }) {

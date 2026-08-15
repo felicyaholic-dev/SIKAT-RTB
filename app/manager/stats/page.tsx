@@ -1,8 +1,10 @@
-import { ArrowUpRight, Building2, CheckCircle2, Clock3, DoorOpen, LogIn, LogOut, type LucideIcon } from "lucide-react";
+import { ArrowUpRight, Building2, CheckCircle2, Clock3, DoorOpen, LogIn, LogOut, Users, type LucideIcon } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { LiveRefresh } from "@/components/LiveRefresh";
+import { ReportFilters } from "@/app/manager/ReportFilters";
 import { requireRole } from "@/lib/auth";
-import { getReport, type ReportPeriod } from "@/lib/db";
+import { getReport, getResidentsInside, type ReportPeriod } from "@/lib/db";
+import { RESIDENT_CLASSES } from "@/lib/ui";
 
 const statTone = {
   safe: "bg-safe-soft text-safe",
@@ -19,12 +21,22 @@ const periods: Array<{ value: ReportPeriod; label: string; description: string }
   { value: "ALL", label: "Semua waktu", description: "Seluruh aktivitas sejak sistem digunakan" },
 ];
 
-export default async function ManagerStatsPage({ searchParams }: { searchParams: Promise<{ period?: string }> }) {
+const jenisOptions = [
+  { value: "keluar", label: "Data keluar-masuk" },
+  { value: "didalam", label: "Penghuni di dalam RTB" },
+] as const;
+
+export default async function ManagerStatsPage({ searchParams }: { searchParams: Promise<{ period?: string; jenis?: string; kelas?: string }> }) {
   const session = await requireRole("MANAGER");
-  const { period: selectedPeriod } = await searchParams;
+  const { period: selectedPeriod, jenis: selectedJenis, kelas: selectedKelas } = await searchParams;
   const period = periods.some((item) => item.value === selectedPeriod) ? selectedPeriod as ReportPeriod : "DAY";
   const periodMeta = periods.find((item) => item.value === period)!;
-  const report = getReport(period);
+  const jenis = selectedJenis === "didalam" ? "didalam" : "keluar";
+  const kelas = selectedKelas && (RESIDENT_CLASSES as readonly string[]).includes(selectedKelas) ? selectedKelas : "";
+  const kelasQuery = kelas ? `&kelas=${encodeURIComponent(kelas)}` : "";
+
+  const report = jenis === "keluar" ? getReport(period, kelas || undefined) : null;
+  const inside = jenis === "didalam" ? getResidentsInside(kelas || undefined) : null;
 
   return (
     <AppShell role="MANAGER" name={session.name}>
@@ -33,43 +45,106 @@ export default async function ManagerStatsPage({ searchParams }: { searchParams:
           <div>
             <p className="security-kicker">PENGELOLA</p>
             <h1 className="mt-2 text-[clamp(2rem,4vw,3.15rem)] font-medium tracking-[-0.06em] text-ink">Laporan</h1>
-            <p className="mt-2 text-sm text-muted">{periodMeta.description} dan unduhan laporan.</p>
+            <p className="mt-2 text-sm text-muted">
+              {jenis === "keluar" ? `${periodMeta.description}${kelas ? ` · kelas ${kelas}` : ""}.` : `Penghuni yang sedang di dalam RTB saat ini${kelas ? ` · kelas ${kelas}` : ""}.`}
+            </p>
           </div>
-          <span className="flex items-center gap-2"><span className="rounded-pill bg-mist px-3 py-2 font-mono text-[10px] tracking-wide text-muted">{periodMeta.label.toUpperCase()}</span><LiveRefresh /></span>
+          <span className="flex items-center gap-2"><span className="rounded-pill bg-mist px-3 py-2 font-mono text-[10px] tracking-wide text-muted">{jenis === "keluar" ? periodMeta.label.toUpperCase() : "SAAT INI"}</span><LiveRefresh /></span>
         </header>
 
-        <nav className="mb-5 inline-flex rounded-2xl border border-line bg-white p-1.5 shadow-[0_8px_20px_rgb(11_103_146_/_0.05)]" aria-label="Periode laporan">
-          {periods.map((item) => <a key={item.value} href={`/manager/stats?period=${item.value}`} className={`rounded-xl px-4 py-2 text-xs font-semibold transition-all ${period === item.value ? "bg-signal text-white shadow-[0_6px_14px_rgb(7_140_255_/_0.22)]" : "text-muted hover:bg-mist hover:text-ink"}`}>{item.label}</a>)}
-        </nav>
+        <div className="mb-5 flex flex-wrap items-center gap-3">
+          <nav className="inline-flex rounded-2xl border border-line bg-white p-1.5 shadow-[0_8px_20px_rgb(11_103_146_/_0.05)]" aria-label="Jenis data">
+            {jenisOptions.map((item) => (
+              <a key={item.value} href={`/manager/stats?jenis=${item.value}&period=${period}${kelasQuery}`} className={`rounded-xl px-4 py-2 text-xs font-semibold transition-all ${jenis === item.value ? "bg-navy text-white shadow-[0_6px_14px_rgb(6_70_111_/_0.25)]" : "text-muted hover:bg-mist hover:text-ink"}`}>{item.label}</a>
+            ))}
+          </nav>
+          <ReportFilters period={period} jenis={jenis} kelas={kelas} />
+        </div>
 
-        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <Stat icon={Building2} label="Pengajuan periode" value={report.summary.permits} note="izin tercatat" tone="safe" />
-          <Stat icon={DoorOpen} label="Keluar RTB" value={report.summary.exits} note="validasi keluar" tone="amber" />
-          <Stat icon={LogIn} label="Kembali ke RTB" value={report.summary.entries} note="validasi masuk" tone="safe" />
-          <Stat icon={Clock3} label="Izin selesai" value={report.summary.completed} note="sudah kembali ke RTB" tone="ink" />
-        </section>
+        {jenis === "keluar" && (
+          <nav className="mb-5 inline-flex rounded-2xl border border-line bg-white p-1.5 shadow-[0_8px_20px_rgb(11_103_146_/_0.05)]" aria-label="Periode laporan">
+            {periods.map((item) => <a key={item.value} href={`/manager/stats?period=${item.value}&jenis=keluar${kelasQuery}`} className={`rounded-xl px-4 py-2 text-xs font-semibold transition-all ${period === item.value ? "bg-signal text-white shadow-[0_6px_14px_rgb(7_140_255_/_0.22)]" : "text-muted hover:bg-mist hover:text-ink"}`}>{item.label}</a>)}
+          </nav>
+        )}
 
-        <article className="security-card mt-5 p-6 text-ink">
-          <p className="security-kicker">RINGKASAN OPERASIONAL</p>
-          <h2 className="mt-2 text-2xl font-medium tracking-tight">{periodMeta.label}</h2>
-          <div className="mt-5 grid border-t border-line sm:grid-cols-3">
-            <span className="flex items-baseline gap-2.5 border-b border-line py-2.5">
-              <LogOut size={16} className="text-amber" /><b className="font-mono text-2xl text-amber">{report.summary.exits}</b>
-              <small className="text-muted">keluar</small>
-            </span>
-            <span className="flex items-baseline gap-2.5 border-b border-line py-2.5">
-              <LogIn size={16} className="text-safe" /><b className="font-mono text-2xl text-signal">{report.summary.entries}</b>
-              <small className="text-muted">masuk</small>
-            </span>
-            <span className="flex items-baseline gap-2.5 border-b border-line py-2.5">
-              <CheckCircle2 size={16} className="text-safe" /><b className="font-mono text-2xl text-signal">{report.summary.completed}</b>
-              <small className="text-muted">selesai</small>
-            </span>
-          </div>
-          <a href={`/api/reports/daily.csv?period=${period}`} className="mt-5 inline-flex items-center gap-1.5 border-b border-signal/50 pb-0.5 text-xs text-signal hover:border-signal">
-            Unduh CSV {periodMeta.label.toLowerCase()} <ArrowUpRight size={15} strokeWidth={1.8} />
-          </a>
-        </article>
+        {jenis === "keluar" && report && (
+          <>
+            <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <Stat icon={Building2} label="Pengajuan periode" value={report.summary.permits} note="izin tercatat" tone="safe" />
+              <Stat icon={DoorOpen} label="Keluar RTB" value={report.summary.exits} note="validasi keluar" tone="amber" />
+              <Stat icon={LogIn} label="Kembali ke RTB" value={report.summary.entries} note="validasi masuk" tone="safe" />
+              <Stat icon={Clock3} label="Izin selesai" value={report.summary.completed} note="sudah kembali ke RTB" tone="ink" />
+            </section>
+
+            <article className="security-card mt-5 p-6 text-ink">
+              <p className="security-kicker">RINGKASAN OPERASIONAL</p>
+              <h2 className="mt-2 text-2xl font-medium tracking-tight">{periodMeta.label}{kelas ? ` · ${kelas}` : ""}</h2>
+              <div className="mt-5 grid border-t border-line sm:grid-cols-3">
+                <span className="flex items-baseline gap-2.5 border-b border-line py-2.5">
+                  <LogOut size={16} className="text-amber" /><b className="font-mono text-2xl text-amber">{report.summary.exits}</b>
+                  <small className="text-muted">keluar</small>
+                </span>
+                <span className="flex items-baseline gap-2.5 border-b border-line py-2.5">
+                  <LogIn size={16} className="text-safe" /><b className="font-mono text-2xl text-signal">{report.summary.entries}</b>
+                  <small className="text-muted">masuk</small>
+                </span>
+                <span className="flex items-baseline gap-2.5 border-b border-line py-2.5">
+                  <CheckCircle2 size={16} className="text-safe" /><b className="font-mono text-2xl text-signal">{report.summary.completed}</b>
+                  <small className="text-muted">selesai</small>
+                </span>
+              </div>
+              <a href={`/api/reports/daily.csv?period=${period}&jenis=keluar${kelasQuery}`} className="mt-5 inline-flex items-center gap-1.5 border-b border-signal/50 pb-0.5 text-xs text-signal hover:border-signal">
+                Unduh CSV {periodMeta.label.toLowerCase()} <ArrowUpRight size={15} strokeWidth={1.8} />
+              </a>
+            </article>
+          </>
+        )}
+
+        {jenis === "didalam" && inside && (
+          <>
+            <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <Stat icon={Users} label="Penghuni di dalam" value={inside.length} note={kelas ? `kelas ${kelas}` : "seluruh kelas"} tone="safe" />
+            </section>
+
+            <article className="security-card mt-5 overflow-hidden p-5 sm:p-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="security-kicker">DAFTAR PENGHUNI</p>
+                  <h2 className="mt-2 text-lg font-medium tracking-tight text-ink">Di dalam RTB saat ini</h2>
+                </div>
+                <a href={`/api/reports/daily.csv?jenis=didalam${kelasQuery}`} className="inline-flex items-center gap-1.5 border-b border-signal/50 pb-0.5 text-xs text-signal hover:border-signal">
+                  Unduh CSV <ArrowUpRight size={15} strokeWidth={1.8} />
+                </a>
+              </div>
+              {inside.length ? (
+                <div className="mt-5 overflow-auto rounded-xl border border-line">
+                  <table className="w-full min-w-[560px] border-collapse">
+                    <thead>
+                      <tr>
+                        <th className="px-4 py-3 text-left font-mono text-[10px] font-medium tracking-wide text-muted">Penghuni</th>
+                        <th className="px-4 py-3 text-left font-mono text-[10px] font-medium tracking-wide text-muted">ID BCA</th>
+                        <th className="px-4 py-3 text-left font-mono text-[10px] font-medium tracking-wide text-muted">Kamar</th>
+                        <th className="px-4 py-3 text-left font-mono text-[10px] font-medium tracking-wide text-muted">Kelas</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {inside.map((resident) => (
+                        <tr key={resident.bca_id} className="border-t border-line transition-colors duration-150 hover:bg-signal-soft/40">
+                          <td className="px-4 py-3 text-xs font-semibold text-ink">{resident.full_name}</td>
+                          <td className="px-4 py-3"><code className="font-mono text-[10px] text-muted">{resident.bca_id}</code></td>
+                          <td className="px-4 py-3 text-xs">{resident.room_number}</td>
+                          <td className="px-4 py-3 text-xs text-muted">{resident.class_name}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="mt-5 py-10 text-center text-sm text-muted">Tidak ada penghuni yang cocok dengan filter ini.</p>
+              )}
+            </article>
+          </>
+        )}
       </div>
     </AppShell>
   );

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { addResident, addSecurityStaff, cancelPendingPermit, changePassword, clearAttempts, createBroadcast, createPermit, decidePermit, deleteBroadcast, isRateLimited, recordFailedAttempt, resetStudentPassword, updateManagerProfile, updateResident, updateSecurityStaff, verifyCredentials, type Gender } from "@/lib/db";
 import { clearSession, createSession, requireRole, requireSession, roleHome } from "@/lib/auth";
+import { RESIDENT_CLASSES } from "@/lib/ui";
 
 export type FormState = { error?: string; success?: string };
 
@@ -88,6 +89,7 @@ export async function addResidentAction(_: FormState, formData: FormData): Promi
     password: String(formData.get("password") || ""),
   };
   if (Object.values(values).some((value) => !value.trim()) || !["LAKI_LAKI", "PEREMPUAN"].includes(values.gender) || values.password.length < 8) return { error: "Lengkapi data penghuni, jenis kelamin, dan password awal minimal 8 karakter." };
+  if (!(RESIDENT_CLASSES as readonly string[]).includes(values.className)) return { error: "Pilih kelas dari daftar yang tersedia." };
   const result = addResident(session.accountId, values);
   if (result.ok) {
     revalidatePath("/manager/users");

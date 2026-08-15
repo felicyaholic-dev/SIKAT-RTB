@@ -4,7 +4,7 @@ import { useState, useActionState } from "react";
 import { Plus } from "lucide-react";
 import { addResidentAction, type FormState } from "@/app/actions";
 import { FormModal } from "@/components/FormModal";
-import { btn, formMessage } from "@/lib/ui";
+import { btn, formMessage, RESIDENT_CLASSES } from "@/lib/ui";
 
 const initialState: FormState = {};
 
@@ -34,7 +34,12 @@ export function AddResidentForm() {
                 </label>
                 <label>
                   Kelas
-                  <input name="className" placeholder="BCA Learning 2025" required />
+                  <select name="className" defaultValue="" required>
+                    <option value="" disabled>Pilih kelas</option>
+                    {RESIDENT_CLASSES.map((className) => (
+                      <option key={className} value={className}>{className}</option>
+                    ))}
+                  </select>
                 </label>
               </div>
               <label>
