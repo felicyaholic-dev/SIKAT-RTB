@@ -1,21 +1,21 @@
 type MarkTone = "ink" | "light" | "signal";
 
-const tones: Record<MarkTone, { ring: string; badge: string; check: string; stroke: string }> = {
-  ink: { ring: "var(--color-ink)", badge: "var(--color-signal)", check: "#fff", stroke: "var(--color-paper)" },
-  light: { ring: "#f7f4ec", badge: "#f7f4ec", check: "var(--color-navy)", stroke: "none" },
-  signal: { ring: "var(--color-signal)", badge: "var(--color-ink)", check: "#fff", stroke: "var(--color-paper)" },
-};
-
-export function BrandMark({ tone = "ink", size = 40 }: { tone?: MarkTone; size?: number }) {
-  const c = tones[tone];
+export function BrandMark({ size = 40 }: { tone?: MarkTone; size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 40 40" fill="none" aria-hidden>
-      {/* Seal: a permit stamp — double ring, a gate glyph, and a validated check. */}
-      <circle cx="20" cy="20" r="17.25" stroke={c.ring} strokeWidth="1.6" />
-      <circle cx="20" cy="20" r="13.5" stroke={c.ring} strokeWidth="1" strokeDasharray="1.5 3.2" opacity="0.55" />
-      <path d="M13 15h14M14.5 15v12M25.5 15v12" stroke={c.ring} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="28.5" cy="28.5" r="7.25" fill={c.badge} stroke={c.stroke} strokeWidth="2" />
-      <path d="M25.6 28.6l1.9 1.9 3.6-4" stroke={c.check} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+    <svg width={size} height={size} viewBox="0 0 512 512" aria-hidden>
+      <defs>
+        <linearGradient id="brandMarkBg" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="var(--color-signal-2)" />
+          <stop offset="100%" stopColor="var(--color-signal)" />
+        </linearGradient>
+      </defs>
+      <rect x="46" y="46" width="420" height="420" rx="120" fill="url(#brandMarkBg)" />
+      <path d="M165,238 L256,146 L347,238" fill="none" stroke="#fff" strokeWidth="37" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M208,342 L208,275 A48,48 0 0 1 304,275 L304,342" fill="none" stroke="#fff" strokeWidth="32" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="422" cy="90" r="58" fill="#fff" />
+      <path d="M400,112 L444,68 M444,68 L444,84 M444,68 L428,68" fill="none" stroke="var(--color-signal)" strokeWidth="11" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="90" cy="422" r="58" fill="#fff" />
+      <path d="M112,400 L68,444 M68,444 L68,428 M68,444 L84,444" fill="none" stroke="var(--color-signal)" strokeWidth="11" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -23,9 +23,9 @@ export function BrandMark({ tone = "ink", size = 40 }: { tone?: MarkTone; size?:
 export function Brand({ light = false }: { light?: boolean }) {
   return (
     <div className="inline-flex items-center gap-2.5">
-      <BrandMark tone={light ? "light" : "ink"} size={36} />
+      <BrandMark size={36} />
       <span className="flex flex-col leading-none">
-        <strong className={`text-[17px] font-bold tracking-tight ${light ? "text-white" : "text-ink"}`}>SIKAT</strong>
+        <strong className={`font-display text-[18px] font-bold tracking-tight ${light ? "text-white" : "text-signal"}`}>SIKAT</strong>
         <small className={`mt-1 font-mono text-[9px] font-medium tracking-[0.22em] ${light ? "text-white/60" : "text-muted"}`}>RUMAH TALENTA BCA</small>
       </span>
     </div>
