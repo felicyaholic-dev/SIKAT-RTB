@@ -139,7 +139,7 @@ QR yang tidak valid, kedaluwarsa, dibatalkan, atau dipakai pada status yang tida
 | --- | --- | --- |
 | Master Penghuni & akun mahasiswa | Satu sumber data penghuni sekaligus akun login, dibuat langsung oleh pengelola | CRUD pengelola; ID BCA unik; kelas dipilih dari daftar tetap (PPBP/PPTI); buat data penghuni + akun + password awal dalam satu transaksi; audit log |
 | Laporan tersaring | Pengelola bisa fokus ke kelas/periode/jenis data tertentu tanpa menyaring manual | Filter kelas, periode, dan jenis data (aktivitas keluar-masuk vs penghuni di dalam RTB) di `getReport`/`getResidentsInside`; unduhan CSV mengikuti filter yang sama |
-| Notifikasi WA otomatis (opsional) | Mahasiswa tahu izinnya disetujui/ditolak atau ada pengumuman baru tanpa buka aplikasi terus-menerus | Kirim pesan lewat API Fonnte (`lib/whatsapp.ts`) saat izin diputuskan satpam atau Pengelola broadcast; nonaktif kalau `FONNTE_API_KEY` belum di-set, lihat §10a |
+| Notifikasi WA otomatis (opsional) | Mahasiswa tahu izinnya disetujui/ditolak atau ada pengumuman baru tanpa buka aplikasi terus-menerus | Kirim pesan template lewat WhatsApp Cloud API resmi (`lib/whatsapp.ts`) saat izin diputuskan satpam atau Pengelola broadcast; nonaktif kalau `WHATSAPP_CLOUD_API_TOKEN` belum di-set, lihat §10a |
 | Login berbasis ID BCA | Satu identitas konsisten di seluruh alur | Credential auth, password hash bcrypt, cookie sesi `httpOnly` |
 | RBAC | Memisahkan tampilan dan aksi tiap peran | `role` pada akun + middleware/guard server-side pada route dan action |
 | Pengajuan izin | Menghilangkan input berulang dan memberi jejak digital | Form tervalidasi, nomor izin unik, tabel `permits` |
@@ -191,7 +191,7 @@ Aturan dasar:
 | Rate limiting | Tabel `login_attempts` di SQLite | Maksimal 5 percobaan gagal per 15 menit per ID BCA, untuk login maupun reset password |
 | Security header | `next.config.ts` `headers()` | CSP, `X-Frame-Options`, `Permissions-Policy` (kamera dibatasi ke situs sendiri), `Strict-Transport-Security` |
 | QR | `qrcode` (SVG inline, server-side) + browser scanner | QR dirender lokal tanpa panggilan API pihak ketiga; mendukung scan kamera dan fallback kode manual |
-| Notifikasi WA (opsional) | API Fonnte (`https://api.fonnte.com/send`) | Panggilan HTTP sederhana per pesan, tanpa koneksi/sesi persisten di server — lihat §10a |
+| Notifikasi WA (opsional) | WhatsApp Business Platform (Cloud API resmi Meta) | Panggilan HTTP berbasis template per pesan, tanpa koneksi/sesi persisten di server — lihat §10a |
 | Deployment | Railway | Satu service web dengan persistent volume untuk database |
 | Testing | Vitest + Playwright | Menguji logic status/auth dan alur pengguna kritis |
 
@@ -241,37 +241,54 @@ audit_logs
 ## 10a. Notifikasi WhatsApp (opsional)
 
 Mahasiswa dapat menerima pesan WA otomatis saat izin keluar/masuknya disetujui **atau ditolak** satpam, dan saat
-Pengelola mengirim broadcast baru. Fitur ini **nonaktif secara default** (`FONNTE_API_KEY` belum di-set) dan tidak
-memengaruhi fitur lain jika tidak diaktifkan.
+Pengelola mengirim broadcast baru. Fitur ini **nonaktif secara default** (`WHATSAPP_CLOUD_API_TOKEN` belum di-set)
+dan tidak memengaruhi fitur lain jika tidak diaktifkan.
 
-**Cara kerja teknis:** pesan dikirim lewat API [Fonnte](https://fonnte.com), layanan gateway WhatsApp pihak ketiga —
-satu panggilan HTTP POST per pesan ke `https://api.fonnte.com/send`, tanpa koneksi atau sesi persisten yang perlu
-dijaga di server aplikasi ini (`lib/whatsapp.ts`). Nomor WhatsApp pengirim dihubungkan sekali di dashboard Fonnte
-(scan QR di sana, bukan di server), lalu device token dari Fonnte itu yang dipakai untuk autentikasi API.
+**Cara kerja teknis:** pesan dikirim lewat **WhatsApp Business Platform (Cloud API)** resmi dari Meta — satu
+panggilan HTTP POST per pesan ke Graph API (`lib/whatsapp.ts`), tanpa koneksi atau sesi persisten di server ini.
+Karena ini jalur resmi, pesan proaktif (di luar jendela obrolan yang dimulai pengguna) **wajib** memakai template
+yang sudah disetujui Meta — tidak bisa teks bebas.
 
-> Sistem ini sempat mencoba jalur gratis tanpa akun pihak ketiga (`@whiskeysockets/baileys`, menyambung langsung
-> lewat protokol WhatsApp Web), tapi percobaan pairing berulang dalam waktu singkat memicu penolakan dari sisi
-> WhatsApp. Fonnte dipilih sebagai gantinya karena koneksinya berjalan di infrastruktur mereka sendiri, terpisah
-> dari percobaan yang sempat gagal itu, dan punya kuota gratis untuk skala kecil seperti ini.
+> Sistem ini sempat mencoba dua jalur gratis tanpa API resmi: `@whiskeysockets/baileys` (menyambung langsung lewat
+> protokol WhatsApp Web) dan Fonnte (gateway pihak ketiga yang memakai teknik serupa dari sisi server mereka).
+> Keduanya menyebabkan nomor yang dipakai kena pembatasan dari WhatsApp — percobaan pertama karena pairing
+> berulang dalam waktu singkat, percobaan kedua kemungkinan karena kombinasi nomor baru tanpa riwayat pemakaian
+> dan siklus sambung-putus device yang berulang. Cloud API resmi dipilih sebagai jalur akhir karena satu-satunya
+> yang benar-benar bebas dari risiko pembatasan itu — bukan sekadar memasang aplikasi WhatsApp Business di HP,
+> yang tetap tunduk pada aturan anti-spam yang sama seperti akun WhatsApp biasa.
+
+**Empat template yang perlu dibuat dan disetujui di WhatsApp Manager** (kategori **Utility**, bahasa Indonesia):
+
+| Nama template | Isi (baris `{{n}}` adalah variabel) |
+| --- | --- |
+| `sikat_izin_keluar_disetujui` | Yth. `{{1}}`,\n\nPengajuan izin keluar Anda telah disetujui oleh petugas keamanan RTB.\n\nKode Izin: `{{2}}`\nKeterangan: `{{3}}`\nWaktu Keluar: `{{4}}`\n\nMohon melapor kembali melalui aplikasi SIKAT RTB setelah Anda tiba kembali di RTB.\n\nTerima kasih.\n— Sistem SIKAT RTB |
+| `sikat_izin_keluar_ditolak` | Yth. `{{1}}`,\n\nMohon maaf, pengajuan izin keluar Anda ditolak oleh petugas keamanan RTB di gerbang.\n\nKode Izin: `{{2}}`\nKeterangan: `{{3}}`\n\nAnda tetap tercatat berada di dalam RTB. Untuk informasi lebih lanjut, silakan menghubungi petugas keamanan secara langsung.\n\nTerima kasih.\n— Sistem SIKAT RTB |
+| `sikat_konfirmasi_masuk` | Yth. `{{1}}`,\n\nAnda telah tercatat kembali masuk ke RTB, dikonfirmasi oleh petugas keamanan.\n\nKode Konfirmasi: `{{2}}`\nWaktu Masuk: `{{3}}`\n\nTerima kasih telah melapor tepat waktu melalui aplikasi SIKAT RTB.\n— Sistem SIKAT RTB |
+| `sikat_notifikasi_baru` | Yth. `{{1}}`,\n\nTerdapat notifikasi terbaru dari Pengelola RTB di aplikasi SIKAT RTB:\n\n`{{2}}`\n\nMohon segera membuka aplikasi SIKAT RTB untuk memeriksa informasi lengkapnya.\n\nTerima kasih.\n— Sistem SIKAT RTB |
 
 **Batasan yang perlu disadari:**
 
-- Fonnte punya kuota gratis terbatas per bulan; kalau kebutuhan bertambah besar, mungkin perlu upgrade paket
-  berbayar di sisi mereka.
+- Approval template oleh Meta tidak instan — bisa dari beberapa menit sampai sekitar 24 jam.
+- Nomor pengirim yang didaftarkan ke Cloud API **tidak bisa dipakai bersamaan** di aplikasi WhatsApp/WhatsApp
+  Business biasa; sebaiknya pakai nomor khusus yang belum pernah dipakai WhatsApp sama sekali.
 - Mahasiswa perlu mengisi nomor WA di Master Penghuni (kolom opsional) supaya bisa menerima notifikasi; yang belum
   mengisi nomor otomatis dilewati, tidak menyebabkan error.
-- Kalau device di dashboard Fonnte berstatus "Disconnected" (mis. nomor admin logout dari WhatsApp-nya sendiri),
-  pengiriman gagal diam-diam (dicatat sebagai warning di log, tidak menggagalkan proses lain) sampai device
-  disambungkan ulang di dashboard Fonnte.
+- Ada kuota gratis bulanan dari Meta untuk percakapan kategori utility; di luar kuota itu berbayar (biasanya masih
+  murah untuk skala satu RTB).
 
 **Cara mengaktifkan:**
 
-1. Daftar akun gratis di [fonnte.com](https://fonnte.com), tambahkan device, dan sambungkan nomor WhatsApp admin
-   lewat QR **di dashboard Fonnte**.
-2. Salin device token dari dashboard, lalu set `FONNTE_API_KEY=<token>` di environment variable (lokal:
-   `.env.local`; production: pengaturan Railway) — jangan pernah commit token ini ke git.
-3. Deploy ulang aplikasi. Tidak perlu langkah tambahan di server — notifikasi otomatis aktif begitu variabelnya
-   terbaca.
+1. Buat/masuk ke Meta Business Account di [business.facebook.com](https://business.facebook.com), lalu buat App
+   bertipe Business di [developers.facebook.com](https://developers.facebook.com) dan tambahkan produk WhatsApp.
+2. Di WhatsApp Manager, buat keempat template pada tabel di atas persis sesuai teksnya, kirim untuk direview.
+3. Setelah nomor bisnis diverifikasi, catat **Phone Number ID** dan **Access Token** (token permanen lewat System
+   User untuk production, bukan token sementara 24 jam).
+4. Set `WHATSAPP_CLOUD_API_TOKEN=<access token>` dan `WHATSAPP_PHONE_NUMBER_ID=<phone number id>` sebagai
+   environment variable (lokal: `.env.local`; production: pengaturan Railway) — jangan pernah commit nilai ini ke
+   git.
+5. Deploy ulang. Notifikasi otomatis aktif begitu keempat template berstatus disetujui dan variabelnya terbaca;
+   sebelum disetujui, panggilan API akan gagal dengan pesan error dari Meta yang tercatat di log, tanpa
+   mengganggu proses lain.
 
 ## 11. Setup lokal
 

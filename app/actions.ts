@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { addResident, addSecurityStaff, cancelPendingPermit, changePassword, clearAttempts, createBroadcast, createPermit, decidePermit, deleteBroadcast, isRateLimited, recordFailedAttempt, resetStudentPassword, updateManagerProfile, updateResident, updateSecurityStaff, verifyCredentials, type Gender } from "@/lib/db";
 import { clearSession, createSession, requireRole, requireSession, roleHome } from "@/lib/auth";
 import { RESIDENT_CLASSES } from "@/lib/ui";
-import { sendWhatsAppBroadcast, sendWhatsAppMessage } from "@/lib/whatsapp";
+import { sendPermitEntryConfirmed, sendPermitExitApproved, sendPermitExitRejected, sendWhatsAppBroadcast } from "@/lib/whatsapp";
 
 export type FormState = { error?: string; success?: string };
 
@@ -83,18 +83,9 @@ export async function validatePermitAction(_: FormState, formData: FormData): Pr
     if (result.resident && result.notif) {
       const { full_name, phone_number } = result.resident;
       const { permitCode, entryCode, destination, departureAt, returnAt } = result.notif;
-      const text = result.event === "EXIT"
-        ? `Yth. ${full_name},\n\nPengajuan izin keluar Anda telah *disetujui* oleh petugas keamanan RTB.\n\n` +
-          `Kode Izin: ${permitCode}\nKeterangan: ${destination}\nWaktu Keluar: ${formatWaktu(departureAt)}\n\n` +
-          `Mohon melapor kembali melalui aplikasi SIKAT RTB setelah Anda tiba kembali di RTB.\n\nTerima kasih.\n— Sistem SIKAT RTB`
-        : result.event === "EXIT_REJECTED"
-        ? `Yth. ${full_name},\n\nMohon maaf, pengajuan izin keluar Anda *ditolak* oleh petugas keamanan RTB di gerbang.\n\n` +
-          `Kode Izin: ${permitCode}\nKeterangan: ${destination}\n\n` +
-          `Anda tetap tercatat berada di dalam RTB. Untuk informasi lebih lanjut, silakan menghubungi petugas keamanan secara langsung.\n\nTerima kasih.\n— Sistem SIKAT RTB`
-        : `Yth. ${full_name},\n\nAnda telah *tercatat kembali masuk* ke RTB, dikonfirmasi oleh petugas keamanan.\n\n` +
-          `Kode Konfirmasi: ${entryCode}\nWaktu Masuk: ${formatWaktu(returnAt)}\n\n` +
-          `Terima kasih telah melapor tepat waktu melalui aplikasi SIKAT RTB.\n— Sistem SIKAT RTB`;
-      void sendWhatsAppMessage(phone_number, text);
+      if (result.event === "EXIT") void sendPermitExitApproved(phone_number, full_name, permitCode, destination, formatWaktu(departureAt));
+      else if (result.event === "EXIT_REJECTED") void sendPermitExitRejected(phone_number, full_name, permitCode, destination);
+      else void sendPermitEntryConfirmed(phone_number, full_name, entryCode ?? "-", formatWaktu(returnAt));
     }
     return { success: result.message };
   }
@@ -218,9 +209,7 @@ export async function createBroadcastAction(_: FormState, formData: FormData): P
     revalidatePath("/manager/users");
     revalidatePath("/manager");
     if (result.recipients?.length) {
-      void sendWhatsAppBroadcast(result.recipients, (fullName) =>
-        `Yth. ${fullName},\n\nTerdapat notifikasi terbaru dari Pengelola RTB di aplikasi SIKAT RTB:\n\n*${result.title}*\n\n` +
-        `Mohon segera membuka aplikasi SIKAT RTB untuk memeriksa informasi lengkapnya.\n\nTerima kasih.\n— Sistem SIKAT RTB`);
+      void sendWhatsAppBroadcast(result.recipients, result.title);
     }
   }
   return result.ok ? { success: result.message } : { error: result.message };
