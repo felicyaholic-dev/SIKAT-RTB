@@ -59,16 +59,19 @@ flowchart TD
   H1 --> Finish
   FD -->|Tidak| G{Satpam pindai QR}
   G -->|Tolak| G1[Status: DIBATALKAN]
-  G1 --> Finish
+  G1 --> WAR[Kirim notifikasi WA: izin ditolak]
+  WAR --> Finish
   G -->|Setuju| H[Status: SEDANG_DI_LUAR]
-  H --> I[Mahasiswa ajukan kembali, isi waktu kembali]
+  H --> WAA[Kirim notifikasi WA: izin disetujui]
+  WAA --> I[Mahasiswa ajukan kembali, isi waktu kembali]
   I --> J["Status: MENUNGGU_MASUK — kode SKM-"]
   J --> JD{Dibatalkan mahasiswa sebelum diproses satpam?}
   JD -->|Ya| J1[Pengajuan dihapus dari sistem]
   J1 --> Finish
   JD -->|Tidak| K[Satpam setujui masuk]
   K --> L[Status: SELESAI, masuk riwayat]
-  L --> Finish
+  L --> WAM[Kirim notifikasi WA: konfirmasi masuk]
+  WAM --> Finish
 ```
 
 ### 4.1 Setup data oleh pengelola
