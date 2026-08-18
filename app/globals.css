@@ -1,9 +1,18 @@
 @import "tailwindcss";
 
+/* Manual light/dark toggle: an explicit choice stamps data-theme on <html>;
+   with no explicit choice, the system preference below decides. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 @theme {
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, "SFMono-Regular", monospace;
   --font-display: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
+
+  /* Extra breakpoint below Tailwind's default "sm" (40rem), used by the
+     landing page nav to swap in the short "Masuk" label on very narrow
+     phones before switching to the full "Masuk sistem" from 30rem up. */
+  --breakpoint-xs: 30rem;
 
   /* Color tokens are a direct transcription of the reference prototype's
      palette (same hex values, not an approximation). Navy is kept for text
@@ -79,6 +88,123 @@
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
   }
+}
+
+/* Gradient/surface stops used by custom component classes below — kept as
+   plain vars (not @theme colors) so dark mode only has to redefine them once
+   here instead of duplicating every gradient declaration. Light defaults. */
+:root {
+  --hero-sky-1: #fbfeff;
+  --hero-sky-2: #eaf7ff;
+  --hero-sky-3: #d7efff;
+  --hero-stage-1: #fbfeff;
+  --hero-stage-2: #edfaff;
+  --hero-stage-3: #d6f1ff;
+  --hero-grid-line: rgb(35 160 222 / 0.08);
+  --hero-glow-bg: rgb(255 255 255 / 0.16);
+  --hero-glow-border: rgb(255 255 255 / 0.45);
+  --role-stage-1: #f4fbff;
+  --role-stage-2: #e9f7ff;
+  --security-shell-bg: #f4fbfe;
+  --security-main-glow: rgb(181 234 255 / 0.45);
+  --security-main-1: #f9fdff;
+  --security-main-2: #f1faff;
+  --security-main-3: #eaf8ff;
+  --glass-surface: rgb(255 255 255 / 0.86);
+  --glass-surface-strong: rgb(255 255 255 / 0.96);
+  --glass-surface-soft: rgb(255 255 255 / 0.82);
+  --glass-border: #d6edf6;
+  --glass-border-soft: #d7edf6;
+  --donut-inner-bg: #ffffff;
+}
+
+/* Dark palette: the brand's own navy + sky-blue, inverted into a night-sky
+   ground rather than a generic grey — deep navy surfaces, brighter blue
+   accents so they still pop against the dark ground. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-paper: #0a1622;
+    --color-surface: #101f2e;
+    --color-ink: #eaf3fb;
+    --color-navy: #bfe0f7;
+    --color-muted: #83a0b8;
+    --color-line: #22384a;
+    --color-mist: #16283a;
+    --color-signal: #33a1ff;
+    --color-signal-2: #5fd4ff;
+    --color-signal-soft: #123049;
+    --color-safe: #33a1ff;
+    --color-safe-soft: #123049;
+    --color-amber: #f0a63e;
+    --color-amber-soft: #3a2a0f;
+    --color-danger: #ff6b7f;
+    --color-danger-soft: #3a1620;
+
+    --hero-sky-1: #0a1622;
+    --hero-sky-2: #0f2233;
+    --hero-sky-3: #123049;
+    --hero-stage-1: #0a1622;
+    --hero-stage-2: #0e1f2e;
+    --hero-stage-3: #123049;
+    --hero-grid-line: rgb(95 212 255 / 0.10);
+    --hero-glow-bg: rgb(51 161 255 / 0.12);
+    --hero-glow-border: rgb(95 212 255 / 0.22);
+    --role-stage-1: #0a1622;
+    --role-stage-2: #0e1f2e;
+    --security-shell-bg: #0a1622;
+    --security-main-glow: rgb(51 161 255 / 0.16);
+    --security-main-1: #0a1622;
+    --security-main-2: #0d1c29;
+    --security-main-3: #0f2233;
+    --glass-surface: rgb(16 31 46 / 0.88);
+    --glass-surface-strong: rgb(16 31 46 / 0.96);
+    --glass-surface-soft: rgb(16 31 46 / 0.82);
+    --glass-border: #1c3245;
+    --glass-border-soft: #1c3245;
+    --donut-inner-bg: #101f2e;
+  }
+}
+
+:root[data-theme="dark"] {
+  --color-paper: #0a1622;
+  --color-surface: #101f2e;
+  --color-ink: #eaf3fb;
+  --color-navy: #bfe0f7;
+  --color-muted: #83a0b8;
+  --color-line: #22384a;
+  --color-mist: #16283a;
+  --color-signal: #33a1ff;
+  --color-signal-2: #5fd4ff;
+  --color-signal-soft: #123049;
+  --color-safe: #33a1ff;
+  --color-safe-soft: #123049;
+  --color-amber: #f0a63e;
+  --color-amber-soft: #3a2a0f;
+  --color-danger: #ff6b7f;
+  --color-danger-soft: #3a1620;
+
+  --hero-sky-1: #0a1622;
+  --hero-sky-2: #0f2233;
+  --hero-sky-3: #123049;
+  --hero-stage-1: #0a1622;
+  --hero-stage-2: #0e1f2e;
+  --hero-stage-3: #123049;
+  --hero-grid-line: rgb(95 212 255 / 0.10);
+  --hero-glow-bg: rgb(51 161 255 / 0.12);
+  --hero-glow-border: rgb(95 212 255 / 0.22);
+  --role-stage-1: #0a1622;
+  --role-stage-2: #0e1f2e;
+  --security-shell-bg: #0a1622;
+  --security-main-glow: rgb(51 161 255 / 0.16);
+  --security-main-1: #0a1622;
+  --security-main-2: #0d1c29;
+  --security-main-3: #0f2233;
+  --glass-surface: rgb(16 31 46 / 0.88);
+  --glass-surface-strong: rgb(16 31 46 / 0.96);
+  --glass-surface-soft: rgb(16 31 46 / 0.82);
+  --glass-border: #1c3245;
+  --glass-border-soft: #1c3245;
+  --donut-inner-bg: #101f2e;
 }
 
 @layer base {
@@ -158,7 +284,7 @@
   /* The prototype's own hero gradient, used verbatim wherever a section
      needs visual weight — replaces solid dark-navy fills. */
   .bg-hero-sky {
-    background-image: linear-gradient(125deg, #fbfeff, #eaf7ff 63%, #d7efff);
+    background-image: linear-gradient(125deg, var(--hero-sky-1), var(--hero-sky-2) 63%, var(--hero-sky-3));
   }
 
   /* Frosted glass — reserved for the handful of surfaces that float over a
@@ -226,13 +352,13 @@
     background:
       radial-gradient(circle at 86% 28%, rgb(122 211 255 / 0.38), transparent 24rem),
       radial-gradient(circle at 7% 68%, rgb(109 230 255 / 0.18), transparent 23rem),
-      linear-gradient(112deg, #fbfeff 0%, #edfaff 47%, #d6f1ff 100%);
+      linear-gradient(112deg, var(--hero-stage-1) 0%, var(--hero-stage-2) 47%, var(--hero-stage-3) 100%);
   }
   .hero-grid {
     position: absolute;
     inset: 0;
     opacity: 0.23;
-    background-image: linear-gradient(rgb(35 160 222 / 0.08) 1px, transparent 1px), linear-gradient(90deg, rgb(35 160 222 / 0.08) 1px, transparent 1px);
+    background-image: linear-gradient(var(--hero-grid-line) 1px, transparent 1px), linear-gradient(90deg, var(--hero-grid-line) 1px, transparent 1px);
     background-size: 46px 46px;
     mask-image: linear-gradient(to right, transparent, black 46%, transparent);
     pointer-events: none;
@@ -240,8 +366,8 @@
   .hero-glow {
     position: absolute;
     border-radius: 999px;
-    border: 1px solid rgb(255 255 255 / 0.45);
-    background: rgb(255 255 255 / 0.16);
+    border: 1px solid var(--hero-glow-border);
+    background: var(--hero-glow-bg);
     pointer-events: none;
   }
   .hero-glow-one { width: 38rem; height: 38rem; left: -25rem; top: -18rem; }
@@ -291,7 +417,7 @@
   .float-badge { animation: badge-float 4.3s ease-in-out 0.3s infinite; }
   .float-badge-late { animation-delay: 1.15s; }
   .landing-reveal { animation: landing-rise 0.75s cubic-bezier(.22,.8,.25,1) both; }
-  .eyebrow { font-size: 10px; font-weight: 800; letter-spacing: .14em; color: #118aca; }
+  .eyebrow { font-size: 10px; font-weight: 800; letter-spacing: .14em; color: var(--color-signal); }
   .flow-card::after {
     content: "";
     position: absolute;
@@ -303,7 +429,7 @@
     transition: transform .3s ease;
   }
   .flow-card:hover::after { transform: scaleX(1); }
-  .role-stage { background: linear-gradient(180deg, #f4fbff, #e9f7ff); }
+  .role-stage { background: linear-gradient(180deg, var(--role-stage-1), var(--role-stage-2)); }
   .role-orb { position: absolute; width: 38rem; height: 38rem; border-radius: 50%; background: rgb(151 226 255 / .27); filter: blur(65px); left: 50%; top: 40%; transform: translate(-50%, -50%); pointer-events: none; }
   .closing-band { background: linear-gradient(110deg, #07517d 0%, #0879af 63%, #079ad2 100%); }
   .closing-shine { position: absolute; width: 43rem; height: 43rem; right: -23rem; top: -30rem; border: 1px solid rgb(255 255 255 / .14); border-radius: 50%; box-shadow: 0 0 0 40px rgb(255 255 255 / .04), 0 0 0 100px rgb(255 255 255 / .035); }
@@ -312,7 +438,7 @@
   /* Satpam workspace: intentionally calm and operational. The deep-blue
      rail keeps navigation fixed while the pale work surface protects focus
      around the scan-and-decide flow. */
-  .security-shell { background: #f4fbfe; }
+  .security-shell { background: var(--security-shell-bg); }
   .security-sidebar {
     background: linear-gradient(180deg, #096292 0%, #075680 55%, #034a73 100%);
     box-shadow: inset -1px 0 rgb(255 255 255 / .09);
@@ -332,10 +458,10 @@
   .security-sidebar > * { position: relative; }
   .security-access-card { border: 1px solid rgb(255 255 255 / .12); border-radius: 14px; background: rgb(255 255 255 / .065); }
   .security-nav-active { border-color: #62d9ff; border-radius: 10px; background: linear-gradient(90deg, rgb(72 192 245 / .32), rgb(255 255 255 / .08)); color: #fff; font-weight: 700; box-shadow: inset 3px 0 #5bd8ff; }
-  .security-main { min-height: 100vh; background: radial-gradient(circle at 81% 18%, rgb(181 234 255 / .45), transparent 23rem), linear-gradient(135deg, #f9fdff, #f1faff 60%, #eaf8ff); }
+  .security-main { min-height: 100vh; background: radial-gradient(circle at 81% 18%, var(--security-main-glow), transparent 23rem), linear-gradient(135deg, var(--security-main-1), var(--security-main-2) 60%, var(--security-main-3)); }
   .security-page { animation: landing-rise .5s ease-out both; }
-  .security-kicker { font-size: 10px; font-weight: 800; letter-spacing: .13em; color: #158bc7; }
-  .security-card { border: 1px solid #d6edf6; border-radius: 22px; background: rgb(255 255 255 / .86); box-shadow: 0 14px 35px rgb(11 103 146 / .06); }
+  .security-kicker { font-size: 10px; font-weight: 800; letter-spacing: .13em; color: var(--color-signal); }
+  .security-card { border: 1px solid var(--glass-border); border-radius: 22px; background: var(--glass-surface); box-shadow: 0 14px 35px rgb(11 103 146 / .06); }
   .security-scanner { box-shadow: inset 0 0 50px rgb(105 214 255 / .10); }
   .scanner-corner { position: absolute; z-index: 2; width: 28px; height: 28px; border-color: #36b7e3; border-style: solid; pointer-events: none; }
   .scanner-corner-tl { left: 18px; top: 18px; border-width: 3px 0 0 3px; border-radius: 4px 0 0; }
@@ -343,17 +469,17 @@
   .scanner-corner-bl { bottom: 18px; left: 18px; border-width: 0 0 3px 3px; border-radius: 0 0 0 4px; }
   .scanner-corner-br { right: 18px; bottom: 18px; border-width: 0 3px 3px 0; border-radius: 0 0 4px 0; }
   .security-wait-icon { box-shadow: 0 0 0 8px rgb(18 185 122 / .06); }
-  .security-stat-card { display: flex; align-items: center; gap: 16px; min-height: 96px; padding: 18px 20px; border: 1px solid #d7edf6; border-radius: 19px; background: rgb(255 255 255 / .82); box-shadow: 0 10px 25px rgb(11 103 146 / .045); transition: transform .25s ease, box-shadow .25s ease; }
+  .security-stat-card { display: flex; align-items: center; gap: 16px; min-height: 96px; padding: 18px 20px; border: 1px solid var(--glass-border-soft); border-radius: 19px; background: var(--glass-surface-soft); box-shadow: 0 10px 25px rgb(11 103 146 / .045); transition: transform .25s ease, box-shadow .25s ease; }
   .security-stat-card:hover { transform: translateY(-3px); box-shadow: 0 18px 30px rgb(11 103 146 / .1); }
   .security-stat-card span:last-child { display: grid; gap: 1px; }
   .security-stat-card small, .security-stat-card em { font-size: 10px; font-style: normal; color: var(--color-muted); }
   .security-stat-card b { font-size: 25px; line-height: 1.05; letter-spacing: -.05em; color: var(--color-ink); }
-  .security-profile-hero { display: flex; align-items: center; gap: 24px; background: linear-gradient(112deg, rgb(255 255 255 / .96), rgb(225 246 255 / .88)); }
-  .manager-chart { border-bottom: 1px solid var(--color-line); background: repeating-linear-gradient(to top, transparent 0 30px, rgb(213 236 248 / .65) 30px 31px); }
+  .security-profile-hero { display: flex; align-items: center; gap: 24px; background: linear-gradient(112deg, var(--glass-surface-strong), var(--color-signal-soft)); }
+  .manager-chart { border-bottom: 1px solid var(--color-line); background: repeating-linear-gradient(to top, transparent 0 30px, color-mix(in oklab, var(--color-line) 65%, transparent) 30px 31px); }
   .manager-chart span { align-items: end; }
   .manager-chart small { padding-bottom: 6px; font-size: 9px; color: var(--color-muted); }
   .manager-donut { width: 142px; height: 142px; margin-inline: auto; border-radius: 50%; background: var(--color-safe); }
-  .manager-donut > span { display: grid; place-items: center; width: 100px; height: 100px; border-radius: 50%; background: #fff; }
+  .manager-donut > span { display: grid; place-items: center; width: 100px; height: 100px; border-radius: 50%; background: var(--donut-inner-bg); }
   .manager-donut b { font-size: 24px; letter-spacing: -.06em; color: var(--color-ink); }
   .manager-donut small { margin-top: -5px; font-size: 9px; color: var(--color-muted); }
 

@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Poppins } from "next/font/google";
+import Script from "next/script";
 import { SplashScreen } from "@/components/SplashScreen";
+import { ThemeProvider, THEME_INIT_SCRIPT } from "@/components/ThemeProvider";
 import "./globals.css";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
@@ -24,8 +26,11 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="id" className={`${geistSans.variable} ${geistMono.variable} ${poppins.variable}`}>
       <body>
-        <SplashScreen />
-        {children}
+        <Script id="theme-init" strategy="beforeInteractive">{THEME_INIT_SCRIPT}</Script>
+        <ThemeProvider>
+          <SplashScreen />
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -13,6 +13,7 @@ import {
 import { Brand } from "@/components/Brand";
 import { LoginModalProvider, LoginTrigger } from "@/components/LoginModal";
 import { PermitQr } from "@/components/PermitQr";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { generateQrSvg } from "@/lib/qr";
 
 const steps = [
@@ -42,7 +43,8 @@ export default async function LandingPage() {
           <nav className="flex items-center gap-5 sm:gap-8">
             <a href="#alur" className="hidden text-sm font-semibold text-muted transition-colors hover:text-ink sm:block">Cara kerja</a>
             <a href="#peran" className="hidden text-sm font-semibold text-muted transition-colors hover:text-ink sm:block">Fitur</a>
-            <LoginTrigger className="inline-flex items-center gap-2 rounded-[14px] border border-line bg-white/80 px-4 py-3 text-sm font-bold text-signal shadow-[0_8px_22px_rgb(8_105_164_/_0.10)] transition-all duration-300 hover:-translate-y-0.5 hover:border-signal hover:bg-white hover:shadow-[0_12px_28px_rgb(8_140_255_/_0.20)]">
+            <ThemeToggle />
+            <LoginTrigger className="inline-flex items-center gap-2 rounded-[14px] border border-line bg-white/80 px-4 py-3 text-sm font-bold text-signal shadow-[0_8px_22px_rgb(8_105_164_/_0.10)] transition-all duration-300 hover:-translate-y-0.5 hover:border-signal hover:bg-white hover:shadow-[0_12px_28px_rgb(8_140_255_/_0.20)] dark:bg-surface/80 dark:hover:bg-surface">
               <LogIn size={16} /> <span className="hidden xs:inline">Masuk sistem</span><span className="xs:hidden">Masuk</span>
             </LoginTrigger>
           </nav>
@@ -50,7 +52,7 @@ export default async function LandingPage() {
 
         <div className="relative z-[1] mx-auto grid min-h-[600px] max-w-6xl items-center gap-14 px-6 pb-24 pt-10 md:grid-cols-[0.94fr_1.06fr] lg:min-h-[620px] lg:px-0">
           <div className="landing-reveal max-w-xl" style={{ animationDelay: "120ms" }}>
-            <p className="inline-flex items-center gap-2 rounded-full border border-white/80 bg-white/55 px-3 py-1.5 text-[11px] font-bold text-muted shadow-sm backdrop-blur-md">
+            <p className="inline-flex items-center gap-2 rounded-full border border-white/80 bg-white/55 px-3 py-1.5 text-[11px] font-bold text-muted shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-surface/55">
               <span className="h-2 w-2 rounded-full bg-safe shadow-[0_0_0_4px_rgb(7_140_255_/_0.11)]" />
               Rumah Talenta BCA · Sistem terintegrasi
             </p>
@@ -62,7 +64,7 @@ export default async function LandingPage() {
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <LoginTrigger className="inline-flex items-center gap-2 rounded-xl bg-signal px-5 py-3.5 text-sm font-bold text-white shadow-[0_12px_24px_rgb(8_140_255_/_0.29)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#007ce8] hover:shadow-[0_17px_30px_rgb(8_140_255_/_0.36)]">Masuk ke sistem <ArrowRight size={17} /></LoginTrigger>
-              <a href="#alur" className="inline-flex items-center gap-2 rounded-xl border border-line bg-white/55 px-5 py-3.5 text-sm font-bold text-ink transition-all duration-300 hover:-translate-y-0.5 hover:border-signal hover:bg-white">Lihat cara kerja</a>
+              <a href="#alur" className="inline-flex items-center gap-2 rounded-xl border border-line bg-white/55 px-5 py-3.5 text-sm font-bold text-ink transition-all duration-300 hover:-translate-y-0.5 hover:border-signal hover:bg-white dark:bg-surface/55 dark:hover:bg-surface">Lihat cara kerja</a>
             </div>
             <dl className="mt-11 flex flex-wrap gap-x-9 gap-y-4">
               <div><dt className="text-xl font-extrabold tracking-tight text-ink">1×</dt><dd className="mt-0.5 text-[11px] font-medium text-muted">input data</dd></div>
@@ -74,8 +76,8 @@ export default async function LandingPage() {
           <div className="permit-showcase landing-reveal relative mx-auto w-full max-w-[510px]" style={{ animationDelay: "260ms" }}>
             <div aria-hidden className="hero-rings h-[610px] w-[610px] rounded-full" />
             <div aria-hidden className="hero-orbit h-[540px] w-[540px] rounded-full" />
-            <div className="permit-window relative z-10 w-full max-w-[430px] rounded-[30px] border border-white/80 bg-white/75 p-4 shadow-[0_30px_70px_rgb(9_97_146_/_0.20)] backdrop-blur-xl sm:p-5">
-              <div className="flex items-center justify-between rounded-2xl bg-sky-50 px-4 py-3">
+            <div className="permit-window relative z-10 w-full max-w-[430px] rounded-[30px] border border-white/80 bg-white/75 p-4 shadow-[0_30px_70px_rgb(9_97_146_/_0.20)] backdrop-blur-xl sm:p-5 dark:border-white/10 dark:bg-surface/75">
+              <div className="flex items-center justify-between rounded-2xl bg-sky-50 px-4 py-3 dark:bg-mist">
                 <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#d8f2ff] text-signal"><ShieldCheck size={20} /></span>
                 <p className="text-right text-[10px] leading-tight text-muted">Pengajuan aktif<br /><b className="text-xs text-ink">SIKAT RTB</b></p>
               </div>
@@ -93,8 +95,8 @@ export default async function LandingPage() {
               <div className="flex items-center justify-between px-2 pt-3 text-[10px] text-muted"><span>Penggunaan</span><b className="text-sm text-ink">1 kali</b></div>
             </div>
 
-            <div className="float-badge absolute z-20 -right-5 top-5 flex items-center gap-2 rounded-2xl border border-white/80 bg-white/95 px-3 py-3 shadow-[0_12px_26px_rgb(5_75_113_/_0.15)] sm:-right-9"><span className="grid h-9 w-9 place-items-center rounded-xl bg-safe-soft text-safe"><CheckCircle2 size={19} /></span><p className="text-[10px] leading-4 text-muted"><b className="block text-xs text-ink">Tervalidasi</b>Data tercatat otomatis</p></div>
-            <div className="float-badge float-badge-late absolute z-20 -left-7 bottom-7 flex items-center gap-2 rounded-2xl border border-white/80 bg-white/95 px-3 py-3 shadow-[0_12px_26px_rgb(5_75_113_/_0.15)] sm:-left-14"><span className="grid h-9 w-9 place-items-center rounded-xl bg-[#e2f5ff] text-signal"><Clock3 size={18} /></span><p className="text-[10px] leading-4 text-muted"><b className="block text-xs text-ink">Kedaluwarsa otomatis</b>QR aman digunakan</p></div>
+            <div className="float-badge absolute z-20 -right-5 top-5 flex items-center gap-2 rounded-2xl border border-white/80 bg-white/95 px-3 py-3 shadow-[0_12px_26px_rgb(5_75_113_/_0.15)] dark:border-white/10 dark:bg-surface/95 sm:-right-9"><span className="grid h-9 w-9 place-items-center rounded-xl bg-safe-soft text-safe"><CheckCircle2 size={19} /></span><p className="text-[10px] leading-4 text-muted"><b className="block text-xs text-ink">Tervalidasi</b>Data tercatat otomatis</p></div>
+            <div className="float-badge float-badge-late absolute z-20 -left-7 bottom-7 flex items-center gap-2 rounded-2xl border border-white/80 bg-white/95 px-3 py-3 shadow-[0_12px_26px_rgb(5_75_113_/_0.15)] dark:border-white/10 dark:bg-surface/95 sm:-left-14"><span className="grid h-9 w-9 place-items-center rounded-xl bg-[#e2f5ff] text-signal"><Clock3 size={18} /></span><p className="text-[10px] leading-4 text-muted"><b className="block text-xs text-ink">Kedaluwarsa otomatis</b>QR aman digunakan</p></div>
           </div>
         </div>
       </section>
@@ -104,9 +106,9 @@ export default async function LandingPage() {
           <p className="eyebrow">CARA KERJA</p>
           <h2 className="mt-4 max-w-3xl text-[clamp(2.35rem,4.5vw,4.15rem)] font-medium leading-[1.1] tracking-[-0.055em] text-ink">Dari pengajuan hingga tercatat, <br className="hidden md:block" />cukup tiga langkah.</h2>
           <div className="mt-14 grid gap-4 md:grid-cols-3">
-            {steps.map(({ no, icon: Icon, title, copy }, index) => <article className="flow-card landing-reveal group relative min-h-[250px] overflow-hidden rounded-[22px] border border-line bg-white p-7" style={{ animationDelay: `${index * 90}ms` }} key={no}>
-              <span className="absolute right-6 top-4 text-5xl font-bold tracking-[-0.1em] text-[#eaf6ff] transition-colors duration-300 group-hover:text-[#c4eaff]">{no}</span>
-              <span className="grid h-11 w-11 place-items-center rounded-xl bg-[#e4f5ff] text-signal transition-all duration-300 group-hover:-translate-y-1 group-hover:bg-signal group-hover:text-white"><Icon size={20} /></span>
+            {steps.map(({ no, icon: Icon, title, copy }, index) => <article className="flow-card landing-reveal group relative min-h-[250px] overflow-hidden rounded-[22px] border border-line bg-white p-7 dark:bg-surface" style={{ animationDelay: `${index * 90}ms` }} key={no}>
+              <span className="absolute right-6 top-4 text-5xl font-bold tracking-[-0.1em] text-[#eaf6ff] transition-colors duration-300 group-hover:text-[#c4eaff] dark:text-mist dark:group-hover:text-signal-soft">{no}</span>
+              <span className="grid h-11 w-11 place-items-center rounded-xl bg-[#e4f5ff] text-signal transition-all duration-300 group-hover:-translate-y-1 group-hover:bg-signal group-hover:text-white dark:bg-signal-soft"><Icon size={20} /></span>
               <h3 className="mt-11 text-lg font-medium tracking-tight text-ink">{title}</h3><p className="mt-2 max-w-[32ch] text-sm leading-6 text-muted">{copy}</p>
             </article>)}
           </div>
@@ -118,8 +120,8 @@ export default async function LandingPage() {
         <div className="relative mx-auto max-w-6xl text-center">
           <p className="eyebrow">AKSES AMAN</p><h2 className="mt-3 text-[clamp(2.25rem,4vw,3.7rem)] font-medium tracking-[-0.055em] text-ink">Masuk sesuai role pengguna</h2><p className="mt-2 text-sm text-muted">Setiap akun hanya dapat membuka fitur yang sesuai dengan role-nya.</p>
           <div className="mt-10 grid gap-4 text-left md:grid-cols-3">
-            {roles.map(({ icon: Icon, label, title, copy }, index) => <LoginTrigger key={label} className="role-card landing-reveal group w-full rounded-[21px] border border-line bg-white/80 p-6 text-left shadow-[0_8px_25px_rgb(4_82_122_/_0.04)] transition-all duration-300 hover:-translate-y-2 hover:border-signal hover:bg-white hover:shadow-[0_20px_34px_rgb(4_126_192_/_0.14)]" ariaLabel={`Masuk ke sistem sebagai akun ${label.toLowerCase()}`}>
-              <span className="grid h-11 w-11 place-items-center rounded-xl bg-[#e4f5ff] text-ink transition-all duration-300 group-hover:bg-signal group-hover:text-white"><Icon size={19} /></span>
+            {roles.map(({ icon: Icon, label, title, copy }, index) => <LoginTrigger key={label} className="role-card landing-reveal group w-full rounded-[21px] border border-line bg-white/80 p-6 text-left shadow-[0_8px_25px_rgb(4_82_122_/_0.04)] transition-all duration-300 hover:-translate-y-2 hover:border-signal hover:bg-white hover:shadow-[0_20px_34px_rgb(4_126_192_/_0.14)] dark:bg-surface/80 dark:hover:bg-surface" ariaLabel={`Masuk ke sistem sebagai akun ${label.toLowerCase()}`}>
+              <span className="grid h-11 w-11 place-items-center rounded-xl bg-[#e4f5ff] text-ink transition-all duration-300 group-hover:bg-signal group-hover:text-white dark:bg-signal-soft"><Icon size={19} /></span>
               <span className="mt-7 block text-[10px] font-extrabold tracking-wider text-[#1687c7]">{label}</span><h3 className="mt-2 text-lg font-medium tracking-tight text-ink">{title}</h3><p className="mt-1.5 text-[13px] leading-5 text-muted">{copy}</p>
               <span className="mt-6 flex items-center justify-between text-[11px] font-bold text-ink">Masuk sebagai {label[0] + label.slice(1).toLowerCase()} <ArrowRight size={16} className="transition-transform duration-300 group-hover:translate-x-1" /></span>
             </LoginTrigger>)}

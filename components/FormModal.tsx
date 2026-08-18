@@ -32,15 +32,15 @@ export function FormModal({ eyebrow, title, description, onClose, children }: Fo
 
   return createPortal(
     <div className="fixed inset-0 z-[70] flex min-w-0 items-center justify-center overflow-x-hidden bg-[#062e4a]/60 p-4 backdrop-blur-md" role="dialog" aria-modal="true" aria-labelledby={headingId} onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <section className="modal-enter relative max-h-[calc(100dvh-32px)] w-[calc(100vw-2rem)] max-w-[520px] min-w-0 overflow-x-hidden overflow-y-auto overscroll-contain rounded-[28px] border border-white/80 bg-white p-6 shadow-[0_32px_90px_rgb(0_37_62_/_0.35)] sm:p-9">
-        <span aria-hidden className="pointer-events-none absolute -right-20 -top-20 h-44 w-44 rounded-full bg-[#dbf5ff] blur-2xl" />
-        <span aria-hidden className="pointer-events-none absolute -bottom-24 -left-20 h-40 w-40 rounded-full bg-[#eaf8ff] blur-2xl" />
+      <section className="modal-enter relative max-h-[calc(100dvh-32px)] w-[calc(100vw-2rem)] max-w-[520px] min-w-0 overflow-x-hidden overflow-y-auto overscroll-contain rounded-[28px] border border-white/80 bg-white p-6 shadow-[0_32px_90px_rgb(0_37_62_/_0.35)] sm:p-9 dark:border-white/10 dark:bg-surface">
+        <span aria-hidden className="pointer-events-none absolute -right-20 -top-20 h-44 w-44 rounded-full bg-[#dbf5ff] blur-2xl dark:bg-signal/10" />
+        <span aria-hidden className="pointer-events-none absolute -bottom-24 -left-20 h-40 w-40 rounded-full bg-[#eaf8ff] blur-2xl dark:bg-signal/5" />
         <div className="relative flex items-start justify-between gap-4">
           <div>
             <p className="font-mono text-[10px] font-bold tracking-[0.14em] text-signal">{eyebrow}</p>
             <h2 id={headingId} className="mt-2 text-[clamp(1.65rem,4vw,2.25rem)] font-medium tracking-[-0.055em] text-ink">{title}</h2>
           </div>
-          <button type="button" onClick={onClose} aria-label="Tutup formulir" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-line bg-white text-muted transition-all hover:border-signal hover:text-signal">
+          <button type="button" onClick={onClose} aria-label="Tutup formulir" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-line bg-white text-muted transition-all hover:border-signal hover:text-signal dark:bg-surface">
             <X size={19} />
           </button>
         </div>

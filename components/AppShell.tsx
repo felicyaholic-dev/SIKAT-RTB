@@ -8,6 +8,7 @@ import { logoutAction } from "@/app/actions";
 import { Brand } from "@/components/Brand";
 import { initials } from "@/lib/ui";
 import { NotificationCenter } from "@/components/NotificationCenter";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 type Item = { href: string; label: string; icon: typeof LayoutDashboard };
 
@@ -25,6 +26,7 @@ const nav: Record<Role, Item[]> = {
   ],
   MANAGER: [
     { href: "/manager", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/manager/history", label: "Riwayat", icon: History },
     { href: "/manager/users", label: "Pengaturan", icon: UsersRound },
     { href: "/manager/stats", label: "Laporan", icon: BarChart3 },
     { href: "/manager/profile", label: "Profil", icon: UserRound },
@@ -94,13 +96,17 @@ export function AppShell({ role, name, children }: { role: Role; name: string; c
       </nav>
 
       <main className={`pb-24 md:pb-0 md:pl-64 ${operationsMode ? "security-main" : ""}`}>
-        <header className={`flex min-h-[58px] items-center justify-between px-5 font-mono text-[10px] md:min-h-[62px] md:px-10 ${operationsMode ? "border-b border-[#dceef5] bg-white/85 text-muted backdrop-blur" : "border-b border-line text-muted"}`}>
+        <header className={`flex min-h-[58px] items-center justify-between px-5 font-mono text-[10px] md:min-h-[62px] md:px-10 ${operationsMode ? "border-b border-[#dceef5] bg-white/85 text-muted backdrop-blur dark:border-line dark:bg-surface/85" : "border-b border-line text-muted"}`}>
           <span className={`flex items-center gap-2 ${operationsMode ? "font-sans text-sm font-bold text-ink" : "text-ink/70"}`}>
             {operationsMode && activeLabel}
             <i aria-hidden className="h-1.5 w-1.5 rounded-full bg-safe not-italic" />
             <span className={operationsMode ? "font-sans text-[11px] font-medium text-muted" : ""}>Sistem aktif</span>
           </span>
-          <span className="flex items-center gap-3"><NotificationCenter />{operationsMode ? <span className="grid h-9 w-9 place-items-center rounded-xl bg-signal-soft text-[10px] font-extrabold text-signal">{initials(name)}</span> : <span className="hidden sm:inline">{new Intl.DateTimeFormat("id-ID", { weekday: "long", day: "numeric", month: "long" }).format(new Date())}</span>}</span>
+          <span className="flex items-center gap-3">
+            <ThemeToggle />
+            <NotificationCenter />
+            {operationsMode ? <span className="grid h-9 w-9 place-items-center rounded-xl bg-signal-soft text-[10px] font-extrabold text-signal">{initials(name)}</span> : <span className="hidden sm:inline">{new Intl.DateTimeFormat("id-ID", { weekday: "long", day: "numeric", month: "long" }).format(new Date())}</span>}
+          </span>
         </header>
         {children}
       </main>

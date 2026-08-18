@@ -37,9 +37,9 @@ export function LoginModalProvider({ children }: { children: ReactNode }) {
       {children}
       {open && (
         <div className="fixed inset-0 z-[70] grid place-items-center bg-[#062e4a]/60 p-4 backdrop-blur-md" role="dialog" aria-modal="true" aria-labelledby="login-modal-title" onMouseDown={(event) => event.target === event.currentTarget && close()}>
-          <section className="modal-enter relative w-full max-w-[520px] overflow-hidden rounded-[28px] border border-white/80 bg-white p-6 shadow-[0_32px_90px_rgb(0_37_62_/_0.35)] sm:p-9">
-            <span aria-hidden className="absolute -right-20 -top-20 h-44 w-44 rounded-full bg-[#dbf5ff] blur-2xl" />
-            <div className="relative flex items-start justify-between gap-4"><Brand /><button type="button" onClick={close} aria-label="Tutup form login" className="grid h-10 w-10 place-items-center rounded-xl border border-line bg-white text-muted transition-all hover:border-signal hover:text-signal"><X size={19} /></button></div>
+          <section className="modal-enter relative w-full max-w-[520px] overflow-hidden rounded-[28px] border border-white/80 bg-white p-6 shadow-[0_32px_90px_rgb(0_37_62_/_0.35)] sm:p-9 dark:border-white/10 dark:bg-surface">
+            <span aria-hidden className="absolute -right-20 -top-20 h-44 w-44 rounded-full bg-[#dbf5ff] blur-2xl dark:bg-signal/10" />
+            <div className="relative flex items-start justify-between gap-4"><Brand /><button type="button" onClick={close} aria-label="Tutup form login" className="grid h-10 w-10 place-items-center rounded-xl border border-line bg-white text-muted transition-all hover:border-signal hover:text-signal dark:bg-surface"><X size={19} /></button></div>
             <div className="relative mt-8"><h2 id="login-modal-title" className="text-[clamp(1.8rem,4vw,2.45rem)] font-medium tracking-[-0.055em] text-ink">Masuk ke SIKAT RTB</h2><p className="mt-2 text-sm leading-6 text-muted">Masukkan data akses yang telah terdaftar. Sistem akan membuka halaman sesuai akunmu.</p></div>
             <div className="relative mt-7"><LoginForm /></div>
             <div className="relative mt-6 flex items-center justify-center gap-2 text-center text-[11px] text-muted"><LockKeyhole size={14} className="text-signal" /> Hanya akun aktif yang terdaftar yang dapat masuk.</div>

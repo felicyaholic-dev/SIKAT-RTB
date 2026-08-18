@@ -4,19 +4,19 @@ import { PermitHistoryList } from "@/components/PermitHistoryList";
 import { requireRole } from "@/lib/auth";
 import { getPermitHistory } from "@/lib/db";
 
-export default async function SecurityOutsidePage() {
-  const session = await requireRole("SECURITY");
+export default async function ManagerHistoryPage() {
+  const session = await requireRole("MANAGER");
   const history = getPermitHistory();
   const approvedExit = history.filter((item) => item.event_type === "EXIT").length;
   const approvedEntry = history.filter((item) => item.event_type === "ENTRY").length;
   const rejected = history.filter((item) => item.event_type === "EXIT_REJECTED").length;
 
   return (
-    <AppShell role="SECURITY" name={session.name}>
+    <AppShell role="MANAGER" name={session.name}>
       <div className="security-page mx-auto max-w-[1280px] px-5 py-9 md:px-10 md:py-11">
         <header className="mb-7 flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="security-kicker">SATPAM</p>
+            <p className="security-kicker">PENGELOLA</p>
             <h1 className="mt-2 text-[clamp(2rem,4vw,3.15rem)] font-medium tracking-[-0.06em] text-ink">Riwayat</h1>
             <p className="mt-2 text-sm text-muted">Seluruh aktivitas keluar-masuk RTB, tervalidasi oleh satpam manapun.</p>
           </div>
