@@ -53,7 +53,7 @@ export default async function ManagerStatsPage({ searchParams }: { searchParams:
         </header>
 
         <div className="mb-5 flex flex-wrap items-center gap-3">
-          <nav className="inline-flex rounded-2xl border border-line bg-white p-1.5 shadow-[0_8px_20px_rgb(11_103_146_/_0.05)]" aria-label="Jenis data">
+          <nav className="inline-flex rounded-2xl border border-line bg-white p-1.5 shadow-[0_8px_20px_rgb(11_103_146_/_0.05)] dark:bg-surface" aria-label="Jenis data">
             {jenisOptions.map((item) => (
               <a key={item.value} href={`/manager/stats?jenis=${item.value}&period=${period}${kelasQuery}`} className={`rounded-xl px-4 py-2 text-xs font-semibold transition-all ${jenis === item.value ? "bg-navy text-white shadow-[0_6px_14px_rgb(6_70_111_/_0.25)]" : "text-muted hover:bg-mist hover:text-ink"}`}>{item.label}</a>
             ))}
@@ -62,7 +62,7 @@ export default async function ManagerStatsPage({ searchParams }: { searchParams:
         </div>
 
         {jenis === "keluar" && (
-          <nav className="mb-5 inline-flex rounded-2xl border border-line bg-white p-1.5 shadow-[0_8px_20px_rgb(11_103_146_/_0.05)]" aria-label="Periode laporan">
+          <nav className="mb-5 inline-flex rounded-2xl border border-line bg-white p-1.5 shadow-[0_8px_20px_rgb(11_103_146_/_0.05)] dark:bg-surface" aria-label="Periode laporan">
             {periods.map((item) => <a key={item.value} href={`/manager/stats?period=${item.value}&jenis=keluar${kelasQuery}`} className={`rounded-xl px-4 py-2 text-xs font-semibold transition-all ${period === item.value ? "bg-signal text-white shadow-[0_6px_14px_rgb(7_140_255_/_0.22)]" : "text-muted hover:bg-mist hover:text-ink"}`}>{item.label}</a>)}
           </nav>
         )}

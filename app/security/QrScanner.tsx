@@ -47,7 +47,7 @@ export function QrScanner() {
   const scanning = state === "scanning";
 
   return (
-    <div className="security-scanner relative mt-6 grid min-h-[285px] overflow-hidden rounded-[18px] border border-[#cfeefa] bg-[#eaf8ff]">
+    <div className="security-scanner relative mt-6 grid min-h-[285px] overflow-hidden rounded-[18px] border border-[#cfeefa] bg-[#eaf8ff] dark:border-line dark:bg-mist">
       <i aria-hidden className="scanner-corner scanner-corner-tl" /><i aria-hidden className="scanner-corner scanner-corner-tr" /><i aria-hidden className="scanner-corner scanner-corner-bl" /><i aria-hidden className="scanner-corner scanner-corner-br" />
       <video ref={videoRef} playsInline muted className={scanning ? "h-full min-h-[285px] w-full object-cover" : "hidden"} />
       {!scanning && (
@@ -66,7 +66,7 @@ export function QrScanner() {
         <button
           type="button"
           onClick={stop}
-          className="absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5 rounded-xl border border-line bg-white px-3 py-2 text-[11px] text-ink shadow-sm"
+          className="absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5 rounded-xl border border-line bg-white px-3 py-2 text-[11px] text-ink shadow-sm dark:bg-surface"
         >
           <CameraOff size={15} strokeWidth={1.6} /> Hentikan kamera
         </button>
@@ -75,7 +75,7 @@ export function QrScanner() {
           type="button"
           onClick={start}
           disabled={state === "starting"}
-          className="absolute right-4 top-4 z-10 flex items-center gap-1.5 rounded-xl border border-line bg-white px-3 py-2 text-[11px] font-semibold text-ink shadow-sm transition-colors hover:border-signal hover:text-signal disabled:opacity-70"
+          className="absolute right-4 top-4 z-10 flex items-center gap-1.5 rounded-xl border border-line bg-white px-3 py-2 text-[11px] font-semibold text-ink shadow-sm transition-colors hover:border-signal hover:text-signal disabled:opacity-70 dark:bg-surface"
         >
           {state === "starting" ? (
             <>

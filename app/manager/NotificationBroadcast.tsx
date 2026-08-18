@@ -27,8 +27,8 @@ export function NotificationBroadcast({ broadcasts }: { broadcasts: Broadcast[] 
         <span className="inline-flex items-center gap-2 rounded-pill bg-signal-soft px-3 py-2 font-mono text-[10px] tracking-wide text-signal"><UsersRound size={14} /> SELURUH AKUN AKTIF</span>
       </div>
       <div className="grid gap-5 xl:grid-cols-[.82fr_1.18fr]">
-        <form action={action} className="rounded-[20px] border border-[#d7edf6] bg-[linear-gradient(135deg,#fafdff,#edf9ff)] p-5">
-          <span className="grid h-10 w-10 place-items-center rounded-xl bg-white text-signal shadow-sm"><Megaphone size={19} /></span>
+        <form action={action} className="rounded-[20px] border border-[#d7edf6] bg-[linear-gradient(135deg,#fafdff,#edf9ff)] p-5 dark:border-line dark:bg-[linear-gradient(135deg,#101f2e,#0d1c29)]">
+          <span className="grid h-10 w-10 place-items-center rounded-xl bg-white text-signal shadow-sm dark:bg-surface"><Megaphone size={19} /></span>
           <h3 className="mt-4 text-base font-semibold tracking-tight text-ink">Tulis pengumuman</h3>
           <div className="mt-4 grid gap-4">
             <label>Judul<input name="title" maxLength={100} placeholder="Contoh: Pengingat jam malam" required /></label>
@@ -38,7 +38,7 @@ export function NotificationBroadcast({ broadcasts }: { broadcasts: Broadcast[] 
           {state.success && <p className={`${formMessage("success")} mt-4`}>{state.success}</p>}
           <button className={`${btn.base} ${btn.primary} mt-5 w-full`} disabled={pending}><Send size={16} /> {pending ? "Mengirim…" : "Kirim ke semua user"}</button>
         </form>
-        <div className="min-w-0 rounded-[20px] border border-line bg-white p-5">
+        <div className="min-w-0 rounded-[20px] border border-line bg-white p-5 dark:bg-surface">
           <div className="flex items-center justify-between gap-3"><div><p className="security-kicker">RIWAYAT KIRIM</p><h3 className="mt-1 text-base font-semibold tracking-tight text-ink">Pengumuman terakhir</h3></div><BellRing size={18} className="text-signal" /></div>
           <div className="mt-4 divide-y divide-line">
             {broadcasts.length ? broadcasts.map((item) => <article key={item.id} className="py-4 first:pt-0 last:pb-0"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><h4 className="truncate text-sm font-semibold text-ink">{item.title}</h4><p className="mt-1 line-clamp-2 text-[12px] leading-relaxed text-muted">{item.body}</p></div><span className="flex shrink-0 items-center gap-2"><span className="rounded-pill bg-safe-soft px-2 py-1 font-mono text-[9px] text-safe">TERKIRIM</span><DeleteBroadcastButton id={item.id} title={item.title} /></span></div><p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-muted"><span>{timestamp(item.created_at)} · {item.sender_name}</span><span>{item.recipient_count} penerima · dibaca {item.read_count}</span></p></article>) : <div className="grid min-h-[220px] place-items-center text-center"><div><BellRing size={24} className="mx-auto text-signal" /><p className="mt-3 text-sm font-medium text-ink">Belum ada pengumuman</p><p className="mt-1 text-[12px] text-muted">Broadcast yang dikirim akan tercatat di sini.</p></div></div>}
@@ -72,7 +72,7 @@ function DeleteBroadcastButton({ id, title }: { id: number; title: string }) {
             <input type="hidden" name="notificationId" value={id} />
             {state.error && <p className={formMessage("error")}>{state.error}</p>}
             <div className="grid gap-2.5 sm:grid-cols-2">
-              <button type="button" onClick={() => setOpen(false)} className={`${btn.base} w-full rounded-xl border border-line bg-white text-ink hover:bg-mist`} disabled={pending}>
+              <button type="button" onClick={() => setOpen(false)} className={`${btn.base} w-full rounded-xl border border-line bg-white text-ink hover:bg-mist dark:bg-surface`} disabled={pending}>
                 Batal
               </button>
               <button className={`${btn.base} w-full rounded-xl border border-danger/30 bg-danger-soft text-danger hover:bg-danger hover:text-white`} disabled={pending}>

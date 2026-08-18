@@ -57,7 +57,7 @@ export function ValidatePermit({ permit }: { permit: Permit }) {
       description={incoming ? "Cocokkan data mahasiswa sebelum mengizinkan ia kembali masuk RTB." : "Periksa data sebelum memberikan atau membatalkan izin. Menutup popup tidak akan mengubah status."}
       onClose={close}
     >
-      <div className="overflow-hidden rounded-2xl border border-line bg-[#fafdff]">
+      <div className="overflow-hidden rounded-2xl border border-line bg-[#fafdff] dark:bg-surface">
         <div className="flex items-center justify-between gap-3 border-b border-line bg-safe-soft px-4 py-3 font-mono text-[10px] text-safe sm:px-5">
           <span className="flex items-center gap-1.5"><Check size={16} strokeWidth={1.8} /> QR DITEMUKAN</span>
           <span className={pill(permitTone(permit.status))}>{incoming ? "MENUNGGU MASUK" : "MENUNGGU KEPUTUSAN"}</span>
@@ -70,7 +70,7 @@ export function ValidatePermit({ permit }: { permit: Permit }) {
             <small className="font-mono text-[10px] text-muted">{incoming ? permit.entry_code : permit.permit_code}</small>
           </div>
         </div>
-        <dl className="mx-4 grid gap-0 rounded-2xl border border-line bg-white px-4 sm:mx-5">
+        <dl className="mx-4 grid gap-0 rounded-2xl border border-line bg-white px-4 sm:mx-5 dark:bg-surface">
           <div className="grid gap-1 border-b border-line py-3.5">
             <dt className="flex items-center gap-1.5 text-[11px] text-muted"><FileText size={14} /> Jenis izin</dt>
             <dd><span className="inline-flex rounded-pill bg-signal-soft px-2.5 py-1 text-xs font-semibold text-signal">{permitTypeLabel[permit.permit_type] ?? "Izin lainnya"}</span></dd>

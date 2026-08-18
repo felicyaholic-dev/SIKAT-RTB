@@ -51,7 +51,7 @@ export function PermitForm({ mode, student }: { mode: "EXIT" | "ENTRY"; student:
         {state.success && <p className={`${formMessage("success")} mt-5`}>{state.success}</p>}
       </section>
 
-      <footer className="flex flex-wrap items-center justify-end gap-3 border-t border-line bg-[#fbfdff] px-5 py-4 sm:px-7"><span className="mr-auto flex items-center gap-1.5 text-[11px] text-muted"><CalendarDays size={14} /> QR dibuat setelah pengajuan dikirim</span><button className={`${btn.base} ${isEntry ? btn.safe : btn.primary}`} disabled={pending}>{pending ? "Membuat QR…" : <>{isEntry ? "Buat QR masuk" : "Buat pengajuan"}<ArrowRight size={16} /></>}</button></footer>
+      <footer className="flex flex-wrap items-center justify-end gap-3 border-t border-line bg-[#fbfdff] px-5 py-4 sm:px-7 dark:bg-surface"><span className="mr-auto flex items-center gap-1.5 text-[11px] text-muted"><CalendarDays size={14} /> QR dibuat setelah pengajuan dikirim</span><button className={`${btn.base} ${isEntry ? btn.safe : btn.primary}`} disabled={pending}>{pending ? "Membuat QR…" : <>{isEntry ? "Buat QR masuk" : "Buat pengajuan"}<ArrowRight size={16} /></>}</button></footer>
     </form>
   );
 }

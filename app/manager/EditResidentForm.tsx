@@ -120,7 +120,7 @@ export function DeleteResidentButton({ resident }: { resident: Resident }) {
             <input type="hidden" name="id" value={resident.id} />
             {state.error && <p className={formMessage("error")}>{state.error}</p>}
             <div className="grid gap-2.5 sm:grid-cols-2">
-              <button type="button" onClick={() => setOpen(false)} className={`${btn.base} w-full rounded-xl border border-line bg-white text-ink hover:bg-mist`} disabled={pending}>
+              <button type="button" onClick={() => setOpen(false)} className={`${btn.base} w-full rounded-xl border border-line bg-white text-ink hover:bg-mist dark:bg-surface`} disabled={pending}>
                 Batal
               </button>
               <button className={`${btn.base} w-full rounded-xl border border-danger/30 bg-danger-soft text-danger hover:bg-danger hover:text-white`} disabled={pending}>

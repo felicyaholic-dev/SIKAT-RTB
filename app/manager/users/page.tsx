@@ -39,7 +39,7 @@ export default async function ManagerUsersPage() {
               <AddResidentForm />
             </div>
           </div>
-          <div className="overflow-auto rounded-xl border border-line bg-white">
+          <div className="overflow-auto rounded-xl border border-line bg-white dark:bg-surface">
             <table className="w-full min-w-[790px] border-collapse">
               <thead>
                 <tr>

@@ -20,7 +20,7 @@ export function ReportFilters({ period, jenis, kelas }: { period: string; jenis:
       aria-label="Filter kelas"
       value={kelas}
       onChange={(event) => goTo({ kelas: event.target.value })}
-      className="rounded-xl border border-line bg-white px-3 py-2.5 text-xs font-semibold text-ink"
+      className="rounded-xl border border-line px-3 py-2.5 text-xs font-semibold text-ink"
     >
       <option value="">Semua kelas</option>
       {RESIDENT_CLASSES.map((className) => (

@@ -59,7 +59,7 @@ export function ActivePermitCard({ permit, qr, latestDecision }: { permit: Permi
         <p className="max-w-sm text-[12px] leading-relaxed text-amber"><QrCode size={14} className="mr-1 inline-block" /> QR masih menunggu keputusan satpam.</p>
         <form action={action}>
           <input type="hidden" name="permitId" value={permit.id} />
-          <button className={`${btn.base} border border-danger/25 bg-white px-3 py-2 text-xs text-danger hover:bg-danger hover:text-white`} disabled={pending}><X size={15} /> {pending ? "Membatalkan…" : "Batalkan"}</button>
+          <button className={`${btn.base} border border-danger/25 bg-white px-3 py-2 text-xs text-danger hover:bg-danger hover:text-white dark:bg-surface`} disabled={pending}><X size={15} /> {pending ? "Membatalkan…" : "Batalkan"}</button>
         </form>
       </div>
       {state.error && <p className={`${formMessage("error")} mt-3`}>{state.error}</p>}
