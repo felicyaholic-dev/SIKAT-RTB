@@ -8,7 +8,7 @@ import { FormModal } from "@/components/FormModal";
 import { btn, formMessage, RESIDENT_CLASSES } from "@/lib/ui";
 
 const initialState: FormState = {};
-type Resident = { id: number; bca_id: string; full_name: string; room_number: string; class_name: string; gender: string; resident_status: string; phone_number: string | null };
+type Resident = { id: number; bca_id: string; full_name: string; room_number: string; class_name: string; gender: string; resident_status: string; phone_number: string | null; email: string | null };
 
 export function EditResidentForm({ resident }: { resident: Resident }) {
   const [open, setOpen] = useState(false);
@@ -64,6 +64,10 @@ export function EditResidentForm({ resident }: { resident: Resident }) {
                   <input name="phoneNumber" inputMode="numeric" defaultValue={resident.phone_number ?? ""} placeholder="08xxxxxxxxxx" />
                 </label>
               </div>
+              <label>
+                Email <span className="font-normal text-muted">(opsional, untuk notifikasi izin)</span>
+                <input name="email" type="email" defaultValue={resident.email ?? ""} placeholder="nama@email.com" />
+              </label>
               <label>
                 Status penghuni
                 <select name="residentStatus" defaultValue={resident.resident_status}>

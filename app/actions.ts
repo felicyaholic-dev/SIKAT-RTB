@@ -7,6 +7,7 @@ import { clearSession, createSession, requireRole, requireSession, roleHome } fr
 import { parseResidentSheet } from "@/lib/excel-import";
 import { RESIDENT_CLASSES } from "@/lib/ui";
 import { sendPermitEntryConfirmed, sendPermitExitApproved, sendPermitExitRejected, sendWhatsAppBroadcast } from "@/lib/whatsapp";
+import { sendEmailBroadcast, sendPermitEntryConfirmedEmail, sendPermitExitApprovedEmail, sendPermitExitRejectedEmail } from "@/lib/email";
 
 export type FormState = { error?: string; success?: string; detail?: string[] };
 
@@ -82,11 +83,18 @@ export async function validatePermitAction(_: FormState, formData: FormData): Pr
   // receives the result through its short polling endpoint.
   if (result.ok) {
     if (result.resident && result.notif) {
-      const { full_name, phone_number } = result.resident;
+      const { full_name, phone_number, email } = result.resident;
       const { permitCode, entryCode, destination, departureAt, returnAt } = result.notif;
-      if (result.event === "EXIT") void sendPermitExitApproved(phone_number, full_name, permitCode, destination, formatWaktu(departureAt));
-      else if (result.event === "EXIT_REJECTED") void sendPermitExitRejected(phone_number, full_name, permitCode, destination);
-      else void sendPermitEntryConfirmed(phone_number, full_name, entryCode ?? "-", formatWaktu(returnAt));
+      if (result.event === "EXIT") {
+        void sendPermitExitApproved(phone_number, full_name, permitCode, destination, formatWaktu(departureAt));
+        void sendPermitExitApprovedEmail(email, full_name, permitCode, destination, formatWaktu(departureAt));
+      } else if (result.event === "EXIT_REJECTED") {
+        void sendPermitExitRejected(phone_number, full_name, permitCode, destination);
+        void sendPermitExitRejectedEmail(email, full_name, permitCode, destination);
+      } else {
+        void sendPermitEntryConfirmed(phone_number, full_name, entryCode ?? "-", formatWaktu(returnAt));
+        void sendPermitEntryConfirmedEmail(email, full_name, entryCode ?? "-", formatWaktu(returnAt));
+      }
     }
     return { success: result.message };
   }
@@ -104,9 +112,10 @@ export async function addResidentAction(_: FormState, formData: FormData): Promi
     password: String(formData.get("password") || ""),
   };
   const phoneNumber = String(formData.get("phoneNumber") || "");
+  const email = String(formData.get("email") || "");
   if (Object.values(values).some((value) => !value.trim()) || !["LAKI_LAKI", "PEREMPUAN"].includes(values.gender) || values.password.length < 8) return { error: "Lengkapi data penghuni, jenis kelamin, dan password awal minimal 8 karakter." };
   if (!(RESIDENT_CLASSES as readonly string[]).includes(values.className)) return { error: "Pilih kelas dari daftar yang tersedia." };
-  const result = addResident(session.accountId, { ...values, phoneNumber });
+  const result = addResident(session.accountId, { ...values, phoneNumber, email });
   if (result.ok) {
     revalidatePath("/manager/users");
     revalidatePath("/manager/stats");
@@ -127,8 +136,9 @@ export async function updateResidentAction(_: FormState, formData: FormData): Pr
     residentStatus: String(formData.get("residentStatus") || "ACTIVE") as "ACTIVE" | "INACTIVE",
   };
   const phoneNumber = String(formData.get("phoneNumber") || "");
+  const email = String(formData.get("email") || "");
   if (!id || !values.fullName.trim() || !values.room.trim() || !values.className.trim() || !["LAKI_LAKI", "PEREMPUAN"].includes(values.gender)) return { error: "Lengkapi data penghuni dan jenis kelamin terlebih dahulu." };
-  const result = updateResident(session.accountId, { ...values, phoneNumber });
+  const result = updateResident(session.accountId, { ...values, phoneNumber, email });
   if (result.ok) {
     revalidatePath("/manager/users");
     revalidatePath("/manager/stats");
@@ -202,15 +212,17 @@ export async function updateManagerProfileAction(_: FormState, formData: FormDat
 
 export async function createBroadcastAction(_: FormState, formData: FormData): Promise<FormState> {
   const session = await requireRole("MANAGER");
+  const body = String(formData.get("body") || "");
   const result = createBroadcast(session.accountId, {
     title: String(formData.get("title") || ""),
-    body: String(formData.get("body") || ""),
+    body,
   });
   if (result.ok) {
     revalidatePath("/manager/users");
     revalidatePath("/manager");
     if (result.recipients?.length) {
       void sendWhatsAppBroadcast(result.recipients, result.title);
+      void sendEmailBroadcast(result.recipients, result.title, body);
     }
   }
   return result.ok ? { success: result.message } : { error: result.message };

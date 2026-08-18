@@ -28,8 +28,9 @@ export function ImportResidentsForm() {
               <code className="rounded bg-mist px-1.5 py-0.5 font-mono text-[11px] text-ink">Kamar</code>,{" "}
               <code className="rounded bg-mist px-1.5 py-0.5 font-mono text-[11px] text-ink">Kelas</code>,{" "}
               <code className="rounded bg-mist px-1.5 py-0.5 font-mono text-[11px] text-ink">Jenis Kelamin</code> (isi L atau P),{" "}
-              <code className="rounded bg-mist px-1.5 py-0.5 font-mono text-[11px] text-ink">Password Awal</code> (min. 8 karakter), dan{" "}
-              <code className="rounded bg-mist px-1.5 py-0.5 font-mono text-[11px] text-ink">Nomor WA</code> (opsional). Baris dengan data
+              <code className="rounded bg-mist px-1.5 py-0.5 font-mono text-[11px] text-ink">Password Awal</code> (min. 8 karakter),{" "}
+              <code className="rounded bg-mist px-1.5 py-0.5 font-mono text-[11px] text-ink">Nomor WA</code> (opsional), dan{" "}
+              <code className="rounded bg-mist px-1.5 py-0.5 font-mono text-[11px] text-ink">Email</code> (opsional). Baris dengan data
               tidak valid akan dilewati dan dilaporkan, baris lain tetap tersimpan.
             </>
           }

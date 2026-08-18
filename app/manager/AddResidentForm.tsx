@@ -57,6 +57,10 @@ export function AddResidentForm() {
                 </label>
               </div>
               <label>
+                Email <span className="font-normal text-muted">(opsional, untuk notifikasi izin)</span>
+                <input name="email" type="email" placeholder="nama@email.com" />
+              </label>
+              <label>
                 Password awal
                 <input name="password" type="password" minLength={8} placeholder="Minimal 8 karakter" required />
               </label>

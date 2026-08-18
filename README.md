@@ -194,6 +194,7 @@ Aturan dasar:
 | Security header | `next.config.ts` `headers()` | CSP, `X-Frame-Options`, `Permissions-Policy` (kamera dibatasi ke situs sendiri), `Strict-Transport-Security` |
 | QR | `qrcode` (SVG inline, server-side) + browser scanner | QR dirender lokal tanpa panggilan API pihak ketiga; mendukung scan kamera dan fallback kode manual |
 | Notifikasi WA (opsional) | WhatsApp Business Platform (Cloud API resmi Meta) | Panggilan HTTP berbasis template per pesan, tanpa koneksi/sesi persisten di server — lihat §10a |
+| Notifikasi email (opsional) | SMTP via `nodemailer` | Jalur Plan B yang independen dari WhatsApp, provider SMTP manapun — lihat §10b |
 | Impor Excel | `exceljs` | Parser `.xlsx` yang aktif dipelihara; sengaja bukan paket `xlsx` npm karena versi yang dipublikasikan di npm (0.18.5) punya CVE prototype-pollution/ReDoS yang belum ada perbaikannya di registry npm |
 | Deployment | Railway | Satu service web dengan persistent volume untuk database |
 | Testing | Vitest + Playwright | Menguji logic status/auth dan alur pengguna kritis |
@@ -305,6 +306,34 @@ yang sudah disetujui Meta — tidak bisa teks bebas.
    terbaca; sebelum disetujui, panggilan API akan gagal dengan pesan error dari Meta yang tercatat di log, tanpa
    mengganggu proses lain.
 
+## 10b. Notifikasi email (Plan B)
+
+Jalur notifikasi kedua, independen dari WhatsApp — dipilih sebagai **Plan B** karena tidak perlu proses verifikasi
+bisnis atau approval template seperti Cloud API, jadi bisa aktif jauh lebih cepat sambil pendaftaran WhatsApp masih
+berjalan. Mahasiswa menerima email otomatis untuk kejadian yang sama seperti WhatsApp: izin keluar disetujui/ditolak,
+konfirmasi masuk, dan broadcast baru dari Pengelola.
+
+**Cara kerja teknis:** dikirim lewat SMTP biasa (`lib/email.ts`, pakai `nodemailer`) — bukan API pihak ketiga, jadi
+bisa memakai SMTP dari provider manapun (Gmail dengan App Password, email institusi, atau layanan transactional
+email seperti Resend/Brevo/Mailgun). Nonaktif secara default; aktif otomatis begitu `SMTP_HOST`, `SMTP_USER`, dan
+`SMTP_PASS` semuanya ter-set.
+
+**Cara mengaktifkan:**
+
+1. Siapkan kredensial SMTP dari provider pilihan. Untuk Gmail: aktifkan 2-Step Verification lalu buat
+   [App Password](https://myaccount.google.com/apppasswords) khusus (bukan password akun biasa).
+2. Set environment variable — lokal: `.env.local`; production: pengaturan Railway — jangan pernah commit nilai ini
+   ke git:
+   - `SMTP_HOST` — contoh `smtp.gmail.com`
+   - `SMTP_PORT` — contoh `587`
+   - `SMTP_USER` — alamat email pengirim
+   - `SMTP_PASS` — App Password / kredensial SMTP
+   - `SMTP_FROM` — opsional, default memakai `SMTP_USER`
+3. Deploy ulang. Mahasiswa perlu mengisi email di Master Penghuni (kolom opsional, sama seperti Nomor WA) supaya
+   bisa menerima notifikasi; yang belum mengisi email otomatis dilewati, tidak menyebabkan error.
+4. Set `EMAIL_DEBUG=true` sementara untuk melihat link preview di log server saat menguji dengan akun SMTP uji coba
+   (misalnya [Ethereal Email](https://ethereal.email)) sebelum memakai kredensial produksi.
+
 ## 11. Setup lokal
 
 ### Prasyarat
@@ -327,6 +356,8 @@ INITIAL_MANAGER_BCA_ID=
 INITIAL_MANAGER_PASSWORD=
 INITIAL_MANAGER_NAME=
 ```
+
+Variabel notifikasi WhatsApp (§10a) dan email (§10b) opsional — lihat `.env.example` untuk daftar lengkapnya.
 
 ### Perintah yang akan digunakan
 

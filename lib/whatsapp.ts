@@ -67,7 +67,7 @@ function sleep(ms: number) {
 // Broadcasts go out with a short gap between sends rather than all at once —
 // gentler on the API's own rate limits when many residents have a number on file.
 // Body: "Yth. {{1}}, ... pengumuman: {{2}} ..."
-export async function sendWhatsAppBroadcast(recipients: Array<{ phone_number: string; full_name: string }>, title: string) {
+export async function sendWhatsAppBroadcast(recipients: Array<{ phone_number: string | null; full_name: string }>, title: string) {
   if (!process.env.WHATSAPP_CLOUD_API_TOKEN) return;
   for (const recipient of recipients) {
     await sendTemplate(recipient.phone_number, TEMPLATES.newNotification, [recipient.full_name, title]);

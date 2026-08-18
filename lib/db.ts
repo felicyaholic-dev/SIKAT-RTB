@@ -31,6 +31,7 @@ type ResidentRow = {
   gender: Gender;
   resident_status: string;
   phone_number: string | null;
+  email: string | null;
 };
 
 let database: Database.Database | undefined;
@@ -142,6 +143,7 @@ function getDb() {
   ensureColumn(database, "accounts", "must_change_password", "INTEGER NOT NULL DEFAULT 0");
   ensureColumn(database, "master_residents", "gender", "TEXT NOT NULL DEFAULT 'TIDAK_DISEBUTKAN'");
   ensureColumn(database, "master_residents", "phone_number", "TEXT");
+  ensureColumn(database, "master_residents", "email", "TEXT");
   ensureColumn(database, "security_staff", "gender", "TEXT NOT NULL DEFAULT 'TIDAK_DISEBUTKAN'");
   ensureColumn(database, "permits", "entry_code", "TEXT");
   ensureColumn(database, "permits", "permit_type", "TEXT NOT NULL DEFAULT 'IZIN_PRIBADI'");
@@ -369,7 +371,7 @@ export function decidePermit(accountId: number, permitId: number, decision: "APP
     return true;
   });
   if (!transaction()) return { ok: false, message: "Status izin sudah berubah. Silakan pindai ulang QR." };
-  const resident = db.prepare("SELECT full_name, phone_number FROM master_residents WHERE id = ?").get(permit.resident_id) as { full_name: string; phone_number: string | null } | undefined;
+  const resident = db.prepare("SELECT full_name, phone_number, email FROM master_residents WHERE id = ?").get(permit.resident_id) as { full_name: string; phone_number: string | null; email: string | null } | undefined;
   const notif = { permitCode: permit.permit_code, entryCode: permit.entry_code, destination: permit.destination, departureAt: permit.planned_departure_at, returnAt: permit.planned_return_at };
   if (event === "EXIT") return { ok: true, message: "Izin keluar disetujui. Mahasiswa kini berstatus di luar RTB.", event, resident, notif };
   if (event === "EXIT_REJECTED") return { ok: true, message: "Izin dibatalkan. Mahasiswa tetap berstatus di dalam RTB.", event, resident, notif };
@@ -460,7 +462,7 @@ function normalizeGender(value: string | undefined): Gender | null {
 
 // Shared by the single-resident form and the bulk Excel import so both paths
 // enforce identical rules (unique ID BCA, known class, 2-per-room cap).
-function insertResidentRow(actorId: number, input: { bcaId: string; fullName: string; room: string; className: string; gender: Gender; password: string; phoneNumber?: string }): { ok: boolean; message: string } {
+function insertResidentRow(actorId: number, input: { bcaId: string; fullName: string; room: string; className: string; gender: Gender; password: string; phoneNumber?: string; email?: string }): { ok: boolean; message: string } {
   const db = getDb();
   const bcaId = normalizeBcaId(input.bcaId);
   if (!/^\d{6}$/.test(bcaId)) return { ok: false, message: "ID BCA harus terdiri dari 6 angka." };
@@ -470,6 +472,8 @@ function insertResidentRow(actorId: number, input: { bcaId: string; fullName: st
   if (input.password.length < 8) return { ok: false, message: "Password awal minimal 8 karakter." };
   const phoneNumber = normalizePhoneNumber(input.phoneNumber);
   if (input.phoneNumber?.trim() && !phoneNumber) return { ok: false, message: "Nomor WA tidak valid. Gunakan format 08xxxxxxxxxx." };
+  const email = normalizeEmail(input.email);
+  if (input.email?.trim() && !email) return { ok: false, message: "Alamat email tidak valid." };
   const existing = db.prepare("SELECT id FROM accounts WHERE bca_id = ?").get(bcaId);
   if (existing) return { ok: false, message: "ID BCA ini sudah terdaftar, pakai ID BCA lainnya." };
   const room = input.room.trim().toUpperCase();
@@ -477,7 +481,7 @@ function insertResidentRow(actorId: number, input: { bcaId: string; fullName: st
   if (occupants.count >= 2) return { ok: false, message: `Kamar ${room} sudah dihuni 2 orang. Satu kamar hanya untuk maksimal 2 penghuni.` };
   try {
     const transaction = db.transaction(() => {
-      const resident = db.prepare("INSERT INTO master_residents (bca_id, full_name, room_number, class_name, gender, phone_number) VALUES (?, ?, ?, ?, ?, ?)").run(bcaId, input.fullName.trim(), room, input.className, input.gender, phoneNumber);
+      const resident = db.prepare("INSERT INTO master_residents (bca_id, full_name, room_number, class_name, gender, phone_number, email) VALUES (?, ?, ?, ?, ?, ?, ?)").run(bcaId, input.fullName.trim(), room, input.className, input.gender, phoneNumber, email);
       const account = db.prepare("INSERT INTO accounts (resident_id, bca_id, full_name, role, password_hash, must_change_password) VALUES (?, ?, ?, 'STUDENT', ?, 1)").run(resident.lastInsertRowid, bcaId, input.fullName.trim(), bcrypt.hashSync(input.password, 12));
       logAudit(actorId, "CREATE_STUDENT_ACCOUNT", "account", String(account.lastInsertRowid));
     });
@@ -488,7 +492,7 @@ function insertResidentRow(actorId: number, input: { bcaId: string; fullName: st
   }
 }
 
-export function addResident(actorId: number, input: { bcaId: string; fullName: string; room: string; className: string; gender: Gender; password: string; phoneNumber?: string }) {
+export function addResident(actorId: number, input: { bcaId: string; fullName: string; room: string; className: string; gender: Gender; password: string; phoneNumber?: string; email?: string }) {
   const result = insertResidentRow(actorId, input);
   return result.ok ? { ok: true, message: "Akun mahasiswa berhasil dibuat. User wajib mengganti password saat login pertama." } : result;
 }
@@ -497,7 +501,7 @@ export function addResident(actorId: number, input: { bcaId: string; fullName: s
 // and inserted independently (not one big transaction) so a handful of bad
 // rows don't block the hundreds of good ones — mirrors how spreadsheet
 // importers are expected to behave.
-export function importResidents(actorId: number, rows: Array<{ bcaId: string; fullName: string; room: string; className: string; gender: string; password: string; phoneNumber?: string }>) {
+export function importResidents(actorId: number, rows: Array<{ bcaId: string; fullName: string; room: string; className: string; gender: string; password: string; phoneNumber?: string; email?: string }>) {
   const results: Array<{ row: number; ok: boolean; message: string }> = [];
   rows.forEach((input, index) => {
     const rowNumber = index + 2; // spreadsheet row, accounting for the header row
@@ -558,12 +562,14 @@ export function deleteSecurityStaff(actorId: number, id: number) {
   return { ok: true, message: `Data satpam "${staff.full_name}" berhasil dihapus dari sistem.` };
 }
 
-export function updateResident(actorId: number, input: { id: number; fullName: string; room: string; className: string; gender: Gender; residentStatus: "ACTIVE" | "INACTIVE"; phoneNumber?: string }) {
+export function updateResident(actorId: number, input: { id: number; fullName: string; room: string; className: string; gender: Gender; residentStatus: "ACTIVE" | "INACTIVE"; phoneNumber?: string; email?: string }) {
   const db = getDb();
   const resident = db.prepare("SELECT id, room_number, resident_status FROM master_residents WHERE id = ?").get(input.id) as { id: number; room_number: string; resident_status: string } | undefined;
   if (!resident) return { ok: false, message: "Data penghuni tidak ditemukan." };
   const phoneNumber = normalizePhoneNumber(input.phoneNumber);
   if (input.phoneNumber?.trim() && !phoneNumber) return { ok: false, message: "Nomor WA tidak valid. Gunakan format 08xxxxxxxxxx." };
+  const email = normalizeEmail(input.email);
+  if (input.email?.trim() && !email) return { ok: false, message: "Alamat email tidak valid." };
   const room = input.room.trim().toUpperCase();
   const roomOrStatusChanged = room !== resident.room_number || input.residentStatus !== resident.resident_status;
   if (input.residentStatus === "ACTIVE" && roomOrStatusChanged) {
@@ -571,9 +577,9 @@ export function updateResident(actorId: number, input: { id: number; fullName: s
     if (occupants.count >= 2) return { ok: false, message: `Kamar ${room} sudah dihuni 2 orang. Satu kamar hanya untuk maksimal 2 penghuni.` };
   }
   db.prepare(`
-    UPDATE master_residents SET full_name = ?, room_number = ?, class_name = ?, gender = ?, resident_status = ?, phone_number = ?, updated_at = CURRENT_TIMESTAMP
+    UPDATE master_residents SET full_name = ?, room_number = ?, class_name = ?, gender = ?, resident_status = ?, phone_number = ?, email = ?, updated_at = CURRENT_TIMESTAMP
     WHERE id = ?
-  `).run(input.fullName.trim(), room, input.className.trim(), input.gender, input.residentStatus, phoneNumber, input.id);
+  `).run(input.fullName.trim(), room, input.className.trim(), input.gender, input.residentStatus, phoneNumber, email, input.id);
   if (input.residentStatus === "INACTIVE") {
     db.prepare("UPDATE accounts SET is_active = 0 WHERE resident_id = ?").run(input.id);
   }
@@ -737,9 +743,9 @@ export function createBroadcast(accountId: number, input: { title: string; body:
   });
   transaction();
   const recipients = db.prepare(`
-    SELECT full_name, phone_number FROM master_residents
-    WHERE resident_status = 'ACTIVE' AND phone_number IS NOT NULL
-  `).all() as Array<{ full_name: string; phone_number: string }>;
+    SELECT full_name, phone_number, email FROM master_residents
+    WHERE resident_status = 'ACTIVE' AND (phone_number IS NOT NULL OR email IS NOT NULL)
+  `).all() as Array<{ full_name: string; phone_number: string | null; email: string | null }>;
   return { ok: true, message: "Notifikasi berhasil dikirim ke seluruh akun aktif.", recipients, title };
 }
 
@@ -835,4 +841,10 @@ export function normalizePhoneNumber(value: string | undefined): string | null {
   const digits = value.trim().replace(/[^\d+]/g, "").replace(/^\+/, "");
   const withCountryCode = digits.startsWith("0") ? `62${digits.slice(1)}` : digits;
   return /^62\d{8,13}$/.test(withCountryCode) ? withCountryCode : null;
+}
+
+export function normalizeEmail(value: string | undefined): string | null {
+  if (!value?.trim()) return null;
+  const email = value.trim().toLowerCase();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : null;
 }

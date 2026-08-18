@@ -10,6 +10,7 @@ export type ResidentImportRow = {
   gender: string;
   password: string;
   phoneNumber?: string;
+  email?: string;
 };
 
 function pickField(record: Record<string, string>, ...aliases: string[]) {
@@ -52,6 +53,7 @@ export async function parseResidentSheet(buffer: ArrayBuffer): Promise<ResidentI
       gender: pickField(record, "Jenis Kelamin", "Gender", "L/P"),
       password: pickField(record, "Password Awal", "Password"),
       phoneNumber: pickField(record, "Nomor WA", "No WA", "WhatsApp", "Nomor HP") || undefined,
+      email: pickField(record, "Email", "Alamat Email", "E-mail") || undefined,
     });
   });
   return rows;
