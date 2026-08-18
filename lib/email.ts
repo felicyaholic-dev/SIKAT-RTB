@@ -1,8 +1,15 @@
 import "server-only";
 
+import dns from "node:dns";
 import nodemailer from "nodemailer";
-import type SMTPTransport from "nodemailer/lib/smtp-transport";
 import { normalizeEmail } from "@/lib/db";
+
+// Railway's containers have no outbound IPv6 route, but Node's default DNS
+// result order still hands smtp.gmail.com's AAAA record to net.connect first
+// and fails with ENETUNREACH before ever trying the working IPv4 address.
+// nodemailer doesn't expose a `family`/`lookup` override, so this has to be
+// fixed at the process-wide DNS level instead — set once at module load.
+dns.setDefaultResultOrder("ipv4first");
 
 let transporter: nodemailer.Transporter | null | undefined;
 
@@ -19,19 +26,12 @@ function getTransporter() {
     return transporter;
   }
   const port = Number(process.env.SMTP_PORT) || 587;
-  const options = {
+  transporter = nodemailer.createTransport({
     host,
     port,
     secure: process.env.SMTP_SECURE ? process.env.SMTP_SECURE === "true" : port === 465,
     auth: { user, pass },
-    // Railway's containers have no outbound IPv6 route, but Node still tries
-    // the AAAA record for smtp.gmail.com first and fails with ENETUNREACH
-    // before falling back — force IPv4 so the connection never attempts it.
-    // (@types/nodemailer doesn't declare `family`, hence the cast — it's a
-    // real SMTPConnection/net.connect option nodemailer passes through.)
-    family: 4,
-  } as SMTPTransport.Options;
-  transporter = nodemailer.createTransport(options);
+  });
   return transporter;
 }
 
