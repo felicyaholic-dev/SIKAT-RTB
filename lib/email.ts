@@ -1,9 +1,10 @@
 import "server-only";
 
 import nodemailer from "nodemailer";
+import type SMTPTransport from "nodemailer/lib/smtp-transport";
 import { normalizeEmail } from "@/lib/db";
 
-let transporter: ReturnType<typeof nodemailer.createTransport> | null | undefined;
+let transporter: nodemailer.Transporter | null | undefined;
 
 // Lazily built once per server process, same lazy/optional pattern as
 // lib/whatsapp.ts — if SMTP isn't configured, every send below silently
@@ -18,12 +19,19 @@ function getTransporter() {
     return transporter;
   }
   const port = Number(process.env.SMTP_PORT) || 587;
-  transporter = nodemailer.createTransport({
+  const options = {
     host,
     port,
     secure: process.env.SMTP_SECURE ? process.env.SMTP_SECURE === "true" : port === 465,
     auth: { user, pass },
-  });
+    // Railway's containers have no outbound IPv6 route, but Node still tries
+    // the AAAA record for smtp.gmail.com first and fails with ENETUNREACH
+    // before falling back — force IPv4 so the connection never attempts it.
+    // (@types/nodemailer doesn't declare `family`, hence the cast — it's a
+    // real SMTPConnection/net.connect option nodemailer passes through.)
+    family: 4,
+  } as SMTPTransport.Options;
+  transporter = nodemailer.createTransport(options);
   return transporter;
 }
 
