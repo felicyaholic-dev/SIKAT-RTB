@@ -587,6 +587,32 @@ export function updateResident(actorId: number, input: { id: number; fullName: s
   return { ok: true, message: input.residentStatus === "INACTIVE" ? "Penghuni dinonaktifkan dan akses akunnya dicabut." : "Data penghuni berhasil diperbarui." };
 }
 
+// A resident editing their own contact info (room, WA, email) — same data as
+// updateResident's target row, so it shows up in the Pengelola's Master
+// Penghuni immediately, but scoped to only the fields a resident should be
+// able to change themselves (never their own name, class, or active status).
+export function updateOwnContactInfo(accountId: number, input: { room: string; phoneNumber?: string; email?: string }) {
+  const db = getDb();
+  const resident = db.prepare(`
+    SELECT r.id, r.room_number, r.resident_status FROM master_residents r JOIN accounts a ON a.resident_id = r.id
+    WHERE a.id = ? AND a.role = 'STUDENT'
+  `).get(accountId) as { id: number; room_number: string; resident_status: string } | undefined;
+  if (!resident) return { ok: false, message: "Data penghuni tidak ditemukan." };
+  if (!input.room.trim()) return { ok: false, message: "Nomor kamar wajib diisi." };
+  const phoneNumber = normalizePhoneNumber(input.phoneNumber);
+  if (input.phoneNumber?.trim() && !phoneNumber) return { ok: false, message: "Nomor WA tidak valid. Gunakan format 08xxxxxxxxxx." };
+  const email = normalizeEmail(input.email);
+  if (input.email?.trim() && !email) return { ok: false, message: "Alamat email tidak valid." };
+  const room = input.room.trim().toUpperCase();
+  if (room !== resident.room_number && resident.resident_status === "ACTIVE") {
+    const occupants = db.prepare("SELECT COUNT(*) AS count FROM master_residents WHERE room_number = ? AND resident_status = 'ACTIVE' AND id != ?").get(room, resident.id) as { count: number };
+    if (occupants.count >= 2) return { ok: false, message: `Kamar ${room} sudah dihuni 2 orang. Satu kamar hanya untuk maksimal 2 penghuni.` };
+  }
+  db.prepare("UPDATE master_residents SET room_number = ?, phone_number = ?, email = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(room, phoneNumber, email, resident.id);
+  logAudit(accountId, "UPDATE_OWN_CONTACT", "master_resident", String(resident.id));
+  return { ok: true, message: "Data kontak berhasil diperbarui." };
+}
+
 // Permanent removal for residents who have genuinely left RTB — unlike the
 // INACTIVE status (which keeps the row for history but revokes login), this
 // erases the resident and their permit history entirely.

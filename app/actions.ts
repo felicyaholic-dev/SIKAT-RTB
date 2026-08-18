@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { addResident, addSecurityStaff, cancelPendingPermit, changePassword, clearAttempts, createBroadcast, createPermit, decidePermit, deleteBroadcast, deleteResident, deleteResidentsByClass, deleteSecurityStaff, importResidents, isRateLimited, recordFailedAttempt, resetHistory, resetStudentPassword, updateManagerProfile, updateResident, updateSecurityStaff, verifyCredentials, type Gender } from "@/lib/db";
+import { addResident, addSecurityStaff, cancelPendingPermit, changePassword, clearAttempts, createBroadcast, createPermit, decidePermit, deleteBroadcast, deleteResident, deleteResidentsByClass, deleteSecurityStaff, importResidents, isRateLimited, recordFailedAttempt, resetHistory, resetStudentPassword, updateManagerProfile, updateOwnContactInfo, updateResident, updateSecurityStaff, verifyCredentials, type Gender } from "@/lib/db";
 import { clearSession, createSession, requireRole, requireSession, roleHome } from "@/lib/auth";
 import { parseResidentSheet } from "@/lib/excel-import";
 import { RESIDENT_CLASSES } from "@/lib/ui";
@@ -52,6 +52,19 @@ export async function createPermitAction(_: FormState, formData: FormData): Prom
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Izin tidak dapat dibuat." };
   }
+}
+
+export async function updateOwnContactAction(_: FormState, formData: FormData): Promise<FormState> {
+  const session = await requireRole("STUDENT");
+  const room = String(formData.get("room") || "");
+  const phoneNumber = String(formData.get("phoneNumber") || "");
+  const email = String(formData.get("email") || "");
+  const result = updateOwnContactInfo(session.accountId, { room, phoneNumber, email });
+  if (result.ok) {
+    revalidatePath("/student/profile");
+    revalidatePath("/manager/users");
+  }
+  return result.ok ? { success: result.message } : { error: result.message };
 }
 
 export async function cancelPendingPermitAction(_: FormState, formData: FormData): Promise<FormState> {

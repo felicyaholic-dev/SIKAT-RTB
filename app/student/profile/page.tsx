@@ -1,6 +1,7 @@
-import { BadgeCheck, Building2, GraduationCap } from "lucide-react";
+import { BadgeCheck, GraduationCap } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { MobileProfileLogout } from "@/components/MobileProfileLogout";
+import { StudentContactForm } from "@/app/student/StudentContactForm";
 import { requireRole } from "@/lib/auth";
 import { getStudentData } from "@/lib/db";
 import { initials } from "@/lib/ui";
@@ -34,10 +35,10 @@ export default async function StudentProfilePage() {
             <label>Nama lengkap<input value={resident.full_name} readOnly /></label>
             <label>ID BCA<input value={session.bcaId} readOnly /></label>
             <label>Kelas<input value={resident.class_name} readOnly /></label>
-            <label>Nomor kamar<input value={resident.room_number} readOnly /></label>
           </div>
-          <p className="mt-6 flex items-center gap-2 border-t border-line pt-5 text-[12px] text-muted"><Building2 size={16} className="text-signal" /> Perubahan data hunian dikelola oleh Pengelola RTB.</p>
+          <p className="mt-6 flex items-center gap-2 border-t border-line pt-5 text-[12px] text-muted"><BadgeCheck size={16} className="text-signal" /> Nama, ID BCA, dan kelas dikelola oleh Pengelola RTB.</p>
         </section>
+        <StudentContactForm room={resident.room_number} phoneNumber={resident.phone_number} email={resident.email} />
         <MobileProfileLogout />
       </div>
     </AppShell>
