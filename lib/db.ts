@@ -379,20 +379,26 @@ export function decidePermit(accountId: number, permitId: number, decision: "APP
   return { ok: true, message: "Masuk disetujui. Mahasiswa kini kembali tercatat di RTB.", event, resident, notif };
 }
 
-export function getSecurityQueue() {
-  const db = getDb();
-  return db.prepare(`
-    SELECT p.*, r.full_name, r.room_number FROM permits p
-    JOIN master_residents r ON r.id = p.resident_id
-    WHERE p.status IN ('SEDANG_DI_LUAR','MENUNGGU_MASUK') ORDER BY p.planned_departure_at ASC
-  `).all() as Array<PermitRow & { full_name: string; room_number: string }>;
-}
+const eventPeriodWhere: Record<ReportPeriod, string> = {
+  DAY: "date(e.occurred_at, '+7 hours') = date('now', '+7 hours')",
+  WEEK: "date(e.occurred_at, '+7 hours') >= date('now', '-6 days', '+7 hours')",
+  MONTH: "date(e.occurred_at, '+7 hours') >= date('now', 'start of month', '+7 hours')",
+  YEAR: "date(e.occurred_at, '+7 hours') >= date('now', 'start of year', '+7 hours')",
+  ALL: "1 = 1",
+};
 
 // Full keluar-masuk history across all satpam (not scoped to one account) —
-// shared by the satpam "Riwayat" page and the pengelola "Riwayat" page, so
-// both see the same connected activity feed with who validated each entry.
-export function getPermitHistory() {
-  return getDb().prepare(`
+// shared by the satpam "Riwayat" page (no filters, always ALL/300) and the
+// pengelola "Riwayat" page (wing/kelas/period filters), so both read the
+// same connected activity feed with who validated each entry. Wing isn't a
+// stored column, so it's filtered in JS after the SQL fetch (see
+// insertResidentRow for why); the 300-row cap is applied after that filter
+// so it caps what's actually shown, not what's fetched pre-filter.
+export function getPermitHistory(filters?: { wing?: string; className?: string; period?: ReportPeriod }) {
+  const period = filters?.period ?? "ALL";
+  const classFilter = filters?.className ? "AND r.class_name = ?" : "";
+  const params = filters?.className ? [filters.className] : [];
+  const rows = getDb().prepare(`
     SELECT e.id AS event_id, e.event_type, e.occurred_at,
       p.permit_code, p.entry_code, p.destination, p.status,
       r.full_name, r.room_number, r.class_name,
@@ -402,9 +408,9 @@ export function getPermitHistory() {
     JOIN master_residents r ON r.id = p.resident_id
     LEFT JOIN accounts a ON a.id = e.performed_by_account_id
     WHERE e.event_type IN ('EXIT', 'ENTRY', 'EXIT_REJECTED')
+      AND ${eventPeriodWhere[period]} ${classFilter}
     ORDER BY e.occurred_at DESC, e.id DESC
-    LIMIT 300
-  `).all() as Array<{
+  `).all(...params) as Array<{
     event_id: number;
     event_type: "EXIT" | "ENTRY" | "EXIT_REJECTED";
     occurred_at: string;
@@ -417,9 +423,49 @@ export function getPermitHistory() {
     class_name: string;
     performed_by_name: string | null;
   }>;
+  const filtered = filters?.wing ? rows.filter((row) => wingFromRoom(row.room_number)?.code === filters.wing) : rows;
+  return filtered.slice(0, 300);
 }
 
-export function getManagerData() {
+function jakartaToday(): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
+}
+
+function addDaysToDateString(date: string, days: number): string {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function isValidDateString(value: string | undefined): value is string {
+  return !!value && /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+// Resolves a user-supplied date range (e.g. from dashboard query params) to
+// valid, ordered "YYYY-MM-DD" bounds, falling back to the last N days ending
+// today (Jakarta) when either bound is missing/invalid. `to` is clamped to
+// today so a mistyped future date can't silently return an empty chart.
+function resolveDateRange(from: string | undefined, to: string | undefined, defaultSpanDays: number) {
+  const today = jakartaToday();
+  const resolvedTo = isValidDateString(to) && to <= today ? to : today;
+  const resolvedFrom = isValidDateString(from) ? from : addDaysToDateString(resolvedTo, -(defaultSpanDays - 1));
+  return resolvedFrom > resolvedTo ? { from: resolvedTo, to: resolvedFrom } : { from: resolvedFrom, to: resolvedTo };
+}
+
+// Capped at a year so a mistyped/very wide custom range can't blow up the
+// bar chart into thousands of slivers — the chart also scrolls horizontally.
+function enumerateDays(from: string, to: string, maxDays = 366): string[] {
+  const days: string[] = [];
+  let cursor = new Date(`${from}T00:00:00Z`);
+  const end = new Date(`${to}T00:00:00Z`);
+  while (cursor <= end && days.length < maxDays) {
+    days.push(cursor.toISOString().slice(0, 10));
+    cursor = new Date(cursor.getTime() + 86_400_000);
+  }
+  return days;
+}
+
+export function getManagerData(options?: { activityFrom?: string; activityTo?: string; peakFrom?: string; peakTo?: string }) {
   const db = getDb();
   const stats = db.prepare(`
     SELECT
@@ -429,54 +475,81 @@ export function getManagerData() {
       (SELECT COUNT(DISTINCT p.resident_id) FROM permit_events e JOIN permits p ON p.id = e.permit_id
         WHERE e.event_type = 'EXIT' AND date(e.occurred_at, '+7 hours') = date('now', '+7 hours')) AS exitedToday
   `).get() as { residents: number; outside: number; today: number; exitedToday: number };
-  const watchlist = getSecurityQueue();
+  // Recent activity feed: latest EXIT/ENTRY_REQUESTED per permit still open,
+  // scoped to the last rolling 24 hours. Satpam has a separate unrestricted
+  // QR-code lookup flow (getPermitForSecurity) so a student who's been out
+  // for days can still be validated on return — this 24h window only
+  // affects the pengelola dashboard's feed, not satpam's ability to act.
+  const recentActivity = db.prepare(`
+    SELECT p.*, r.full_name, r.room_number
+    FROM permits p
+    JOIN master_residents r ON r.id = p.resident_id
+    JOIN permit_events e ON e.permit_id = p.id
+    WHERE p.status IN ('SEDANG_DI_LUAR', 'MENUNGGU_MASUK')
+      AND e.event_type IN ('EXIT', 'ENTRY_REQUESTED')
+      AND e.occurred_at = (
+        SELECT MAX(e2.occurred_at) FROM permit_events e2
+        WHERE e2.permit_id = p.id AND e2.event_type IN ('EXIT', 'ENTRY_REQUESTED')
+      )
+      AND e.occurred_at >= datetime('now', '-24 hours')
+    ORDER BY e.occurred_at DESC
+  `).all() as Array<PermitRow & { full_name: string; room_number: string }>;
+
+  // Derive each day's key/label from an explicit Asia/Jakarta projection
+  // rather than the server's own local calendar (Railway runs in UTC) — a
+  // day boundary computed in UTC would drift by up to 7 hours from the
+  // Jakarta day the SQL query below buckets by.
+  const activityRange = resolveDateRange(options?.activityFrom, options?.activityTo, 7);
+  const activityDays = enumerateDays(activityRange.from, activityRange.to);
+  const clampedActivityFrom = activityDays[0] ?? activityRange.from;
   const activityRows = db.prepare(`
     SELECT date(occurred_at, '+7 hours') AS day,
       SUM(CASE WHEN event_type = 'EXIT' THEN 1 ELSE 0 END) AS exits,
       SUM(CASE WHEN event_type = 'ENTRY' THEN 1 ELSE 0 END) AS entries
     FROM permit_events
-    WHERE event_type IN ('EXIT', 'ENTRY') AND date(occurred_at, '+7 hours') >= date('now', '-6 days', '+7 hours')
-    GROUP BY date(occurred_at, '+7 hours')
-  `).all() as Array<{ day: string; exits: number; entries: number }>;
+    WHERE event_type IN ('EXIT', 'ENTRY') AND date(occurred_at, '+7 hours') BETWEEN ? AND ?
+    GROUP BY day
+  `).all(clampedActivityFrom, activityRange.to) as Array<{ day: string; exits: number; entries: number }>;
   const activityByDay = new Map(activityRows.map((item) => [item.day, item]));
-  // Derive each day's key/label from an explicit Asia/Jakarta projection
-  // rather than the server's own local calendar (Railway runs in UTC) — a
-  // day boundary computed in UTC would drift by up to 7 hours from the
-  // Jakarta day the SQL query above now buckets by.
-  const weeklyActivity = Array.from({ length: 7 }, (_, index) => {
-    const date = new Date(Date.now() - (6 - index) * 86_400_000);
-    const day = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(date);
-    const values = activityByDay.get(day);
-    return { label: new Intl.DateTimeFormat("id-ID", { weekday: "short", timeZone: "Asia/Jakarta" }).format(date).replace(".", ""), exits: values?.exits || 0, entries: values?.entries || 0 };
-  });
+  const weeklyActivity = activityDays.map((day) => ({
+    day,
+    label: new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", timeZone: "Asia/Jakarta" }).format(new Date(`${day}T00:00:00Z`)),
+    exits: activityByDay.get(day)?.exits || 0,
+    entries: activityByDay.get(day)?.entries || 0,
+  }));
+
   const residents = db.prepare(`
     SELECT r.*, CASE WHEN a.id IS NULL THEN 'Belum aktif' ELSE 'Aktif' END AS account_status
     FROM master_residents r LEFT JOIN accounts a ON a.resident_id = r.id
     ORDER BY r.full_name ASC
   `).all() as Array<ResidentRow & { account_status: string }>;
   const securityStaff = db.prepare("SELECT * FROM security_staff ORDER BY full_name ASC").all() as Array<{ id: number; bca_id: string; full_name: string; gender: Gender; staff_status: string }>;
-  // Hour-of-day bucketing over the last 30 days (Jakarta time), same reasoning
-  // as weeklyActivity above for why the day boundary is computed explicitly.
+
+  // Hour-of-day bucketing over the selected range (Jakarta time), same
+  // reasoning as weeklyActivity above for why the day boundary is explicit.
+  const peakRange = resolveDateRange(options?.peakFrom, options?.peakTo, 30);
   const hourRows = db.prepare(`
     SELECT strftime('%H', occurred_at, '+7 hours') AS hour,
       SUM(CASE WHEN event_type = 'EXIT' THEN 1 ELSE 0 END) AS exits,
       SUM(CASE WHEN event_type = 'ENTRY' THEN 1 ELSE 0 END) AS entries
     FROM permit_events
-    WHERE event_type IN ('EXIT', 'ENTRY') AND date(occurred_at, '+7 hours') >= date('now', '-29 days', '+7 hours')
+    WHERE event_type IN ('EXIT', 'ENTRY') AND date(occurred_at, '+7 hours') BETWEEN ? AND ?
     GROUP BY hour
-  `).all() as Array<{ hour: string; exits: number; entries: number }>;
+  `).all(peakRange.from, peakRange.to) as Array<{ hour: string; exits: number; entries: number }>;
   const hourByKey = new Map(hourRows.map((item) => [item.hour, item]));
   const peakHours = Array.from({ length: 24 }, (_, hour) => {
     const key = String(hour).padStart(2, "0");
     const values = hourByKey.get(key);
     return { hour, exits: values?.exits || 0, entries: values?.entries || 0 };
   });
+
   // Wing is derived from the room number prefix (see lib/wings.ts), not a
   // stored column, so activity is aggregated in JS after fetching rooms.
+  // Shares peakRange so the two "last N days"-style panels stay in sync.
   const wingRooms = db.prepare(`
     SELECT r.room_number FROM permits p JOIN master_residents r ON r.id = p.resident_id
-    WHERE date(p.created_at, '+7 hours') >= date('now', '-29 days', '+7 hours')
-  `).all() as Array<{ room_number: string }>;
+    WHERE date(p.created_at, '+7 hours') BETWEEN ? AND ?
+  `).all(peakRange.from, peakRange.to) as Array<{ room_number: string }>;
   const wingCounts = new Map<string, number>();
   for (const row of wingRooms) {
     const wing = wingFromRoom(row.room_number);
@@ -484,11 +557,17 @@ export function getManagerData() {
     wingCounts.set(key, (wingCounts.get(key) || 0) + 1);
   }
   const otherWingCount = wingCounts.get("LAINNYA") || 0;
+  // All wings always included (even zero-activity ones) so the ranking never
+  // hides a wing — only appended "Lainnya" bucket is conditional.
   const wingActivity = [
     ...WINGS.map((wing) => ({ code: wing.code, floor: wing.floor, gender: wing.gender as Gender, count: wingCounts.get(wing.code) || 0 })),
     ...(otherWingCount > 0 ? [{ code: "LAINNYA", floor: "Format kamar lama", gender: "TIDAK_DISEBUTKAN" as Gender, count: otherWingCount }] : []),
   ].sort((a, b) => b.count - a.count);
-  return { stats, watchlist, weeklyActivity, peakHours, wingActivity, residents, securityStaff };
+
+  return {
+    stats, recentActivity, weeklyActivity, peakHours, wingActivity, residents, securityStaff,
+    range: { activityFrom: activityRange.from, activityTo: activityRange.to, peakFrom: peakRange.from, peakTo: peakRange.to },
+  };
 }
 
 function normalizeGender(value: string | undefined): Gender | null {

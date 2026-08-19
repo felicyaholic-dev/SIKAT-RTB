@@ -19,15 +19,19 @@ flowchart TD
 
   Menu -->|Dashboard| Dash["Lihat ringkasan: penghuni
   di dalam/luar, keluar hari ini,
-  grafik 7 hari, grafik jam sibuk
-  30 hari, rekap wing paling aktif,
-  mahasiswa di luar saat ini"]
+  grafik aktivitas & jam sibuk
+  (rentang tanggal bisa diatur
+  bebas via kalender), rekap
+  SELURUH wing, aktivitas
+  24 jam terakhir"]
   Dash --> Home
 
   Menu -->|Riwayat| Hist["Lihat riwayat validasi
   keluar-masuk SELURUH satpam,
   tercatat siapa yang
-  memvalidasi tiap izin"]
+  memvalidasi tiap izin — bisa
+  difilter per wing, kelas,
+  dan jangka waktu"]
   Hist --> Home
 
   Menu -->|Pengaturan: Master Penghuni| MP{Aksi}
@@ -110,6 +114,8 @@ flowchart TD
 - **Broadcast** memicu tiga hal sekaligus: notifikasi in-app ke semua akun, pesan WhatsApp, dan email — dua yang terakhir hanya ke penghuni yang sudah mengisi nomor WA/email.
 - Nama, kelas, dan status penghuni **tetap** hanya bisa diubah lewat menu ini (bukan oleh mahasiswa sendiri); yang boleh diubah mahasiswa sendiri hanya kamar, WA, dan email.
 - **Wing** bukan kolom database tersendiri — sistem menurunkannya dari awalan nomor kamar (format `WING-NOMOR`, contoh `A1-101`), lalu mengecek jenis kelamin penghuni harus cocok dengan wing tersebut. Aturan ini berlaku di tambah/edit/impor Pengelola *maupun* saat mahasiswa mengubah kamar sendiri di halaman Profil.
+- Grafik **Aktivitas keluar-masuk** dan **Jam sibuk** di Dashboard masing-masing punya kalender "Dari – Ke" independen (default 7 hari & 30 hari terakhir); rekap wing memakai rentang yang sama dengan Jam sibuk. Panel **Aktivitas terbaru** di Dashboard selalu tetap pada 24 jam terakhir (tidak ikut kalender) — kartu "Di luar RTB" di atasnya tetap menghitung total riil termasuk yang sudah di luar lebih dari 24 jam.
+- Filter **Riwayat** (wing/kelas/jangka waktu) hanya ada di halaman Pengelola; halaman Riwayat Satpam tetap menampilkan seluruh riwayat tanpa filter.
 
 ## Referensi wing
 

@@ -124,10 +124,12 @@ flowchart TD
   D4 -.-> P5
   D5 -.-> P5
   D9 -.-> P5
-  P5 -->|Dashboard: grafik 7 hari,
-  grafik jam sibuk 30 hari,
-  rekap wing paling aktif,
-  riwayat global keluar-masuk,
+  P5 -->|Dashboard: grafik aktivitas
+  & jam sibuk (rentang kalender
+  diatur bebas), rekap SELURUH
+  wing, aktivitas 24 jam terakhir,
+  riwayat keluar-masuk (filter
+  wing/kelas/jangka waktu),
   laporan + CSV| PGL
   P5 -->|Riwayat global
   keluar-masuk| SAT
@@ -141,4 +143,6 @@ flowchart TD
 - **Proses 1.0** juga memvalidasi wing: setiap penyimpanan kamar (tambah/edit/impor Pengelola, maupun edit kamar mandiri Mahasiswa) mengecek awalan nomor kamar terhadap tabel wing di [lib/wings.ts](../../lib/wings.ts) dan menolak jika jenis kelamin tidak cocok dengan wing tersebut. Wing bukan kolom tersendiri di `master_residents`, hanya diturunkan dari `room_number`.
 - **Proses 4.0** sekarang mengirim ke dua kanal eksternal: WhatsApp Cloud API *dan* Resend Email API (sebelumnya cuma WhatsApp).
 - **Proses 5.0** outputnya juga mengalir ke Satpam — sejak halaman Riwayat pengelola dan satpam sama-sama menampilkan riwayat validasi gabungan seluruh satpam (bukan hanya milik akun yang login).
-- **Proses 5.0** (Dashboard Pengelola) kini menghasilkan dua analitik baru selain grafik 7 hari: grafik jam sibuk keluar-masuk (30 hari terakhir, per jam) dan rekap wing yang paling sering mengajukan izin (30 hari terakhir, diurutkan dari yang paling aktif).
+- **Proses 5.0** (Dashboard Pengelola) kini menghasilkan dua analitik baru selain grafik aktivitas: grafik jam sibuk keluar-masuk (per jam) dan rekap wing yang paling sering mengajukan izin (SELURUH wing selalu ditampilkan, bukan cuma top-N). Kedua grafik dan rekap wing punya rentang tanggal yang bisa diatur bebas lewat kalender (default 7 hari untuk aktivitas, 30 hari untuk jam sibuk/rekap wing) — bukan lagi jendela waktu tetap.
+- **Proses 5.0** juga menambah panel "Aktivitas terbaru" yang selalu dibatasi 24 jam terakhir (rolling window, bukan kalender), terpisah dari kartu "Di luar RTB" yang tetap menghitung total riil tanpa batas waktu.
+- **Proses 5.0** (Riwayat Pengelola) sekarang bisa difilter per wing, kelas, dan jangka waktu (Hari ini/7 hari/Bulan ini/Tahun ini/Semua waktu) — Riwayat Satpam tetap tanpa filter seperti sebelumnya, mengambil dari fungsi data yang sama (`getPermitHistory`) tanpa argumen.
