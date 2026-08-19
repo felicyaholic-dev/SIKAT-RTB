@@ -227,7 +227,6 @@ scripts/        Skrip CLI: reset database, ekspor ke MySQL untuk cPanel
 docs/           Dokumentasi project
   diagrams/      DFD dan flowchart per peran
   database/      Schema siap-pakai untuk migrasi database ke cPanel/MySQL
-cpanel-landing/ Landing page PHP terpisah (opsional), untuk di-hosting di cPanel
 ```
 
 File konfigurasi di root (`next.config.ts`, `tsconfig.json`, `package.json`, dst) wajib tetap di root — dicari otomatis oleh Next.js/TypeScript/pnpm di lokasi itu.
@@ -242,6 +241,9 @@ master_residents
   resident_status, phone_number (nullable), email (nullable),
   created_at, updated_at
   — kamar/WA/email bisa diubah mahasiswa sendiri; sisanya hanya Pengelola
+  — room_number wajib format WING-NOMOR (contoh A1-101); wing bukan
+    kolom sendiri, diturunkan dari awalan room_number lewat lib/wings.ts
+    dan wajib cocok dengan gender (lihat §9a)
 
 accounts
   id, resident_id (nullable untuk satpam/pengelola), bca_id (unique),
@@ -284,6 +286,23 @@ notification_deliveries
 Relasi FK: `accounts.resident_id → master_residents.id`, `permits.resident_id → master_residents.id`, `permit_events.permit_id → permits.id`, `permit_events.performed_by_account_id → accounts.id`, `manager_bootstrap_links.account_id → accounts.id`, `broadcast_notifications.created_by_account_id → accounts.id`, `notification_deliveries.notification_id → broadcast_notifications.id`, `notification_deliveries.account_id → accounts.id`.
 
 DFD lengkap yang menggambarkan aliran data antar tabel ini ada di [docs/diagrams/dfd.md](docs/diagrams/dfd.md).
+
+### 9a. Wing & lantai
+
+Wing bukan kolom database — diturunkan dari awalan `room_number` (format wajib `WING-NOMOR`, contoh `A1-101`), dan setiap wing punya jenis kelamin tetap yang wajib cocok dengan `master_residents.gender`. Ditegakkan oleh `lib/wings.ts`, dipakai di validasi tambah/edit/impor penghuni (Pengelola) maupun edit kamar mandiri (Mahasiswa), dan jadi dasar rekap wing di Dashboard Pengelola.
+
+| Wing | Lantai | Jenis kelamin |
+| --- | --- | --- |
+| ALG | Lantai ALG | Perempuan |
+| AG | Lantai AG | Perempuan |
+| BG | Lantai BG | Laki-laki |
+| A1 | Lantai 1 | Perempuan |
+| B1 | Lantai 1 | Perempuan |
+| A2 | Lantai 2 | Perempuan |
+| B2 | Lantai 2 | Perempuan |
+| A3 | Lantai 3 | Laki-laki |
+| B3 | Lantai 3 | Laki-laki |
+| A5 | Lantai 5 | Laki-laki |
 
 ## 10. Keamanan minimum
 
