@@ -26,6 +26,10 @@
 - `notification_deliveries.notification_id` → `broadcast_notifications.id`
 - `notification_deliveries.account_id` → `accounts.id`
 
+## Wing (bukan kolom database)
+
+Wing bangunan (ALG, AG, BG, A1, B1, A2, B2, A3, B3, A5) **tidak** disimpan sebagai kolom terpisah. Sistem menurunkannya dari awalan `master_residents.room_number`, yang wajib berformat `WING-NOMOR` (contoh `A1-101`). Setiap wing punya jenis kelamin tetap — aplikasi menolak penyimpanan kamar bila jenis kelamin penghuni tidak cocok dengan wing tersebut. Daftar lengkap dan aturannya ada di `lib/wings.ts` pada project utama, dan tabel referensinya ada di [flowchart Pengelola](../diagrams/flowchart-pengelola.md#referensi-wing).
+
 ## Sumber
 
 Diturunkan dari schema asli (SQLite) di `lib/db.ts` pada project utama.

@@ -68,7 +68,9 @@ flowchart TD
   Monitoring &
   Pelaporan))
 
-  D1[(D1 master_residents)]
+  D1[(D1 master_residents
+  wing diturunkan dari
+  awalan nomor kamar)]
   D2[(D2 accounts)]
   D3[(D3 security_staff)]
   D4[(D4 permits)]
@@ -122,8 +124,10 @@ flowchart TD
   D4 -.-> P5
   D5 -.-> P5
   D9 -.-> P5
-  P5 -->|Dashboard, riwayat
-  global keluar-masuk,
+  P5 -->|Dashboard: grafik 7 hari,
+  grafik jam sibuk 30 hari,
+  rekap wing paling aktif,
+  riwayat global keluar-masuk,
   laporan + CSV| PGL
   P5 -->|Riwayat global
   keluar-masuk| SAT
@@ -134,5 +138,7 @@ flowchart TD
 ## Perubahan sejak versi sebelumnya
 
 - **Proses 1.0** sekarang ditulis oleh dua aktor: Pengelola (data lengkap) *dan* Mahasiswa (kamar/WA/email milik sendiri saja) — sebelumnya hanya Pengelola.
+- **Proses 1.0** juga memvalidasi wing: setiap penyimpanan kamar (tambah/edit/impor Pengelola, maupun edit kamar mandiri Mahasiswa) mengecek awalan nomor kamar terhadap tabel wing di [lib/wings.ts](../../lib/wings.ts) dan menolak jika jenis kelamin tidak cocok dengan wing tersebut. Wing bukan kolom tersendiri di `master_residents`, hanya diturunkan dari `room_number`.
 - **Proses 4.0** sekarang mengirim ke dua kanal eksternal: WhatsApp Cloud API *dan* Resend Email API (sebelumnya cuma WhatsApp).
 - **Proses 5.0** outputnya juga mengalir ke Satpam — sejak halaman Riwayat pengelola dan satpam sama-sama menampilkan riwayat validasi gabungan seluruh satpam (bukan hanya milik akun yang login).
+- **Proses 5.0** (Dashboard Pengelola) kini menghasilkan dua analitik baru selain grafik 7 hari: grafik jam sibuk keluar-masuk (30 hari terakhir, per jam) dan rekap wing yang paling sering mengajukan izin (30 hari terakhir, diurutkan dari yang paling aktif).

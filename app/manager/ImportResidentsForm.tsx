@@ -25,7 +25,7 @@ export function ImportResidentsForm() {
             <>
               File <b>.xlsx</b> dengan baris pertama berisi judul kolom: <code className="rounded bg-mist px-1.5 py-0.5 font-mono text-[11px] text-ink">ID BCA</code>,{" "}
               <code className="rounded bg-mist px-1.5 py-0.5 font-mono text-[11px] text-ink">Nama Lengkap</code>,{" "}
-              <code className="rounded bg-mist px-1.5 py-0.5 font-mono text-[11px] text-ink">Kamar</code>,{" "}
+              <code className="rounded bg-mist px-1.5 py-0.5 font-mono text-[11px] text-ink">Kamar</code> (format WING-NOMOR, contoh A1-101 — wing menentukan lantai & jenis kelamin),{" "}
               <code className="rounded bg-mist px-1.5 py-0.5 font-mono text-[11px] text-ink">Kelas</code>,{" "}
               <code className="rounded bg-mist px-1.5 py-0.5 font-mono text-[11px] text-ink">Jenis Kelamin</code> (isi L atau P),{" "}
               <code className="rounded bg-mist px-1.5 py-0.5 font-mono text-[11px] text-ink">Password Awal</code> (min. 8 karakter),{" "}

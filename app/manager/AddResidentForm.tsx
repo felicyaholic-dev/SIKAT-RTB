@@ -5,12 +5,15 @@ import { Plus } from "lucide-react";
 import { addResidentAction, type FormState } from "@/app/actions";
 import { FormModal } from "@/components/FormModal";
 import { btn, formMessage, RESIDENT_CLASSES } from "@/lib/ui";
+import { genderLabel, wingFromRoom } from "@/lib/wings";
 
 const initialState: FormState = {};
 
 export function AddResidentForm() {
   const [open, setOpen] = useState(false);
+  const [room, setRoom] = useState("");
   const [state, action, pending] = useActionState(addResidentAction, initialState);
+  const wing = wingFromRoom(room);
   return (
     <>
       <button className={`${btn.base} ${btn.primary} shrink-0`} onClick={() => setOpen(true)}>
@@ -30,7 +33,10 @@ export function AddResidentForm() {
               <div className="grid gap-3 sm:grid-cols-2">
                 <label>
                   Kamar
-                  <input name="room" placeholder="A128" required />
+                  <input name="room" placeholder="A1-101" value={room} onChange={(e) => setRoom(e.target.value)} required />
+                  <small className="mt-1 block text-[10px] text-muted">
+                    {room.trim() === "" ? "Format WING-NOMOR, contoh A1-101." : wing ? `Wing ${wing.code} · ${wing.floor} · khusus ${genderLabel(wing.gender)}.` : "Wing tidak dikenali. Gunakan format WING-NOMOR, contoh A1-101."}
+                  </small>
                 </label>
                 <label>
                   Kelas

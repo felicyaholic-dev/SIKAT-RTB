@@ -18,9 +18,10 @@ flowchart TD
   Home --> Menu{Pilih menu}
 
   Menu -->|Dashboard| Dash["Lihat ringkasan: penghuni
-  di dalam/luar, aktivitas hari ini,
-  grafik 7 hari, mahasiswa
-  di luar saat ini"]
+  di dalam/luar, keluar hari ini,
+  grafik 7 hari, grafik jam sibuk
+  30 hari, rekap wing paling aktif,
+  mahasiswa di luar saat ini"]
   Dash --> Home
 
   Menu -->|Riwayat| Hist["Lihat riwayat validasi
@@ -30,8 +31,9 @@ flowchart TD
   Hist --> Home
 
   Menu -->|Pengaturan: Master Penghuni| MP{Aksi}
-  MP -->|Tambah satu| AddOne[Isi ID BCA, nama, kamar,
-  kelas, gender, password awal,
+  MP -->|Tambah satu| AddOne[Isi ID BCA, nama, kamar
+  format WING-NOMOR, kelas,
+  gender, password awal,
   WA/email opsional]
   MP -->|Impor massal| Import["Unggah .xlsx
   (ID BCA/Nama/Kamar/Kelas/
@@ -44,16 +46,23 @@ flowchart TD
   nonaktifkan/aktifkan]
   MP -->|Hapus satu / sekelas| DeleteOne["Hapus permanen data,
   akun, dan riwayat izin"]
-  AddOne --> CheckRoom{Kamar sudah
+  AddOne --> CheckWing{Wing dari kamar
+  dikenali & gender
+  cocok wing itu?}
+  EditOne --> CheckWing
+  ImportCheck --> CheckWing
+  CheckWing -->|Tidak| RejectWing["Ditolak: format kamar
+  tidak dikenali atau gender
+  tidak sesuai wing"]
+  RejectWing --> Home
+  CheckWing -->|Ya| CheckRoom{Kamar sudah
   2 penghuni aktif?}
   CheckRoom -->|Ya| RejectRoom[Ditolak: kamar penuh]
   RejectRoom --> Home
   CheckRoom -->|Tidak| SaveResident[Akun & data tersimpan,
   audit log tercatat]
-  ImportCheck --> SaveResident
-  EditOne --> SaveResident
-  DeleteOne --> SaveResident
   SaveResident --> Home
+  DeleteOne --> SaveResident
 
   Menu -->|Pengaturan: Master Satpam| MS[Tambah / edit / nonaktifkan
   akun satpam]
@@ -100,3 +109,21 @@ flowchart TD
 - Menu **Riwayat** ini fitur baru — sebelumnya hanya satpam yang punya halaman ini; sekarang Pengelola juga bisa melihat data yang persis sama untuk pemantauan.
 - **Broadcast** memicu tiga hal sekaligus: notifikasi in-app ke semua akun, pesan WhatsApp, dan email — dua yang terakhir hanya ke penghuni yang sudah mengisi nomor WA/email.
 - Nama, kelas, dan status penghuni **tetap** hanya bisa diubah lewat menu ini (bukan oleh mahasiswa sendiri); yang boleh diubah mahasiswa sendiri hanya kamar, WA, dan email.
+- **Wing** bukan kolom database tersendiri — sistem menurunkannya dari awalan nomor kamar (format `WING-NOMOR`, contoh `A1-101`), lalu mengecek jenis kelamin penghuni harus cocok dengan wing tersebut. Aturan ini berlaku di tambah/edit/impor Pengelola *maupun* saat mahasiswa mengubah kamar sendiri di halaman Profil.
+
+## Referensi wing
+
+| Wing | Lantai | Jenis kelamin |
+| --- | --- | --- |
+| ALG | Lantai ALG | Perempuan |
+| AG | Lantai AG | Perempuan |
+| BG | Lantai BG | Laki-laki |
+| A1 | Lantai 1 | Perempuan |
+| B1 | Lantai 1 | Perempuan |
+| A2 | Lantai 2 | Perempuan |
+| B2 | Lantai 2 | Perempuan |
+| A3 | Lantai 3 | Laki-laki |
+| B3 | Lantai 3 | Laki-laki |
+| A5 | Lantai 5 | Laki-laki |
+
+Sumber kebenaran: [lib/wings.ts](../../lib/wings.ts).

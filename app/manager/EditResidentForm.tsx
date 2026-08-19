@@ -6,13 +6,16 @@ import { Pencil, Trash2 } from "lucide-react";
 import { deleteResidentAction, updateResidentAction, type FormState } from "@/app/actions";
 import { FormModal } from "@/components/FormModal";
 import { btn, formMessage, RESIDENT_CLASSES } from "@/lib/ui";
+import { genderLabel, wingFromRoom } from "@/lib/wings";
 
 const initialState: FormState = {};
 type Resident = { id: number; bca_id: string; full_name: string; room_number: string; class_name: string; gender: string; resident_status: string; phone_number: string | null; email: string | null };
 
 export function EditResidentForm({ resident }: { resident: Resident }) {
   const [open, setOpen] = useState(false);
+  const [room, setRoom] = useState(resident.room_number);
   const [state, action, pending] = useActionState(updateResidentAction, initialState);
+  const wing = wingFromRoom(room);
   return (
     <>
       <button
@@ -36,7 +39,10 @@ export function EditResidentForm({ resident }: { resident: Resident }) {
               <div className="grid gap-3 sm:grid-cols-2">
                 <label>
                   Kamar
-                  <input name="room" defaultValue={resident.room_number} required />
+                  <input name="room" value={room} onChange={(e) => setRoom(e.target.value)} required />
+                  <small className="mt-1 block text-[10px] text-muted">
+                    {room.trim() === "" ? "Format WING-NOMOR, contoh A1-101." : wing ? `Wing ${wing.code} · ${wing.floor} · khusus ${genderLabel(wing.gender)}.` : "Wing tidak dikenali. Gunakan format WING-NOMOR, contoh A1-101."}
+                  </small>
                 </label>
                 <label>
                   Kelas

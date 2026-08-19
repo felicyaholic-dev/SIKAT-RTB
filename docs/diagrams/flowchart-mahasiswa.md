@@ -19,7 +19,13 @@ flowchart TD
   Choice -->|Edit profil| Profile["Ubah kamar / nomor WA / email
   (opsional, langsung tersimpan
   ke data Pengelola)"]
-  Profile --> Home
+  Profile --> CheckWing{Kamar baru: wing dikenali
+  & gender cocok wing itu?}
+  CheckWing -->|Tidak| RejectWing[Ditolak: format/gender
+  kamar tidak sesuai]
+  RejectWing --> Home
+  CheckWing -->|Ya| SaveProfile[Data kamar tersimpan]
+  SaveProfile --> Home
 
   Choice -->|Ajukan izin keluar| Apply[Isi tujuan, tanggal, jam keluar]
   Apply --> QR["Status: MENUNGGU_KELUAR
@@ -71,3 +77,4 @@ flowchart TD
 - Satu izin **masuk** tidak bisa ditolak satpam (hanya dikonfirmasi) — beda dengan izin **keluar** yang bisa ditolak.
 - Notifikasi WA dan Email dikirim otomatis di titik yang sama, tapi masing-masing independen: kalau salah satu kanal belum diaktifkan Pengelola (belum ada kredensial), kanal lain tetap jalan.
 - Edit kamar/WA/email bisa dilakukan kapan saja dari halaman Profil, tidak menunggu proses izin selesai.
+- Kamar wajib format `WING-NOMOR` (contoh `A1-101`) dan wing-nya harus cocok dengan jenis kelamin mahasiswa — lihat tabel wing di [flowchart-pengelola.md](flowchart-pengelola.md#referensi-wing).

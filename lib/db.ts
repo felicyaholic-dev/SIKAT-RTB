@@ -5,6 +5,7 @@ import Database from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
 import { RESIDENT_CLASSES } from "@/lib/ui";
+import { WINGS, genderLabel, wingFromRoom } from "@/lib/wings";
 
 export type Role = "STUDENT" | "SECURITY" | "MANAGER";
 export type PermitStatus = "MENUNGGU_KELUAR" | "SEDANG_DI_LUAR" | "MENUNGGU_MASUK" | "SELESAI" | "DIBATALKAN";
@@ -424,8 +425,10 @@ export function getManagerData() {
     SELECT
       (SELECT COUNT(*) FROM master_residents WHERE resident_status = 'ACTIVE') AS residents,
       (SELECT COUNT(*) FROM permits WHERE status IN ('SEDANG_DI_LUAR', 'MENUNGGU_MASUK')) AS outside,
-      (SELECT COUNT(*) FROM permits WHERE date(created_at, '+7 hours') = date('now', '+7 hours')) AS today
-  `).get() as { residents: number; outside: number; today: number };
+      (SELECT COUNT(*) FROM permits WHERE date(created_at, '+7 hours') = date('now', '+7 hours')) AS today,
+      (SELECT COUNT(DISTINCT p.resident_id) FROM permit_events e JOIN permits p ON p.id = e.permit_id
+        WHERE e.event_type = 'EXIT' AND date(e.occurred_at, '+7 hours') = date('now', '+7 hours')) AS exitedToday
+  `).get() as { residents: number; outside: number; today: number; exitedToday: number };
   const watchlist = getSecurityQueue();
   const activityRows = db.prepare(`
     SELECT date(occurred_at, '+7 hours') AS day,
@@ -452,7 +455,40 @@ export function getManagerData() {
     ORDER BY r.full_name ASC
   `).all() as Array<ResidentRow & { account_status: string }>;
   const securityStaff = db.prepare("SELECT * FROM security_staff ORDER BY full_name ASC").all() as Array<{ id: number; bca_id: string; full_name: string; gender: Gender; staff_status: string }>;
-  return { stats, watchlist, weeklyActivity, residents, securityStaff };
+  // Hour-of-day bucketing over the last 30 days (Jakarta time), same reasoning
+  // as weeklyActivity above for why the day boundary is computed explicitly.
+  const hourRows = db.prepare(`
+    SELECT strftime('%H', occurred_at, '+7 hours') AS hour,
+      SUM(CASE WHEN event_type = 'EXIT' THEN 1 ELSE 0 END) AS exits,
+      SUM(CASE WHEN event_type = 'ENTRY' THEN 1 ELSE 0 END) AS entries
+    FROM permit_events
+    WHERE event_type IN ('EXIT', 'ENTRY') AND date(occurred_at, '+7 hours') >= date('now', '-29 days', '+7 hours')
+    GROUP BY hour
+  `).all() as Array<{ hour: string; exits: number; entries: number }>;
+  const hourByKey = new Map(hourRows.map((item) => [item.hour, item]));
+  const peakHours = Array.from({ length: 24 }, (_, hour) => {
+    const key = String(hour).padStart(2, "0");
+    const values = hourByKey.get(key);
+    return { hour, exits: values?.exits || 0, entries: values?.entries || 0 };
+  });
+  // Wing is derived from the room number prefix (see lib/wings.ts), not a
+  // stored column, so activity is aggregated in JS after fetching rooms.
+  const wingRooms = db.prepare(`
+    SELECT r.room_number FROM permits p JOIN master_residents r ON r.id = p.resident_id
+    WHERE date(p.created_at, '+7 hours') >= date('now', '-29 days', '+7 hours')
+  `).all() as Array<{ room_number: string }>;
+  const wingCounts = new Map<string, number>();
+  for (const row of wingRooms) {
+    const wing = wingFromRoom(row.room_number);
+    const key = wing?.code ?? "LAINNYA";
+    wingCounts.set(key, (wingCounts.get(key) || 0) + 1);
+  }
+  const otherWingCount = wingCounts.get("LAINNYA") || 0;
+  const wingActivity = [
+    ...WINGS.map((wing) => ({ code: wing.code, floor: wing.floor, gender: wing.gender as Gender, count: wingCounts.get(wing.code) || 0 })),
+    ...(otherWingCount > 0 ? [{ code: "LAINNYA", floor: "Format kamar lama", gender: "TIDAK_DISEBUTKAN" as Gender, count: otherWingCount }] : []),
+  ].sort((a, b) => b.count - a.count);
+  return { stats, watchlist, weeklyActivity, peakHours, wingActivity, residents, securityStaff };
 }
 
 function normalizeGender(value: string | undefined): Gender | null {
@@ -479,6 +515,9 @@ function insertResidentRow(actorId: number, input: { bcaId: string; fullName: st
   const existing = db.prepare("SELECT id FROM accounts WHERE bca_id = ?").get(bcaId);
   if (existing) return { ok: false, message: "ID BCA ini sudah terdaftar, pakai ID BCA lainnya." };
   const room = input.room.trim().toUpperCase();
+  const wing = wingFromRoom(room);
+  if (!wing) return { ok: false, message: `Format kamar "${room}" tidak dikenali. Gunakan format WING-NOMOR, contoh A1-101.` };
+  if (wing.gender !== input.gender) return { ok: false, message: `Kamar ${room} ada di wing ${wing.code} (${wing.floor}), khusus ${genderLabel(wing.gender)}.` };
   const occupants = db.prepare("SELECT COUNT(*) AS count FROM master_residents WHERE room_number = ? AND resident_status = 'ACTIVE'").get(room) as { count: number };
   if (occupants.count >= 2) return { ok: false, message: `Kamar ${room} sudah dihuni 2 orang. Satu kamar hanya untuk maksimal 2 penghuni.` };
   try {
@@ -573,6 +612,9 @@ export function updateResident(actorId: number, input: { id: number; fullName: s
   const email = normalizeEmail(input.email);
   if (input.email?.trim() && !email) return { ok: false, message: "Alamat email tidak valid." };
   const room = input.room.trim().toUpperCase();
+  const wing = wingFromRoom(room);
+  if (!wing) return { ok: false, message: `Format kamar "${room}" tidak dikenali. Gunakan format WING-NOMOR, contoh A1-101.` };
+  if (wing.gender !== input.gender) return { ok: false, message: `Kamar ${room} ada di wing ${wing.code} (${wing.floor}), khusus ${genderLabel(wing.gender)}.` };
   const roomOrStatusChanged = room !== resident.room_number || input.residentStatus !== resident.resident_status;
   if (input.residentStatus === "ACTIVE" && roomOrStatusChanged) {
     const occupants = db.prepare("SELECT COUNT(*) AS count FROM master_residents WHERE room_number = ? AND resident_status = 'ACTIVE' AND id != ?").get(room, input.id) as { count: number };
@@ -596,9 +638,9 @@ export function updateResident(actorId: number, input: { id: number; fullName: s
 export function updateOwnContactInfo(accountId: number, input: { room: string; phoneNumber?: string; email?: string }) {
   const db = getDb();
   const resident = db.prepare(`
-    SELECT r.id, r.room_number, r.resident_status FROM master_residents r JOIN accounts a ON a.resident_id = r.id
+    SELECT r.id, r.room_number, r.resident_status, r.gender FROM master_residents r JOIN accounts a ON a.resident_id = r.id
     WHERE a.id = ? AND a.role = 'STUDENT'
-  `).get(accountId) as { id: number; room_number: string; resident_status: string } | undefined;
+  `).get(accountId) as { id: number; room_number: string; resident_status: string; gender: Gender } | undefined;
   if (!resident) return { ok: false, message: "Data penghuni tidak ditemukan." };
   if (!input.room.trim()) return { ok: false, message: "Nomor kamar wajib diisi." };
   const phoneNumber = normalizePhoneNumber(input.phoneNumber);
@@ -606,6 +648,11 @@ export function updateOwnContactInfo(accountId: number, input: { room: string; p
   const email = normalizeEmail(input.email);
   if (input.email?.trim() && !email) return { ok: false, message: "Alamat email tidak valid." };
   const room = input.room.trim().toUpperCase();
+  if (room !== resident.room_number) {
+    const wing = wingFromRoom(room);
+    if (!wing) return { ok: false, message: `Format kamar "${room}" tidak dikenali. Gunakan format WING-NOMOR, contoh A1-101.` };
+    if (wing.gender !== resident.gender) return { ok: false, message: `Kamar ${room} ada di wing ${wing.code} (${wing.floor}), khusus ${genderLabel(wing.gender)}.` };
+  }
   if (room !== resident.room_number && resident.resident_status === "ACTIVE") {
     const occupants = db.prepare("SELECT COUNT(*) AS count FROM master_residents WHERE room_number = ? AND resident_status = 'ACTIVE' AND id != ?").get(room, resident.id) as { count: number };
     if (occupants.count >= 2) return { ok: false, message: `Kamar ${room} sudah dihuni 2 orang. Satu kamar hanya untuk maksimal 2 penghuni.` };

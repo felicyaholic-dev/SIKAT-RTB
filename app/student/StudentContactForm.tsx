@@ -1,14 +1,17 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { Save } from "lucide-react";
 import { updateOwnContactAction, type FormState } from "@/app/actions";
 import { btn, formMessage } from "@/lib/ui";
+import { wingFromRoom } from "@/lib/wings";
 
 const initialState: FormState = {};
 
-export function StudentContactForm({ room, phoneNumber, email }: { room: string; phoneNumber: string | null; email: string | null }) {
+export function StudentContactForm({ room: initialRoom, phoneNumber, email }: { room: string; phoneNumber: string | null; email: string | null }) {
+  const [room, setRoom] = useState(initialRoom);
   const [state, action, pending] = useActionState(updateOwnContactAction, initialState);
+  const wing = wingFromRoom(room);
   return (
     <form action={action} className="security-card mt-5 p-6 sm:p-8">
       <p className="security-kicker">DATA HUNIAN & KONTAK</p>
@@ -17,7 +20,10 @@ export function StudentContactForm({ room, phoneNumber, email }: { room: string;
       <div className="mt-6 grid gap-5 sm:grid-cols-2">
         <label>
           Nomor kamar
-          <input name="room" defaultValue={room} required />
+          <input name="room" value={room} onChange={(e) => setRoom(e.target.value)} required />
+          <small className="mt-1 block text-[10px] text-muted">
+            {room.trim() === "" ? "Format WING-NOMOR, contoh A1-101." : wing ? `Wing ${wing.code} · ${wing.floor}.` : "Wing tidak dikenali. Gunakan format WING-NOMOR, contoh A1-101."}
+          </small>
         </label>
         <label>
           Nomor WA <span className="font-normal text-muted">(opsional)</span>

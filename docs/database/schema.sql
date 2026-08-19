@@ -2,6 +2,9 @@
 -- Tinggal copy-paste ke tab "SQL" di phpMyAdmin, lalu jalankan (Go).
 -- Ini hanya struktur tabel (tanpa data).
 
+-- room_number wajib berformat WING-NOMOR (contoh 'A1-101'). Wing tidak
+-- punya kolom sendiri -- aplikasi menurunkannya dari awalan room_number
+-- (lihat lib/wings.ts) dan menolak simpan bila gender tidak cocok wing.
 CREATE TABLE IF NOT EXISTS master_residents (
   id INT AUTO_INCREMENT PRIMARY KEY,
   bca_id VARCHAR(50) NOT NULL UNIQUE,
