@@ -194,7 +194,7 @@ Aturan dasar:
 | Security header | `next.config.ts` `headers()` | CSP, `X-Frame-Options`, `Permissions-Policy` (kamera dibatasi ke situs sendiri), `Strict-Transport-Security` |
 | QR | `qrcode` (SVG inline, server-side) + browser scanner | QR dirender lokal tanpa panggilan API pihak ketiga; mendukung scan kamera dan fallback kode manual |
 | Notifikasi WA (opsional) | WhatsApp Business Platform (Cloud API resmi Meta) | Panggilan HTTP berbasis template per pesan, tanpa koneksi/sesi persisten di server — lihat §10a |
-| Notifikasi email (opsional) | SMTP via `nodemailer` | Jalur Plan B yang independen dari WhatsApp, provider SMTP manapun — lihat §10b |
+| Notifikasi email (opsional) | Resend (API HTTPS) | Jalur Plan B yang independen dari WhatsApp, tidak terhalang blokir SMTP hosting — lihat §10b |
 | Impor Excel | `exceljs` | Parser `.xlsx` yang aktif dipelihara; sengaja bukan paket `xlsx` npm karena versi yang dipublikasikan di npm (0.18.5) punya CVE prototype-pollution/ReDoS yang belum ada perbaikannya di registry npm |
 | Deployment | Railway | Satu service web dengan persistent volume untuk database |
 | Testing | Vitest + Playwright | Menguji logic status/auth dan alur pengguna kritis |
@@ -313,26 +313,31 @@ bisnis atau approval template seperti Cloud API, jadi bisa aktif jauh lebih cepa
 berjalan. Mahasiswa menerima email otomatis untuk kejadian yang sama seperti WhatsApp: izin keluar disetujui/ditolak,
 konfirmasi masuk, dan broadcast baru dari Pengelola.
 
-**Cara kerja teknis:** dikirim lewat SMTP biasa (`lib/email.ts`, pakai `nodemailer`) — bukan API pihak ketiga, jadi
-bisa memakai SMTP dari provider manapun (Gmail dengan App Password, email institusi, atau layanan transactional
-email seperti Resend/Brevo/Mailgun). Nonaktif secara default; aktif otomatis begitu `SMTP_HOST`, `SMTP_USER`, dan
-`SMTP_PASS` semuanya ter-set.
+**Cara kerja teknis:** dikirim lewat **[Resend](https://resend.com)** (`lib/email.ts`), API pengiriman email berbasis
+HTTPS — bukan SMTP mentah. Ini pilihan yang disengaja: Railway (dan kebanyakan platform hosting lain) membatasi
+koneksi SMTP keluar secara default untuk mencegah spam, jadi SMTP biasa (dicoba lebih dulu, termasuk lewat Gmail)
+gagal terus dengan error jaringan (`ENETUNREACH`, lalu `Connection timeout`) meski kredensialnya benar. HTTPS tidak
+pernah diblokir platform manapun karena itu jalur yang sama dipakai untuk memuat halaman web biasa. Nonaktif secara
+default; aktif otomatis begitu `RESEND_API_KEY` ter-set.
 
 **Cara mengaktifkan:**
 
-1. Siapkan kredensial SMTP dari provider pilihan. Untuk Gmail: aktifkan 2-Step Verification lalu buat
-   [App Password](https://myaccount.google.com/apppasswords) khusus (bukan password akun biasa).
-2. Set environment variable — lokal: `.env.local`; production: pengaturan Railway — jangan pernah commit nilai ini
+1. Daftar akun gratis di [resend.com](https://resend.com) (gratis sampai 3.000 email/bulan).
+2. **Verifikasi domain** di Resend (Domains → Add Domain), ikuti instruksi menambah beberapa DNS record (TXT/MX) di
+   pengaturan domain kamu. Tanpa domain terverifikasi, Resend hanya izinkan kirim ke alamat email akun Resend kamu
+   sendiri — tidak cukup untuk kirim ke email penghuni yang sesungguhnya. Kalau belum punya domain, ini satu-satunya
+   langkah yang butuh domain (beli domain murah, atau tanya apakah kampus/RTB punya domain yang bisa dipakai
+   sub-domainnya, misalnya `rtb.namakampus.ac.id`).
+3. Buat API key (API Keys → Create API Key).
+4. Set environment variable — lokal: `.env.local`; production: pengaturan Railway — jangan pernah commit nilai ini
    ke git:
-   - `SMTP_HOST` — contoh `smtp.gmail.com`
-   - `SMTP_PORT` — contoh `587`
-   - `SMTP_USER` — alamat email pengirim
-   - `SMTP_PASS` — App Password / kredensial SMTP
-   - `SMTP_FROM` — opsional, default memakai `SMTP_USER`
-3. Deploy ulang. Mahasiswa perlu mengisi email di Master Penghuni (kolom opsional, sama seperti Nomor WA) supaya
+   - `RESEND_API_KEY` — API key dari langkah 3
+   - `RESEND_FROM` — opsional, contoh `SIKAT RTB <notifikasi@domainkamu.com>` (pakai domain yang sudah diverifikasi);
+     kalau kosong, default memakai `onboarding@resend.dev` (hanya untuk testing, bukan production)
+5. Deploy ulang. Mahasiswa perlu mengisi email di Master Penghuni (kolom opsional, sama seperti Nomor WA) supaya
    bisa menerima notifikasi; yang belum mengisi email otomatis dilewati, tidak menyebabkan error.
-4. Set `EMAIL_DEBUG=true` sementara untuk melihat link preview di log server saat menguji dengan akun SMTP uji coba
-   (misalnya [Ethereal Email](https://ethereal.email)) sebelum memakai kredensial produksi.
+6. Set `EMAIL_DEBUG=true` sementara untuk melihat ID pengiriman di log server saat menguji, sebelum mengandalkannya
+   penuh di production.
 
 ## 11. Setup lokal
 

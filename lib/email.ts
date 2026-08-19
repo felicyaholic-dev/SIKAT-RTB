@@ -1,38 +1,19 @@
 import "server-only";
 
-import dns from "node:dns";
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 import { normalizeEmail } from "@/lib/db";
 
-// Railway's containers have no outbound IPv6 route, but Node's default DNS
-// result order still hands smtp.gmail.com's AAAA record to net.connect first
-// and fails with ENETUNREACH before ever trying the working IPv4 address.
-// nodemailer doesn't expose a `family`/`lookup` override, so this has to be
-// fixed at the process-wide DNS level instead — set once at module load.
-dns.setDefaultResultOrder("ipv4first");
+// Sends over HTTPS (Resend's API), not raw SMTP — Railway (and most PaaS
+// hosts) restrict outbound SMTP ports, which made the earlier nodemailer/SMTP
+// setup fail with ENETUNREACH/timeout regardless of DNS settings. HTTPS is
+// never blocked, since it's the same path the app itself is served over.
+let client: Resend | null | undefined;
 
-let transporter: nodemailer.Transporter | null | undefined;
-
-// Lazily built once per server process, same lazy/optional pattern as
-// lib/whatsapp.ts — if SMTP isn't configured, every send below silently
-// no-ops instead of throwing, so the feature stays off until set up.
-function getTransporter() {
-  if (transporter !== undefined) return transporter;
-  const host = process.env.SMTP_HOST;
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  if (!host || !user || !pass) {
-    transporter = null;
-    return transporter;
-  }
-  const port = Number(process.env.SMTP_PORT) || 587;
-  transporter = nodemailer.createTransport({
-    host,
-    port,
-    secure: process.env.SMTP_SECURE ? process.env.SMTP_SECURE === "true" : port === 465,
-    auth: { user, pass },
-  });
-  return transporter;
+function getClient() {
+  if (client !== undefined) return client;
+  const apiKey = process.env.RESEND_API_KEY;
+  client = apiKey ? new Resend(apiKey) : null;
+  return client;
 }
 
 function wrap(title: string, lines: string[]) {
@@ -51,13 +32,19 @@ function wrap(title: string, lines: string[]) {
 }
 
 async function send(to: string | null | undefined, subject: string, html: string) {
-  const client = getTransporter();
-  if (!client) return;
+  const resend = getClient();
+  if (!resend) return;
   const address = normalizeEmail(to ?? undefined);
   if (!address) return;
   try {
-    const info = await client.sendMail({ from: process.env.SMTP_FROM || process.env.SMTP_USER, to: address, subject, html });
-    if (process.env.EMAIL_DEBUG === "true") console.log("[email] sent:", nodemailer.getTestMessageUrl(info) || info.messageId);
+    const { data, error } = await resend.emails.send({
+      from: process.env.RESEND_FROM || "SIKAT RTB <onboarding@resend.dev>",
+      to: address,
+      subject,
+      html,
+    });
+    if (error) console.warn("[email] Resend menolak pengiriman:", error.message);
+    else if (process.env.EMAIL_DEBUG === "true") console.log("[email] sent:", data?.id);
   } catch (error) {
     console.warn("[email] Gagal mengirim email:", error instanceof Error ? error.message : error);
   }
@@ -93,9 +80,9 @@ function sleep(ms: number) {
 }
 
 // Same gentle pacing as the WhatsApp broadcast — a short gap between sends
-// rather than firing everything at once against the SMTP server.
+// rather than firing everything at once against the API's rate limit.
 export async function sendEmailBroadcast(recipients: Array<{ email: string | null; full_name: string }>, title: string, body: string) {
-  if (!getTransporter()) return;
+  if (!getClient()) return;
   for (const recipient of recipients) {
     await send(recipient.email, `${title} — SIKAT RTB`, wrap(title, [`Yth. <b>${recipient.full_name}</b>,`, body.replace(/\n/g, "<br/>")]));
     await sleep(300);
