@@ -32,13 +32,15 @@ SIKAT RTB menggantikan pencatatan izin yang tersebar dengan satu alur digital: p
 
 | Peran | Tujuan utama | Akses |
 | --- | --- | --- |
-| Mahasiswa/penghuni | Mengajukan dan melacak izin pribadi | Beranda, ajukan izin, QR izin aktif, riwayat sendiri, profil |
-| Satpam | Memvalidasi status keluar/masuk secara cepat | Scanner/kode izin, konfirmasi keluar/masuk, daftar penghuni di luar |
-| Pengelola | Mengelola data master dan memantau kondisi RTB | Dashboard monitoring, master penghuni, laporan, pengaturan |
+| Mahasiswa/penghuni | Mengajukan dan melacak izin pribadi | Beranda, ajukan izin, QR izin aktif, riwayat sendiri, profil (bisa mengubah kamar/nomor WA/email sendiri) |
+| Satpam | Memvalidasi status keluar/masuk secara cepat | Scanner/kode izin, konfirmasi keluar/masuk, daftar penghuni di luar, riwayat validasi gabungan seluruh satpam |
+| Pengelola | Mengelola data master dan memantau kondisi RTB | Dashboard monitoring, riwayat validasi gabungan (sama seperti satpam), master penghuni & satpam, laporan, pengaturan |
 
 > Semua pemeriksaan hak akses dilakukan di server. Menyembunyikan menu di frontend bukan mekanisme keamanan.
 
 ## 4. Alur end-to-end
+
+Ringkasan siklus satu izin dari sisi mahasiswa. Untuk alur lengkap per peran (termasuk Satpam dan Pengelola) dan DFD, lihat **[docs/diagrams/](docs/diagrams/)**.
 
 ```mermaid
 %%{init: {'flowchart': {'curve': 'linear'}}}%%
@@ -59,10 +61,10 @@ flowchart TD
   H1 --> Finish
   FD -->|Tidak| G{Satpam pindai QR}
   G -->|Tolak| G1[Status: DIBATALKAN]
-  G1 --> WAR[Kirim notifikasi WA: izin ditolak]
+  G1 --> WAR["Kirim notifikasi WA + Email: izin ditolak"]
   WAR --> Finish
   G -->|Setuju| H[Status: SEDANG_DI_LUAR]
-  H --> WAA[Kirim notifikasi WA: izin disetujui]
+  H --> WAA["Kirim notifikasi WA + Email: izin disetujui"]
   WAA --> I[Mahasiswa ajukan kembali, isi waktu kembali]
   I --> J["Status: MENUNGGU_MASUK — kode SKM-"]
   J --> JD{Dibatalkan mahasiswa sebelum diproses satpam?}
@@ -70,14 +72,14 @@ flowchart TD
   J1 --> Finish
   JD -->|Tidak| K[Satpam setujui masuk]
   K --> L[Status: SELESAI, masuk riwayat]
-  L --> WAM[Kirim notifikasi WA: konfirmasi masuk]
+  L --> WAM["Kirim notifikasi WA + Email: konfirmasi masuk"]
   WAM --> Finish
 ```
 
 ### 4.1 Setup data oleh pengelola
 
 1. Pengelola memperoleh daftar data penghuni dari proses internal mereka (misalnya Excel hasil rekap).
-2. Pengelola masuk ke **Master Penghuni** dan menambahkan data satu per satu (ID BCA, nama lengkap, nomor kamar, kelas/angkatan, jenis kelamin, password awal), **atau** mengimpor banyak penghuni sekaligus lewat **Impor Excel** — unggah file `.xlsx` dengan kolom ID BCA/Nama Lengkap/Kamar/Kelas/Jenis Kelamin/Password Awal/Nomor WA, tiap baris divalidasi dan disimpan independen sehingga baris yang tidak valid dilaporkan tanpa membatalkan baris lain yang valid.
+2. Pengelola masuk ke **Master Penghuni** dan menambahkan data satu per satu (ID BCA, nama lengkap, nomor kamar, kelas/angkatan, jenis kelamin, password awal, nomor WA & email opsional), **atau** mengimpor banyak penghuni sekaligus lewat **Impor Excel** — unggah file `.xlsx` dengan kolom ID BCA/Nama Lengkap/Kamar/Kelas/Jenis Kelamin/Password Awal/Nomor WA/Email, tiap baris divalidasi dan disimpan independen sehingga baris yang tidak valid dilaporkan tanpa membatalkan baris lain yang valid. Mahasiswa dapat mengubah sendiri kamar/nomor WA/email miliknya kapan saja lewat halaman Profil setelah login — perubahan itu langsung tercermin di Master Penghuni.
 3. Sistem membuat data penghuni sekaligus akun login mahasiswa dalam satu langkah, baik lewat form maupun impor. ID BCA divalidasi unik lintas seluruh akun (mahasiswa, satpam, pengelola) — bila sudah dipakai, sistem menolak dengan pesan "ID BCA ini sudah terdaftar, pakai ID BCA lainnya". Nomor kamar dibatasi maksimal 2 penghuni aktif; permintaan ketiga di kamar yang sama ditolak. Setiap penambahan/perubahan dicatat di audit log.
 4. Mahasiswa dapat langsung login memakai ID BCA dan password awal tersebut.
 5. Saat penghuni atau satpam sudah tidak lagi berada/bertugas di RTB, pengelola dapat **menonaktifkan** (mencabut akses login, riwayat tetap tersimpan), **menghapus satu per satu**, atau **menghapus satu kelas sekaligus** (dipakai saat pergantian angkatan) — ketiganya menghapus data, akun, dan riwayat izin terkait secara permanen, kecuali nonaktifkan yang hanya mencabut akses.
@@ -119,8 +121,8 @@ QR yang tidak valid, kedaluwarsa, dibatalkan, atau dipakai pada status yang tida
 
 ### 4.5 Monitoring pengelola
 
-- Dashboard menampilkan penghuni di dalam dan di luar.
-- Pengelola dapat membuka riwayat izin dan audit log.
+- Dashboard menampilkan penghuni di dalam dan di luar, aktivitas hari ini, dan grafik 7 hari terakhir.
+- Halaman **Riwayat** menampilkan seluruh validasi keluar-masuk dari semua satpam (bukan cuma satpam yang login), lengkap dengan keterangan satpam mana yang memvalidasi tiap izin — halaman yang sama persis juga tersedia untuk Satpam.
 - Laporan bisa difilter berdasarkan kelas, periode (hari ini/7 hari/bulan ini/tahun ini/semua waktu), dan jenis data:
   aktivitas keluar-masuk, atau daftar penghuni yang sedang di dalam RTB saat ini. Kedua jenis data bisa diunduh sebagai CSV.
 
@@ -142,6 +144,10 @@ QR yang tidak valid, kedaluwarsa, dibatalkan, atau dipakai pada status yang tida
 | Reset riwayat keluar-masuk | Mengosongkan data izin lama setiap pergantian tahun ajaran tanpa menyentuh akun/master data | `resetHistory` di halaman Pengaturan pengelola, cakupan seluruh sistem atau per kelas; dianjurkan ekspor CSV "Semua waktu" sebagai arsip dulu sebelum reset, lihat §11a |
 | Laporan tersaring | Pengelola bisa fokus ke kelas/periode/jenis data tertentu tanpa menyaring manual | Filter kelas, periode, dan jenis data (aktivitas keluar-masuk vs penghuni di dalam RTB) di `getReport`/`getResidentsInside`; unduhan CSV mengikuti filter yang sama |
 | Notifikasi WA otomatis (opsional) | Mahasiswa tahu izinnya disetujui/ditolak atau ada pengumuman baru tanpa buka aplikasi terus-menerus | Kirim pesan template lewat WhatsApp Cloud API resmi (`lib/whatsapp.ts`) saat izin diputuskan satpam atau Pengelola broadcast; nonaktif kalau `WHATSAPP_CLOUD_API_TOKEN` belum di-set, lihat §10a |
+| Notifikasi email otomatis (opsional) | Kanal Plan B yang independen dari WhatsApp untuk kejadian yang sama | Kirim email HTML lewat Resend (`lib/email.ts`) di titik pemicu yang sama seperti WA; nonaktif kalau `RESEND_API_KEY` belum di-set, lihat §10b |
+| Edit kontak mandiri mahasiswa | Data kamar/WA/email tetap akurat tanpa menunggu Pengelola | Mahasiswa mengubah kamar, nomor WA, dan email miliknya sendiri dari halaman Profil (`updateOwnContactInfo`); menulis ke tabel yang sama dengan Master Penghuni Pengelola, jadi perubahan langsung terlihat di kedua sisi; nama, kelas, dan status penghuni tetap hanya bisa diubah Pengelola |
+| Riwayat gabungan Satpam & Pengelola | Satu sumber kebenaran soal siapa memvalidasi apa, bisa dilihat shift satpam berikutnya maupun Pengelola | Halaman **Riwayat** menampilkan seluruh validasi keluar-masuk dari *semua* satpam (bukan cuma akun yang login), dengan keterangan satpam mana yang memutuskan tiap izin (`getPermitHistory`); Pengelola punya halaman yang identik |
+| Mode gelap/terang | Kenyamanan pemakaian pada kondisi pencahayaan berbeda, preferensi pengguna | Toggle 3-arah (Terang/Gelap/Ikuti sistem) di semua halaman, tersimpan di localStorage, tidak flash ke tema salah saat reload (`components/ThemeProvider.tsx`, `components/ThemeToggle.tsx`); palet gelap tetap memakai identitas navy+biru brand, bukan abu-abu generik |
 | Login berbasis ID BCA | Satu identitas konsisten di seluruh alur | Credential auth, password hash bcrypt, cookie sesi `httpOnly` |
 | RBAC | Memisahkan tampilan dan aksi tiap peran | `role` pada akun + middleware/guard server-side pada route dan action |
 | Pengajuan izin | Menghilangkan input berulang dan memberi jejak digital | Form tervalidasi, nomor izin unik, tabel `permits` |
@@ -163,6 +169,10 @@ Konsep desain: **Stempel Izin** — kertas hangat dan tinta navy, warna dipakai 
 - ID BCA, nomor izin, dan waktu memakai font monospace (Geist Mono) agar mudah dibaca di pos.
 - Seluruh motion tunduk pada `prefers-reduced-motion`.
 - Jangan gunakan foto orang hasil AI. Gunakan avatar inisial atau foto yang memang diunggah pengguna.
+
+### Mode gelap
+
+Toggle 3-arah (Terang / Gelap / Ikuti sistem) tersedia di landing page, halaman login, dan seluruh dashboard. Palet gelap bukan abu-abu generik — tetap memakai identitas navy + biru langit milik brand, hanya dibalik jadi permukaan navy gelap dengan aksen biru yang lebih terang supaya tetap menonjol. Implementasi: token warna `--color-*` didefinisikan ulang lewat `[data-theme="dark"]` dan `@media (prefers-color-scheme: dark)` di `app/globals.css`; pilihan pengguna tersimpan di localStorage lewat `ThemeProvider`, dan skrip inline di `app/layout.tsx` menerapkan tema sebelum halaman pertama kali digambar (tidak ada kedipan ke tema yang salah saat reload).
 
 ### Responsivitas berdasarkan konteks kerja
 
@@ -199,35 +209,80 @@ Aturan dasar:
 | Deployment | Railway | Satu service web dengan persistent volume untuk database |
 | Testing | Vitest + Playwright | Menguji logic status/auth dan alur pengguna kritis |
 
-## 9. Model data awal
+### Struktur folder
+
+```text
+app/            Halaman & route Next.js (App Router) — folder ini menentukan URL,
+                 tidak bisa dipindah/diganti nama bebas
+  manager/       Halaman & komponen khusus Pengelola
+  security/      Halaman & komponen khusus Satpam
+  student/       Halaman & komponen khusus Mahasiswa
+  api/           Endpoint API (notifikasi, laporan CSV, status izin)
+components/     Komponen React yang dipakai lintas peran (shell, modal, tema, dll)
+lib/            Logic murni: akses database, autentikasi, WhatsApp, email, dll
+types/          Deklarasi TypeScript untuk paket tanpa tipe bawaan
+public/         Aset statis (gambar, ikon)
+scripts/        Skrip CLI: reset database, ekspor ke MySQL untuk cPanel
+docs/           Dokumentasi project
+  diagrams/      DFD dan flowchart per peran
+  database/      Schema siap-pakai untuk migrasi database ke cPanel/MySQL
+cpanel-landing/ Landing page PHP terpisah (opsional), untuk di-hosting di cPanel
+```
+
+File konfigurasi di root (`next.config.ts`, `tsconfig.json`, `package.json`, dst) wajib tetap di root — dicari otomatis oleh Next.js/TypeScript/pnpm di lokasi itu.
+
+## 9. Model data
+
+10 tabel — schema lengkap siap-pakai (versi MySQL untuk migrasi cPanel) ada di [docs/database/schema.sql](docs/database/schema.sql).
 
 ```text
 master_residents
-  id, bca_id (unique), full_name, room_number, class_name,
-  resident_status, phone_number (nullable), created_at, updated_at
+  id, bca_id (unique), full_name, room_number, class_name, gender,
+  resident_status, phone_number (nullable), email (nullable),
+  created_at, updated_at
+  — kamar/WA/email bisa diubah mahasiswa sendiri; sisanya hanya Pengelola
 
 accounts
-  id, resident_id (nullable untuk staf), bca_id (unique), role,
-  password_hash, is_activated, is_active, created_at, updated_at
+  id, resident_id (nullable untuk satpam/pengelola), bca_id (unique),
+  full_name, role (STUDENT/SECURITY/MANAGER), password_hash,
+  is_active, must_change_password, created_at
 
-login_attempts
-  id, identifier (ID BCA), action (LOGIN / RESET_PASSWORD), attempted_at
+security_staff
+  id, bca_id (unique), full_name, gender, staff_status,
+  created_at, updated_at
 
 permits
-  id, resident_id, permit_code (unique), qr_token_hash,
-  destination, planned_departure_at, planned_return_at,
-  status, created_at, cancelled_at
+  id, resident_id, permit_code (unique), qr_token (unique),
+  destination, permit_type, planned_departure_at, planned_return_at,
+  entry_code (nullable), status, created_at
 
 permit_events
-  id, permit_id, event_type, performed_by_account_id,
-  occurred_at, notes
+  id, permit_id, event_type (EXIT/ENTRY/EXIT_REJECTED/dst),
+  performed_by_account_id, occurred_at
+  — append-only, tidak boleh ditimpa; riwayat "siapa memvalidasi apa"
 
 audit_logs
-  id, actor_account_id, action, entity_type, entity_id,
-  metadata_json, created_at
+  id, actor_account_id, action, entity_type, entity_id, created_at
+
+login_attempts
+  id, identifier (ID BCA), action, attempted_at
+  — dipakai rate limiting, tidak pernah ditampilkan ke UI manapun
+
+manager_bootstrap_links
+  bootstrap_bca_id (PK), account_id (unique)
+  — hanya dipakai sekali saat setup akun Pengelola pertama
+
+broadcast_notifications
+  id, title, body, created_by_account_id, created_at
+
+notification_deliveries
+  notification_id + account_id (PK gabungan), read_at (nullable)
+  — status baca notifikasi in-app per akun
 ```
 
-`permit_events` tidak boleh ditimpa. Riwayat event dipertahankan agar perubahan status bisa ditelusuri.
+Relasi FK: `accounts.resident_id → master_residents.id`, `permits.resident_id → master_residents.id`, `permit_events.permit_id → permits.id`, `permit_events.performed_by_account_id → accounts.id`, `manager_bootstrap_links.account_id → accounts.id`, `broadcast_notifications.created_by_account_id → accounts.id`, `notification_deliveries.notification_id → broadcast_notifications.id`, `notification_deliveries.account_id → accounts.id`.
+
+DFD lengkap yang menggambarkan aliran data antar tabel ini ada di [docs/diagrams/dfd.md](docs/diagrams/dfd.md).
 
 ## 10. Keamanan minimum
 
