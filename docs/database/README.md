@@ -4,7 +4,7 @@
 
 | Tabel | Fungsi |
 | --- | --- |
-| `master_residents` | Data induk penghuni (ID BCA, nama, kamar, kelas, gender, status, no. HP) |
+| `master_residents` | Data induk penghuni (ID BCA, nama, kamar, kelas, gender, status, no. HP, email) |
 | `accounts` | Akun login semua role (mahasiswa/satpam/pengelola), terhubung ke `master_residents` untuk role mahasiswa |
 | `security_staff` | Data petugas satpam |
 | `permits` | Pengajuan izin keluar-masuk (kode izin, QR token, tujuan, jadwal, status) |
