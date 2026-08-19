@@ -1,10 +1,10 @@
 import { AppShell } from "@/components/AppShell";
 import { requireRole } from "@/lib/auth";
 import { getStudentData } from "@/lib/db";
-import { permitTone, pill } from "@/lib/ui";
+import { formatJakartaInput, formatJakartaTimestamp, permitTone, pill } from "@/lib/ui";
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
+  return formatJakartaInput(value, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 
 export default async function StudentHistoryPage() {
@@ -28,7 +28,7 @@ export default async function StudentHistoryPage() {
               {history.map((permit) => (
                 <div key={permit.id} className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-line py-3.5 first:border-t-0 transition-colors duration-150 hover:bg-signal-soft/40">
                   <time className="w-12 shrink-0 font-mono text-[11px] text-muted">
-                    {new Intl.DateTimeFormat("id-ID", { day: "2-digit", month: "short" }).format(new Date(permit.created_at))}
+                    {formatJakartaTimestamp(permit.created_at, { day: "2-digit", month: "short" })}
                   </time>
                   <span className="min-w-0 flex-1">
                     <b className="block truncate text-[13px]">{permit.destination}</b>

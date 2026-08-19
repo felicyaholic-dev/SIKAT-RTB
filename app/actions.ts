@@ -5,14 +5,14 @@ import { redirect } from "next/navigation";
 import { addResident, addSecurityStaff, cancelPendingPermit, changePassword, clearAttempts, createBroadcast, createPermit, decidePermit, deleteBroadcast, deleteResident, deleteResidentsByClass, deleteSecurityStaff, importResidents, isRateLimited, recordFailedAttempt, resetHistory, resetStudentPassword, updateManagerProfile, updateOwnContactInfo, updateResident, updateSecurityStaff, verifyCredentials, type Gender } from "@/lib/db";
 import { clearSession, createSession, requireRole, requireSession, roleHome } from "@/lib/auth";
 import { parseResidentSheet } from "@/lib/excel-import";
-import { RESIDENT_CLASSES } from "@/lib/ui";
+import { formatJakartaInput, RESIDENT_CLASSES } from "@/lib/ui";
 import { sendPermitEntryConfirmed, sendPermitExitApproved, sendPermitExitRejected, sendWhatsAppBroadcast } from "@/lib/whatsapp";
 import { sendEmailBroadcast, sendPermitEntryConfirmedEmail, sendPermitExitApprovedEmail, sendPermitExitRejectedEmail } from "@/lib/email";
 
 export type FormState = { error?: string; success?: string; detail?: string[] };
 
 function formatWaktu(value: string) {
-  return new Intl.DateTimeFormat("id-ID", { dateStyle: "long", timeStyle: "short", timeZone: "Asia/Makassar" }).format(new Date(value));
+  return formatJakartaInput(value, { dateStyle: "long", timeStyle: "short" });
 }
 
 export async function loginAction(_: FormState, formData: FormData): Promise<FormState> {

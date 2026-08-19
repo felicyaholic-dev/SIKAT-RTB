@@ -20,7 +20,7 @@ export async function GET(request: Request) {
   const kelasParam = params.get("kelas");
   const kelas = kelasParam && (RESIDENT_CLASSES as readonly string[]).includes(kelasParam) ? kelasParam : undefined;
   const jenis = params.get("jenis") === "didalam" ? "didalam" : "keluar";
-  const date = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Makassar" }).format(new Date());
+  const date = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
 
   if (jenis === "didalam") {
     const residents = getResidentsInside(kelas);

@@ -424,25 +424,27 @@ export function getManagerData() {
     SELECT
       (SELECT COUNT(*) FROM master_residents WHERE resident_status = 'ACTIVE') AS residents,
       (SELECT COUNT(*) FROM permits WHERE status IN ('SEDANG_DI_LUAR', 'MENUNGGU_MASUK')) AS outside,
-      (SELECT COUNT(*) FROM permits WHERE date(created_at) = date('now')) AS today
+      (SELECT COUNT(*) FROM permits WHERE date(created_at, '+7 hours') = date('now', '+7 hours')) AS today
   `).get() as { residents: number; outside: number; today: number };
   const watchlist = getSecurityQueue();
   const activityRows = db.prepare(`
-    SELECT date(occurred_at, 'localtime') AS day,
+    SELECT date(occurred_at, '+7 hours') AS day,
       SUM(CASE WHEN event_type = 'EXIT' THEN 1 ELSE 0 END) AS exits,
       SUM(CASE WHEN event_type = 'ENTRY' THEN 1 ELSE 0 END) AS entries
     FROM permit_events
-    WHERE event_type IN ('EXIT', 'ENTRY') AND date(occurred_at, 'localtime') >= date('now', '-6 days', 'localtime')
-    GROUP BY date(occurred_at, 'localtime')
+    WHERE event_type IN ('EXIT', 'ENTRY') AND date(occurred_at, '+7 hours') >= date('now', '-6 days', '+7 hours')
+    GROUP BY date(occurred_at, '+7 hours')
   `).all() as Array<{ day: string; exits: number; entries: number }>;
   const activityByDay = new Map(activityRows.map((item) => [item.day, item]));
+  // Derive each day's key/label from an explicit Asia/Jakarta projection
+  // rather than the server's own local calendar (Railway runs in UTC) — a
+  // day boundary computed in UTC would drift by up to 7 hours from the
+  // Jakarta day the SQL query above now buckets by.
   const weeklyActivity = Array.from({ length: 7 }, (_, index) => {
-    const date = new Date();
-    date.setHours(0, 0, 0, 0);
-    date.setDate(date.getDate() - (6 - index));
-    const day = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    const date = new Date(Date.now() - (6 - index) * 86_400_000);
+    const day = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(date);
     const values = activityByDay.get(day);
-    return { label: new Intl.DateTimeFormat("id-ID", { weekday: "short" }).format(date).replace(".", ""), exits: values?.exits || 0, entries: values?.entries || 0 };
+    return { label: new Intl.DateTimeFormat("id-ID", { weekday: "short", timeZone: "Asia/Jakarta" }).format(date).replace(".", ""), exits: values?.exits || 0, entries: values?.entries || 0 };
   });
   const residents = db.prepare(`
     SELECT r.*, CASE WHEN a.id IS NULL THEN 'Belum aktif' ELSE 'Aktif' END AS account_status
@@ -695,10 +697,10 @@ export function updateManagerProfile(accountId: number, input: { bcaId: string; 
 }
 
 const reportPeriodWhere: Record<ReportPeriod, string> = {
-  DAY: "date(p.created_at, 'localtime') = date('now', 'localtime')",
-  WEEK: "date(p.created_at, 'localtime') >= date('now', '-6 days', 'localtime')",
-  MONTH: "date(p.created_at, 'localtime') >= date('now', 'start of month', 'localtime')",
-  YEAR: "date(p.created_at, 'localtime') >= date('now', 'start of year', 'localtime')",
+  DAY: "date(p.created_at, '+7 hours') = date('now', '+7 hours')",
+  WEEK: "date(p.created_at, '+7 hours') >= date('now', '-6 days', '+7 hours')",
+  MONTH: "date(p.created_at, '+7 hours') >= date('now', 'start of month', '+7 hours')",
+  YEAR: "date(p.created_at, '+7 hours') >= date('now', 'start of year', '+7 hours')",
   ALL: "1 = 1",
 };
 

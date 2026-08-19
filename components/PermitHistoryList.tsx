@@ -1,4 +1,4 @@
-import { initials, pill } from "@/lib/ui";
+import { formatJakartaTimestamp, initials, pill } from "@/lib/ui";
 
 type HistoryItem = {
   event_id: number;
@@ -12,7 +12,7 @@ type HistoryItem = {
 };
 
 function time(value: string) {
-  return new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
+  return formatJakartaTimestamp(value, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 
 export function PermitHistoryList({ history, emptyMessage }: { history: HistoryItem[]; emptyMessage: string }) {

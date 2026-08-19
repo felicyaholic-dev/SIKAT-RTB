@@ -3,12 +3,13 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Bell, BellRing, CheckCheck, X } from "lucide-react";
+import { formatJakartaTimestamp } from "@/lib/ui";
 
 type Notification = { id: number; title: string; body: string; created_at: string; sender_name: string; read_at: string | null };
 type Payload = { notifications: Notification[]; unread: number };
 
 function when(value: string) {
-  return new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short" }).format(new Date(`${value}Z`));
+  return formatJakartaTimestamp(value, { dateStyle: "medium", timeStyle: "short" });
 }
 
 export function NotificationCenter() {

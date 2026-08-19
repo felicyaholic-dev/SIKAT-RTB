@@ -1,5 +1,26 @@
 export type Tone = "safe" | "amber" | "danger" | "muted";
 
+const JAKARTA_TZ = "Asia/Jakarta";
+
+// planned_departure_at/planned_return_at are naive wall-clock strings the
+// student typed into a datetime-local input (e.g. "2026-08-19T14:30") — no
+// timezone suffix, always meaning Jakarta local time. Without an explicit
+// offset, `new Date()` reinterprets those digits using the server's own
+// timezone (UTC in production), silently shifting the displayed time by
+// hours. Anchor to Jakarta explicitly instead of relying on server tz.
+export function formatJakartaInput(value: string, options: Intl.DateTimeFormatOptions) {
+  const withOffset = /[Zz]|[+-]\d{2}:\d{2}$/.test(value) ? value : `${value}+07:00`;
+  return new Intl.DateTimeFormat("id-ID", { ...options, timeZone: JAKARTA_TZ }).format(new Date(withOffset));
+}
+
+// created_at/occurred_at come from SQLite's CURRENT_TIMESTAMP, a real UTC
+// instant stored without a "Z" suffix — append it before parsing so it isn't
+// misread as server-local time, then always display in Jakarta time.
+export function formatJakartaTimestamp(value: string, options: Intl.DateTimeFormatOptions) {
+  const withZ = /[Zz]$/.test(value) ? value : `${value}Z`;
+  return new Intl.DateTimeFormat("id-ID", { ...options, timeZone: JAKARTA_TZ }).format(new Date(withZ));
+}
+
 export const RESIDENT_CLASSES = [
   "PPBP 7",
   "PPBP 8",

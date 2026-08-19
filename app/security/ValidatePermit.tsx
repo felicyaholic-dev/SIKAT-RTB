@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Check, CheckCircle2, CircleX, Clock3, FileText, MapPin, ShieldCheck, UserRound } from "lucide-react";
 import { validatePermitAction, type FormState } from "@/app/actions";
 import { FormModal } from "@/components/FormModal";
-import { btn, formMessage, initials, pill, permitTone } from "@/lib/ui";
+import { btn, formatJakartaInput, formMessage, initials, pill, permitTone } from "@/lib/ui";
 
 const initialState: FormState = {};
 type Permit = { id: number; permit_code: string; entry_code: string | null; full_name: string; room_number: string; class_name: string; permit_type: string; destination: string; planned_departure_at: string; planned_return_at: string; status: string };
@@ -81,7 +81,7 @@ export function ValidatePermit({ permit }: { permit: Permit }) {
           </div>
           <div className="grid gap-1 py-3.5">
             <dt className="flex items-center gap-1.5 text-[11px] text-muted"><Clock3 size={14} /> {incoming ? "Waktu kembali" : "Waktu keluar"}</dt>
-            <dd className="text-sm font-semibold text-ink">{new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(incoming ? permit.planned_return_at : permit.planned_departure_at))}</dd>
+            <dd className="text-sm font-semibold text-ink">{formatJakartaInput(incoming ? permit.planned_return_at : permit.planned_departure_at, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</dd>
           </div>
         </dl>
       </div>

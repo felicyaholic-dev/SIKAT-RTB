@@ -3,9 +3,9 @@ import { AppShell } from "@/components/AppShell";
 import { LiveRefresh } from "@/components/LiveRefresh";
 import { requireRole } from "@/lib/auth";
 import { getManagerData } from "@/lib/db";
-import { initials, pill } from "@/lib/ui";
+import { formatJakartaInput, initials, pill } from "@/lib/ui";
 
-function time(value: string) { return new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit" }).format(new Date(value)); }
+function time(value: string) { return formatJakartaInput(value, { hour: "2-digit", minute: "2-digit" }); }
 
 export default async function ManagerPage() {
   const session = await requireRole("MANAGER");

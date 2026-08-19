@@ -6,7 +6,7 @@ import { Clock3, MapPin, QrCode, X } from "lucide-react";
 import { cancelPendingPermitAction, type FormState } from "@/app/actions";
 import { PermitQr } from "@/components/PermitQr";
 import { StudentPermitDecisionWatcher } from "@/app/student/StudentPermitDecisionWatcher";
-import { btn, formMessage, permitStatusLabel, permitTone, toneDot, toneText } from "@/lib/ui";
+import { btn, formatJakartaInput, formMessage, permitStatusLabel, permitTone, toneDot, toneText } from "@/lib/ui";
 
 const initialState: FormState = {};
 
@@ -23,7 +23,7 @@ type Permit = {
 type Decision = { permit_id: number; event_type: "EXIT" | "ENTRY" | "EXIT_REJECTED"; occurred_at: string } | null;
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
+  return formatJakartaInput(value, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 
 export function ActivePermitCard({ permit, qr, latestDecision }: { permit: Permit; qr: string; latestDecision: Decision }) {

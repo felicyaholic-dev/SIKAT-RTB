@@ -5,13 +5,13 @@ import { useRouter } from "next/navigation";
 import { BellRing, Megaphone, Send, Trash2, UsersRound } from "lucide-react";
 import { createBroadcastAction, deleteBroadcastAction, type FormState } from "@/app/actions";
 import { FormModal } from "@/components/FormModal";
-import { btn, formMessage } from "@/lib/ui";
+import { btn, formatJakartaTimestamp, formMessage } from "@/lib/ui";
 
 type Broadcast = { id: number; title: string; body: string; created_at: string; sender_name: string; recipient_count: number; read_count: number };
 const initialState: FormState = {};
 
 function timestamp(value: string) {
-  return new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short" }).format(new Date(`${value}Z`));
+  return formatJakartaTimestamp(value, { dateStyle: "medium", timeStyle: "short" });
 }
 
 export function NotificationBroadcast({ broadcasts }: { broadcasts: Broadcast[] }) {
