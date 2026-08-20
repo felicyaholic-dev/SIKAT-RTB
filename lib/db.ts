@@ -2,7 +2,7 @@ import "server-only";
 
 import bcrypt from "bcryptjs";
 import Database from "better-sqlite3";
-import { createHash } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -440,14 +440,56 @@ export function cancelPendingPermit(accountId: number, permitId: number) {
   return transaction() ? { ok: true, message: "Pengajuan dan QR berhasil dibatalkan." } : { ok: false, message: "QR tidak dapat dibatalkan karena sudah diproses satpam." };
 }
 
+// Anti-screenshot: the code satpam actually validates against isn't fixed
+// at creation — it's derived from the permit's own secret (qr_token, still
+// crypto.randomUUID()) and the current 15-second time window, the same idea
+// as TOTP (RFC 6238) minus a shared-clock UI, since satpam always validates
+// against server time. A screenshotted/shared QR or a code written down on
+// paper stops working within one window either way. permit_code/entry_code
+// stay as they were — a fixed label generated once, kept only for
+// history/CSV display (§9), never compared against what's scanned/typed.
+const ROTATION_STEP_SECONDS = 15;
+
+function currentTimeStep() {
+  return Math.floor(Date.now() / 1000 / ROTATION_STEP_SECONDS);
+}
+
+function rotatingCodeAt(qrToken: string, purpose: "SKT" | "SKM", timeStep: number) {
+  const digest = createHmac("sha256", qrToken).update(`${purpose}:${timeStep}`).digest();
+  let suffix = "";
+  for (let i = 0; i < 6; i++) suffix += CODE_ALPHABET[digest[i] % CODE_ALPHABET.length];
+  return `${purpose}-${suffix}`;
+}
+
+// ±1 step tolerance for the lag between when a satpam's screen/paper showed
+// a code and when the validation request actually lands server-side.
+function matchesRotatingCode(qrToken: string, purpose: "SKT" | "SKM", submitted: string) {
+  const step = currentTimeStep();
+  return [step - 1, step, step + 1].some((s) => rotatingCodeAt(qrToken, purpose, s) === submitted);
+}
+
+// What the mahasiswa's own screen should render right now — used for both
+// the initial page render and the ~15s polling refresh (see
+// /api/student/current-permit-code) that keeps their QR/kode in sync with
+// what satpam's validation will actually accept.
+export function currentPermitCode(permit: { qr_token: string; status: PermitStatus }): string | null {
+  if (permit.status === "MENUNGGU_KELUAR") return rotatingCodeAt(permit.qr_token, "SKT", currentTimeStep());
+  if (permit.status === "MENUNGGU_MASUK") return rotatingCodeAt(permit.qr_token, "SKM", currentTimeStep());
+  return null;
+}
+
 export function getPermitForSecurity(code: string) {
   const db = getDb();
-  return db.prepare(`
+  const trimmed = code.trim().toUpperCase();
+  const purpose = trimmed.startsWith("SKM-") ? "SKM" : trimmed.startsWith("SKT-") ? "SKT" : null;
+  if (!purpose) return undefined;
+  const status = purpose === "SKT" ? "MENUNGGU_KELUAR" : "MENUNGGU_MASUK";
+  const candidates = db.prepare(`
     SELECT p.*, r.full_name, r.room_number, r.class_name
     FROM permits p JOIN master_residents r ON r.id = p.resident_id
-    WHERE (p.status = 'MENUNGGU_KELUAR' AND (p.permit_code = ? OR p.qr_token = ?))
-       OR (p.status = 'MENUNGGU_MASUK' AND p.entry_code = ?)
-  `).get(code.trim().toUpperCase(), code.trim(), code.trim().toUpperCase()) as (PermitRow & { full_name: string; room_number: string; class_name: string }) | undefined;
+    WHERE p.status = ?
+  `).all(status) as Array<PermitRow & { full_name: string; room_number: string; class_name: string }>;
+  return candidates.find((p) => matchesRotatingCode(p.qr_token, purpose, trimmed));
 }
 
 export function decidePermit(accountId: number, permitId: number, decision: "APPROVE" | "REJECT") {

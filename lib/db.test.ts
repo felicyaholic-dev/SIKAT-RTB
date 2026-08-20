@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import Database from "better-sqlite3";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { RESIDENT_CLASSES } from "@/lib/ui";
 
 // Each test file gets its own throwaway SQLite file so tests never touch
@@ -81,6 +81,20 @@ describe("permit lifecycle", () => {
     return row.id;
   }
 
+  // The code satpam actually validates rotates every 15s (currentPermitCode)
+  // rather than being the fixed permit_code/entry_code label — this looks up
+  // "whatever the mahasiswa's screen would show right now" the same way the
+  // real /api/student/current-permit-code route does, and hands back that
+  // code string too so a test can re-check it post-mutation: once a
+  // permit's status moves off MENUNGGU_KELUAR/MENUNGGU_MASUK,
+  // getPermitForSecurity's status filter alone drops it from the candidate
+  // set regardless of what code is presented, no need to re-derive.
+  function findByAccount(accountId: number) {
+    const activePermit = db.getStudentData(accountId)!.activePermit!;
+    const code = db.currentPermitCode(activePermit)!;
+    return { found: db.getPermitForSecurity(code), code };
+  }
+
   it("takes a permit from request through exit, entry request, and confirmed entry", () => {
     db.addResident(MANAGER_ID, { bcaId: "200001", fullName: "Alur Lengkap", room: "A3-101", className: RESIDENT_CLASSES[0], gender: "LAKI_LAKI", password: "password123" });
     const accountId = residentAccountId("200001");
@@ -88,7 +102,7 @@ describe("permit lifecycle", () => {
     const created = db.createPermit(accountId, { destination: "Pulang", permitType: "IZIN_PRIBADI", departure: "2026-01-01T10:00" });
     expect(created.mode).toBe("EXIT");
 
-    const found = db.getPermitForSecurity(created.code);
+    const { found } = findByAccount(accountId);
     expect(found?.full_name).toBe("Alur Lengkap");
 
     const approved = db.decidePermit(MANAGER_ID, found!.id, "APPROVE");
@@ -101,7 +115,7 @@ describe("permit lifecycle", () => {
     const entryRequested = db.createPermit(accountId, { returnAt: "2026-01-01T18:00" });
     expect(entryRequested.mode).toBe("ENTRY");
 
-    const foundEntry = db.getPermitForSecurity(entryRequested.code);
+    const { found: foundEntry } = findByAccount(accountId);
     expect(foundEntry?.status).toBe("MENUNGGU_MASUK");
 
     const confirmed = db.decidePermit(MANAGER_ID, foundEntry!.id, "APPROVE");
@@ -123,13 +137,13 @@ describe("permit lifecycle", () => {
   it("rejecting an exit request cancels it instead of sending the resident outside", () => {
     db.addResident(MANAGER_ID, { bcaId: "200002", fullName: "Ditolak Keluar", room: "A3-102", className: RESIDENT_CLASSES[0], gender: "LAKI_LAKI", password: "password123" });
     const accountId = residentAccountId("200002");
-    const created = db.createPermit(accountId, { destination: "Pulang", permitType: "IZIN_PRIBADI", departure: "2026-01-01T10:00" });
-    const found = db.getPermitForSecurity(created.code)!;
-    const rejected = db.decidePermit(MANAGER_ID, found.id, "REJECT");
+    db.createPermit(accountId, { destination: "Pulang", permitType: "IZIN_PRIBADI", departure: "2026-01-01T10:00" });
+    const { found, code } = findByAccount(accountId);
+    const rejected = db.decidePermit(MANAGER_ID, found!.id, "REJECT");
     expect(rejected.ok).toBe(true);
     expect(rejected.event).toBe("EXIT_REJECTED");
     // Now DIBATALKAN — no longer findable as an actionable permit for satpam.
-    expect(db.getPermitForSecurity(created.code)).toBeUndefined();
+    expect(db.getPermitForSecurity(code)).toBeUndefined();
   });
 
   it("cancelPendingPermit only lets the owning student cancel their own pending permit, not another student's", () => {
@@ -138,50 +152,84 @@ describe("permit lifecycle", () => {
     const ownerAccountId = residentAccountId("200010");
     const otherAccountId = residentAccountId("200011");
 
-    const created = db.createPermit(ownerAccountId, { destination: "Pulang", permitType: "IZIN_PRIBADI", departure: "2026-01-01T10:00" });
-    const found = db.getPermitForSecurity(created.code)!;
+    db.createPermit(ownerAccountId, { destination: "Pulang", permitType: "IZIN_PRIBADI", departure: "2026-01-01T10:00" });
+    const { found, code } = findByAccount(ownerAccountId);
 
-    const stolen = db.cancelPendingPermit(otherAccountId, found.id);
+    const stolen = db.cancelPendingPermit(otherAccountId, found!.id);
     expect(stolen.ok).toBe(false);
-    expect(db.getPermitForSecurity(created.code)).toBeDefined(); // untouched
+    expect(db.getPermitForSecurity(code)).toBeDefined(); // untouched
 
-    const cancelled = db.cancelPendingPermit(ownerAccountId, found.id);
+    const cancelled = db.cancelPendingPermit(ownerAccountId, found!.id);
     expect(cancelled.ok).toBe(true);
-    expect(db.getPermitForSecurity(created.code)).toBeUndefined();
+    expect(db.getPermitForSecurity(code)).toBeUndefined();
   });
 
   it("cancelPendingPermit rejects a permit already processed by satpam", () => {
     db.addResident(MANAGER_ID, { bcaId: "200012", fullName: "Sudah Diproses", room: "A3-112", className: RESIDENT_CLASSES[0], gender: "LAKI_LAKI", password: "password123" });
     const accountId = residentAccountId("200012");
-    const created = db.createPermit(accountId, { destination: "Pulang", permitType: "IZIN_PRIBADI", departure: "2026-01-01T10:00" });
-    const found = db.getPermitForSecurity(created.code)!;
-    db.decidePermit(MANAGER_ID, found.id, "APPROVE");
+    db.createPermit(accountId, { destination: "Pulang", permitType: "IZIN_PRIBADI", departure: "2026-01-01T10:00" });
+    const { found } = findByAccount(accountId);
+    db.decidePermit(MANAGER_ID, found!.id, "APPROVE");
 
-    expect(db.cancelPendingPermit(accountId, found.id).ok).toBe(false);
+    expect(db.cancelPendingPermit(accountId, found!.id).ok).toBe(false);
   });
 
   it("decidePermit rejects a second decide on an already-decided permit — the guard against two satpam racing the same QR", () => {
     db.addResident(MANAGER_ID, { bcaId: "200013", fullName: "Dua Satpam", room: "A3-113", className: RESIDENT_CLASSES[0], gender: "LAKI_LAKI", password: "password123" });
     const accountId = residentAccountId("200013");
-    const created = db.createPermit(accountId, { destination: "Pulang", permitType: "IZIN_PRIBADI", departure: "2026-01-01T10:00" });
-    const found = db.getPermitForSecurity(created.code)!;
+    db.createPermit(accountId, { destination: "Pulang", permitType: "IZIN_PRIBADI", departure: "2026-01-01T10:00" });
+    const { found } = findByAccount(accountId);
 
-    const first = db.decidePermit(MANAGER_ID, found.id, "APPROVE");
+    const first = db.decidePermit(MANAGER_ID, found!.id, "APPROVE");
     expect(first.ok).toBe(true);
 
-    const second = db.decidePermit(MANAGER_ID, found.id, "APPROVE");
+    const second = db.decidePermit(MANAGER_ID, found!.id, "APPROVE");
     expect(second.ok).toBe(false);
     expect(second.message).toContain("Terjadi kesalahan");
+  });
+
+  it("the QR/kode shown to the mahasiswa rotates every 15s (anti-screenshot) and satpam's lookup follows it", () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-06-01T00:00:00.000Z"));
+      db.addResident(MANAGER_ID, { bcaId: "200014", fullName: "Kode Berputar", room: "A3-114", className: RESIDENT_CLASSES[0], gender: "LAKI_LAKI", password: "password123" });
+      const accountId = residentAccountId("200014");
+      db.createPermit(accountId, { destination: "Pulang", permitType: "IZIN_PRIBADI", departure: "2026-01-01T10:00" });
+      const activePermit = db.getStudentData(accountId)!.activePermit!;
+
+      const codeNow = db.currentPermitCode(activePermit);
+      expect(codeNow).toMatch(/^SKT-[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}$/);
+      // Satpam validating with exactly this code, right now, works.
+      expect(db.getPermitForSecurity(codeNow!)?.id).toBe(activePermit.id);
+
+      // 20s later — one 15s window has passed — the code is different...
+      vi.setSystemTime(new Date(Date.now() + 20_000));
+      const codeLater = db.currentPermitCode(activePermit);
+      expect(codeLater).not.toBe(codeNow);
+      // ...but a satpam still typing/scanning the previous code moments ago
+      // isn't punished for that lag (±1 step tolerance).
+      expect(db.getPermitForSecurity(codeNow!)?.id).toBe(activePermit.id);
+
+      // Well outside that tolerance (a full minute on), the old code is dead.
+      vi.setSystemTime(new Date(Date.now() + 60_000));
+      expect(db.getPermitForSecurity(codeNow!)).toBeUndefined();
+      // But the permit itself is untouched — there's no hard expiry anymore,
+      // the current code (whatever it is right now) still validates fine.
+      expect(db.getPermitForSecurity(db.currentPermitCode(activePermit)!)?.id).toBe(activePermit.id);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("getPermitForSecurity never matches a code that doesn't exactly exist — no partial/foreign-QR match", () => {
     expect(db.getPermitForSecurity("SOME-RANDOM-QR-FROM-ANOTHER-APP")).toBeUndefined();
     expect(db.getPermitForSecurity("")).toBeUndefined();
-    // A code that's a substring of a real one must not match either.
+    // A code that's a substring of the real (current, rotating) one must not match either.
     db.addResident(MANAGER_ID, { bcaId: "200003", fullName: "Substring Check", room: "A3-103", className: RESIDENT_CLASSES[0], gender: "LAKI_LAKI", password: "password123" });
     const accountId = residentAccountId("200003");
-    const created = db.createPermit(accountId, { destination: "Pulang", permitType: "IZIN_PRIBADI", departure: "2026-01-01T10:00" });
-    const partial = created.code.slice(0, -1);
+    db.createPermit(accountId, { destination: "Pulang", permitType: "IZIN_PRIBADI", departure: "2026-01-01T10:00" });
+    const { code } = findByAccount(accountId);
+    const partial = code.slice(0, -1);
     expect(db.getPermitForSecurity(partial)).toBeUndefined();
   });
 });

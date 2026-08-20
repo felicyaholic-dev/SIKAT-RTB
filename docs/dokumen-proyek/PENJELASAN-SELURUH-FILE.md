@@ -40,6 +40,7 @@ Struktur folder di `app/` menentukan alamat URL-nya langsung, jadi susunannya ti
 | `api/notifications/route.ts` | Endpoint ambil daftar notifikasi & tandai sudah dibaca. |
 | `api/reports/daily.csv/route.ts` | Endpoint unduh laporan dalam bentuk CSV. |
 | `api/student/permit-status/route.ts` | Endpoint yang dicek berkala oleh halaman mahasiswa untuk tahu kalau izinnya baru saja diputuskan satpam. |
+| `api/student/current-permit-code/route.ts` | Endpoint yang di-polling tiap 15 detik oleh halaman mahasiswa untuk mengambil QR/kode izin yang sedang berlaku saat itu (QR/kode berputar tiap 15 detik, anti-screenshot — lihat README §10). |
 | `student/` | Seluruh halaman & komponen khusus Mahasiswa: beranda, ajukan izin, QR aktif, riwayat, profil. |
 | `security/` | Seluruh halaman & komponen khusus Satpam: validasi (scan/kode), riwayat, profil. |
 | `manager/` | Seluruh halaman & komponen khusus Pengelola: dashboard, master penghuni/satpam, broadcast, laporan, pengaturan, profil. |
