@@ -23,8 +23,8 @@ export async function loginAction(_: FormState, formData: FormData): Promise<For
   // Two dimensions: per-bcaId (catches repeated guesses against one account)
   // and per-IP (catches one source spraying many different bcaId values —
   // per-bcaId alone never sees that pattern since each account only gets a
-  // few tries). IP threshold is deliberately loose, see RATE_LIMITS in
-  // lib/db.ts — one dorm WiFi IP is shared by many legitimate residents.
+  // few tries). See RATE_LIMITS in lib/db.ts for the thresholds and the
+  // shared-dorm-WiFi tradeoff of the IP dimension.
   if (isRateLimited(bcaId, "LOGIN") || isRateLimited(ip, "LOGIN_IP")) return { error: "Terlalu banyak percobaan masuk. Coba lagi dalam beberapa menit." };
   const account = verifyCredentials(bcaId, password);
   if (!account) {

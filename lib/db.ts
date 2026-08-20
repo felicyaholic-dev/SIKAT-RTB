@@ -291,14 +291,16 @@ export type RateLimitAction = "LOGIN" | "LOGIN_IP" | "RESET_PASSWORD" | "SCAN";
 //
 // LOGIN_IP exists alongside LOGIN (not instead of it) to also catch
 // password-spraying — one client trying many different bcaId values, which
-// per-bcaId limiting alone never triggers. Its threshold is much looser than
-// LOGIN's 5, because unlike a single account, one IP can legitimately be an
-// entire dorm building's shared/NAT'd WiFi — many residents logging in
-// around the same time must not lock each other out. 30/15min still makes
-// spraying meaningfully slower against the resident list without that risk.
+// per-bcaId limiting alone never triggers. Set to match LOGIN's own
+// threshold (5/30min) per product decision — note this is stricter than a
+// typical shared-IP-aware setup: since one IP can legitimately be an entire
+// dorm building's WiFi, a handful of mistyped passwords from unrelated
+// residents in the same 30 minutes can lock out the whole building's
+// logins, not just the person who mistyped. Loosen this (e.g. 20-30
+// attempts) if that turns out to happen in practice.
 const RATE_LIMITS: Record<RateLimitAction, { maxAttempts: number; windowMinutes: number }> = {
   LOGIN: { maxAttempts: 5, windowMinutes: 15 },
-  LOGIN_IP: { maxAttempts: 30, windowMinutes: 15 },
+  LOGIN_IP: { maxAttempts: 5, windowMinutes: 30 },
   RESET_PASSWORD: { maxAttempts: 5, windowMinutes: 15 },
   SCAN: { maxAttempts: 20, windowMinutes: 15 },
 };
@@ -451,11 +453,15 @@ export function getPermitForSecurity(code: string) {
 export function decidePermit(accountId: number, permitId: number, decision: "APPROVE" | "REJECT") {
   const db = getDb();
   const permit = db.prepare("SELECT * FROM permits WHERE id = ?").get(permitId) as PermitRow | undefined;
-  if (!permit) return { ok: false, message: "Izin tidak ditemukan." };
+  // "Terjadi kesalahan" is deliberately generic (not "izin tidak ditemukan"
+  // vs "sudah dipakai" vs "status berubah") — satpam just needs to know this
+  // QR/kode tidak bisa dipakai and to scan the next one, not which of these
+  // specific reasons it was.
+  if (!permit) return { ok: false, message: "Terjadi kesalahan. Izin tidak ditemukan — silakan pindai ulang QR." };
   if (permit.status === "MENUNGGU_MASUK" && decision === "REJECT") return { ok: false, message: "QR masuk tidak dapat dibatalkan dari proses ini." };
   const isExit = permit.status === "MENUNGGU_KELUAR";
   const isEntry = permit.status === "MENUNGGU_MASUK";
-  if (!isExit && !isEntry) return { ok: false, message: "QR ini sudah digunakan atau belum siap divalidasi." };
+  if (!isExit && !isEntry) return { ok: false, message: "Terjadi kesalahan. QR ini sudah digunakan atau belum siap divalidasi." };
   const next = isExit ? decision === "APPROVE" ? "SEDANG_DI_LUAR" : "DIBATALKAN" : "SELESAI";
   const event = isExit ? decision === "APPROVE" ? "EXIT" : "EXIT_REJECTED" : "ENTRY";
   const transaction = db.transaction(() => {
@@ -464,7 +470,7 @@ export function decidePermit(accountId: number, permitId: number, decision: "APP
     db.prepare("INSERT INTO permit_events (permit_id, event_type, performed_by_account_id) VALUES (?, ?, ?)").run(permitId, event, accountId);
     return true;
   });
-  if (!transaction()) return { ok: false, message: "Status izin sudah berubah. Silakan pindai ulang QR." };
+  if (!transaction()) return { ok: false, message: "Terjadi kesalahan. Status izin sudah berubah — silakan pindai ulang QR." };
   const resident = db.prepare("SELECT full_name, phone_number, email FROM master_residents WHERE id = ?").get(permit.resident_id) as { full_name: string; phone_number: string | null; email: string | null } | undefined;
   const notif = { permitCode: permit.permit_code, entryCode: permit.entry_code, destination: permit.destination, departureAt: permit.planned_departure_at, returnAt: permit.planned_return_at };
   if (event === "EXIT") return { ok: true, message: "Izin keluar disetujui. Mahasiswa kini berstatus di luar RTB.", event, resident, notif };

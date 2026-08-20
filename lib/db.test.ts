@@ -132,6 +132,48 @@ describe("permit lifecycle", () => {
     expect(db.getPermitForSecurity(created.code)).toBeUndefined();
   });
 
+  it("cancelPendingPermit only lets the owning student cancel their own pending permit, not another student's", () => {
+    db.addResident(MANAGER_ID, { bcaId: "200010", fullName: "Pemilik Izin", room: "A3-110", className: RESIDENT_CLASSES[0], gender: "LAKI_LAKI", password: "password123" });
+    db.addResident(MANAGER_ID, { bcaId: "200011", fullName: "Mahasiswa Lain", room: "A3-111", className: RESIDENT_CLASSES[0], gender: "LAKI_LAKI", password: "password123" });
+    const ownerAccountId = residentAccountId("200010");
+    const otherAccountId = residentAccountId("200011");
+
+    const created = db.createPermit(ownerAccountId, { destination: "Pulang", permitType: "IZIN_PRIBADI", departure: "2026-01-01T10:00" });
+    const found = db.getPermitForSecurity(created.code)!;
+
+    const stolen = db.cancelPendingPermit(otherAccountId, found.id);
+    expect(stolen.ok).toBe(false);
+    expect(db.getPermitForSecurity(created.code)).toBeDefined(); // untouched
+
+    const cancelled = db.cancelPendingPermit(ownerAccountId, found.id);
+    expect(cancelled.ok).toBe(true);
+    expect(db.getPermitForSecurity(created.code)).toBeUndefined();
+  });
+
+  it("cancelPendingPermit rejects a permit already processed by satpam", () => {
+    db.addResident(MANAGER_ID, { bcaId: "200012", fullName: "Sudah Diproses", room: "A3-112", className: RESIDENT_CLASSES[0], gender: "LAKI_LAKI", password: "password123" });
+    const accountId = residentAccountId("200012");
+    const created = db.createPermit(accountId, { destination: "Pulang", permitType: "IZIN_PRIBADI", departure: "2026-01-01T10:00" });
+    const found = db.getPermitForSecurity(created.code)!;
+    db.decidePermit(MANAGER_ID, found.id, "APPROVE");
+
+    expect(db.cancelPendingPermit(accountId, found.id).ok).toBe(false);
+  });
+
+  it("decidePermit rejects a second decide on an already-decided permit — the guard against two satpam racing the same QR", () => {
+    db.addResident(MANAGER_ID, { bcaId: "200013", fullName: "Dua Satpam", room: "A3-113", className: RESIDENT_CLASSES[0], gender: "LAKI_LAKI", password: "password123" });
+    const accountId = residentAccountId("200013");
+    const created = db.createPermit(accountId, { destination: "Pulang", permitType: "IZIN_PRIBADI", departure: "2026-01-01T10:00" });
+    const found = db.getPermitForSecurity(created.code)!;
+
+    const first = db.decidePermit(MANAGER_ID, found.id, "APPROVE");
+    expect(first.ok).toBe(true);
+
+    const second = db.decidePermit(MANAGER_ID, found.id, "APPROVE");
+    expect(second.ok).toBe(false);
+    expect(second.message).toContain("Terjadi kesalahan");
+  });
+
   it("getPermitForSecurity never matches a code that doesn't exactly exist — no partial/foreign-QR match", () => {
     expect(db.getPermitForSecurity("SOME-RANDOM-QR-FROM-ANOTHER-APP")).toBeUndefined();
     expect(db.getPermitForSecurity("")).toBeUndefined();
@@ -188,9 +230,9 @@ describe("rate limiting (isRateLimited / recordFailedAttempt / clearAttempts)", 
     expect(db.isRateLimited(identifier, "RESET_PASSWORD")).toBe(false);
   });
 
-  it("LOGIN_IP has a much looser threshold than LOGIN (30, not 5) so one shared dorm WiFi IP doesn't lock everyone out", () => {
+  it("LOGIN_IP allows up to 4 failed attempts and blocks at 5 within its window", () => {
     const ip = "203.0.113.42";
-    for (let i = 0; i < 29; i++) db.recordFailedAttempt(ip, "LOGIN_IP");
+    for (let i = 0; i < 4; i++) db.recordFailedAttempt(ip, "LOGIN_IP");
     expect(db.isRateLimited(ip, "LOGIN_IP")).toBe(false);
     db.recordFailedAttempt(ip, "LOGIN_IP");
     expect(db.isRateLimited(ip, "LOGIN_IP")).toBe(true);
@@ -198,7 +240,7 @@ describe("rate limiting (isRateLimited / recordFailedAttempt / clearAttempts)", 
 
   it("LOGIN_IP catches spraying many different bcaId values from one IP, which per-bcaId LOGIN limiting alone never sees", () => {
     const ip = "203.0.113.99";
-    for (let i = 0; i < 30; i++) db.recordFailedAttempt(ip, "LOGIN_IP");
+    for (let i = 0; i < 5; i++) db.recordFailedAttempt(ip, "LOGIN_IP");
     // Every one of these bcaId values individually looks fine under LOGIN...
     expect(db.isRateLimited("777001", "LOGIN")).toBe(false);
     // ...but the shared IP behind all of them is now blocked.
@@ -261,6 +303,41 @@ describe("Pengelola password reset via email", () => {
     const { token } = db.requestManagerPasswordReset("900005");
     const result = db.resetManagerPasswordWithToken(token!, "short");
     expect(result.ok).toBe(false);
+  });
+});
+
+describe("resetStudentPassword", () => {
+  it("rejects when name or room doesn't match the bcaId, with the same generic message either way", () => {
+    db.addResident(MANAGER_ID, { bcaId: "600001", fullName: "Reset Saya", room: "B3-201", className: RESIDENT_CLASSES[0], gender: "LAKI_LAKI", password: "originalpass1" });
+
+    const wrongName = db.resetStudentPassword({ bcaId: "600001", fullName: "Nama Salah", room: "B3-201", password: "newpassword123" });
+    const wrongRoom = db.resetStudentPassword({ bcaId: "600001", fullName: "Reset Saya", room: "B3-202", password: "newpassword123" });
+    const unknownBcaId = db.resetStudentPassword({ bcaId: "699999", fullName: "Siapa Saja", room: "B3-201", password: "newpassword123" });
+
+    expect(wrongName.ok).toBe(false);
+    expect(wrongRoom.ok).toBe(false);
+    expect(unknownBcaId.ok).toBe(false);
+    // Same generic message across all three — can't be used to probe which
+    // bcaId is real or which field was the mismatch.
+    expect(wrongName.message).toBe(wrongRoom.message);
+    expect(wrongName.message).toBe(unknownBcaId.message);
+  });
+
+  it("resets the password when bcaId + name + room all match, and the new password actually works to log in", () => {
+    db.addResident(MANAGER_ID, { bcaId: "600002", fullName: "Berhasil Reset", room: "B3-203", className: RESIDENT_CLASSES[0], gender: "LAKI_LAKI", password: "originalpass1" });
+
+    const result = db.resetStudentPassword({ bcaId: "600002", fullName: "Berhasil Reset", room: "B3-203", password: "newpassword123" });
+    expect(result.ok).toBe(true);
+
+    expect(db.verifyCredentials("600002", "newpassword123")).not.toBeNull();
+    expect(db.verifyCredentials("600002", "originalpass1")).toBeNull();
+  });
+
+  it("name/room matching ignores case and extra whitespace, but still requires an actual match", () => {
+    db.addResident(MANAGER_ID, { bcaId: "600003", fullName: "Kasus Spasi", room: "B3-204", className: RESIDENT_CLASSES[0], gender: "LAKI_LAKI", password: "originalpass1" });
+
+    const messyButCorrect = db.resetStudentPassword({ bcaId: "600003", fullName: "  kasus   spasi  ", room: " b3-204 ", password: "newpassword123" });
+    expect(messyButCorrect.ok).toBe(true);
   });
 });
 
