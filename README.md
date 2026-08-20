@@ -109,9 +109,10 @@ Login pertama
 
 1. Mahasiswa login dan membuka **Ajukan Izin**.
 2. Mahasiswa mengisi tujuan, jam keluar, dan estimasi kembali — tanggalnya selalu hari ini, tidak bisa dipilih mundur/maju (dihitung ulang di server, bukan dipercaya dari form, jadi tidak bisa dimanipulasi lewat request langsung).
-3. Server membuat data izin, nomor izin unik, dan QR bertanda tangan/bertoken acak.
-4. Mahasiswa melihat QR dan status `MENUNGGU_KELUAR`.
-5. Mahasiswa menunjukkan QR tersebut kepada satpam saat keluar.
+3. **Jam malam:** pengajuan keluar hanya bisa untuk pukul **05.00–22.00**; pukul 22.00–04.59 ditolak. Ditegakkan di `createPermit` (`lib/db.ts`), bukan cuma `min`/`max` di form, jadi tidak bisa dilewati lewat request langsung ke server. Berlaku untuk waktu keluar saja — konfirmasi waktu kembali tidak dibatasi jam.
+4. Server membuat data izin, nomor izin unik, dan QR bertanda tangan/bertoken acak.
+5. Mahasiswa melihat QR dan status `MENUNGGU_KELUAR`.
+6. Mahasiswa menunjukkan QR tersebut kepada satpam saat keluar.
 
 ### 4.4 Validasi satpam
 
@@ -328,6 +329,7 @@ Wing bukan kolom database — diturunkan dari awalan `room_number` (format wajib
 - Password di-hash memakai bcrypt; tidak pernah disimpan di Excel atau database sebagai plaintext.
 - Sesi berupa JWT bertanda tangan (`jose`, HS256) di cookie `httpOnly`, `secure` di production, `sameSite=lax`, kedaluwarsa 8 jam. `SESSION_SECRET` wajib diisi — server menolak menyala tanpanya. Setiap request tetap mengecek ulang `accounts.is_active` ke database (`getSession` di `lib/auth.ts`, `isAccountActive`) — bukan cuma percaya isi token — supaya penghuni/satpam yang baru dinonaktifkan Pengelola langsung kehilangan akses, tidak menunggu token itu kedaluwarsa sendiri sampai 8 jam kemudian.
 - Rate limit per jenis aksi (tabel `login_attempts`, fungsi `isRateLimited`): LOGIN dan RESET_PASSWORD maksimal 5 percobaan gagal per 15 menit per ID BCA; SCAN (pencarian kode/QR di halaman Validasi Satpam) maksimal 20 percobaan "tidak ditemukan" per 15 menit per akun satpam — lebih longgar karena mis-scan kamera adalah hal wajar, tapi tetap cukup ketat untuk membuat brute-force ke ruang kombinasi kode (lihat poin kode QR di bawah) tidak praktis.
+- **LOGIN juga dibatasi per alamat IP** (`LOGIN_IP`, dari header `X-Forwarded-For` lewat Railway), terpisah dari batas per ID BCA di atas — supaya satu sumber yang mencoba banyak ID BCA berbeda (password spraying) tetap tertahan, sesuatu yang batas per-akun sendirian tidak pernah mendeteksi. Batasnya sengaja jauh lebih longgar (30 percobaan/15 menit) daripada batas per akun, karena satu IP bisa jadi WiFi bersama satu gedung asrama — banyak mahasiswa login dari IP yang sama tidak boleh saling mengunci.
 - Error login tidak membocorkan apakah sebuah ID BCA ada atau tidak. Begitu juga permintaan reset password Pengelola (lihat di bawah) — pesannya sama persis baik ID BCA itu Pengelola sungguhan atau tidak.
 - Validasi role dan kepemilikan izin dilakukan di server.
 - Token QR (`qr_token`) memakai `crypto.randomUUID()`. Kode fallback yang diketik manual satpam (`permit_code`/`entry_code`, format `SKT-`/`SKM-`) memakai alfabet 32 karakter tanpa karakter ambigu (`0/O/1/I/L` dikecualikan) yang diambil lewat `crypto.getRandomValues()` — bukan `Math.random()`, yang bukan generator acak yang aman secara kriptografis. Kode/QR asing (bukan dari sistem), tidak sesuai, atau yang sudah dipakai selalu jatuh ke pesan generik "Terjadi kesalahan" (bukan pesan spesifik per alasan, supaya tidak membocorkan kenapa gagal) — `getPermitForSecurity` mencocokkan secara persis (`=`), bukan pencarian sebagian, jadi tidak mungkin tertulis valid secara tidak sengaja.

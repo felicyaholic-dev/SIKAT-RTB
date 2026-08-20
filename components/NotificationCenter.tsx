@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Bell, BellRing, CheckCheck, X } from "lucide-react";
 import { formatJakartaTimestamp } from "@/lib/ui";
+import { useFocusTrap } from "@/components/useFocusTrap";
 
 type Notification = { id: number; title: string; body: string; created_at: string; sender_name: string; read_at: string | null };
 type Payload = { notifications: Notification[]; unread: number };
@@ -17,6 +18,8 @@ export function NotificationCenter() {
   const [mounted, setMounted] = useState(false);
   const [data, setData] = useState<Payload>({ notifications: [], unread: 0 });
   const [loaded, setLoaded] = useState(false);
+  const sectionRef = useRef<HTMLElement>(null);
+  useFocusTrap(sectionRef, open && mounted);
 
   const load = async () => {
     const response = await fetch("/api/notifications", { cache: "no-store" });
@@ -51,7 +54,7 @@ export function NotificationCenter() {
 
   const dialog = open && mounted ? createPortal(
     <div className="fixed inset-0 z-[70] flex min-w-0 items-center justify-center overflow-x-hidden bg-[#062e4a]/60 p-4 backdrop-blur-md" role="dialog" aria-modal="true" aria-labelledby="notification-center-title" onMouseDown={(event) => event.target === event.currentTarget && setOpen(false)}>
-      <section className="modal-enter relative flex max-h-[calc(100dvh-32px)] w-[calc(100vw-2rem)] max-w-[520px] min-w-0 flex-col overflow-hidden rounded-[28px] border border-white/80 bg-white shadow-[0_32px_90px_rgb(0_37_62_/_0.35)] dark:border-white/10 dark:bg-surface">
+      <section ref={sectionRef} tabIndex={-1} className="modal-enter relative flex max-h-[calc(100dvh-32px)] w-[calc(100vw-2rem)] max-w-[520px] min-w-0 flex-col overflow-hidden rounded-[28px] border border-white/80 bg-white shadow-[0_32px_90px_rgb(0_37_62_/_0.35)] outline-none dark:border-white/10 dark:bg-surface">
         <span aria-hidden className="pointer-events-none absolute -right-20 -top-20 h-44 w-44 rounded-full bg-[#dbf5ff] blur-2xl dark:bg-signal/10" />
         <header className="relative flex items-start justify-between gap-4 border-b border-line px-6 py-5 sm:px-8 sm:py-6"><div><p className="font-mono text-[10px] font-bold tracking-[0.14em] text-signal">PUSAT NOTIFIKASI</p><h2 id="notification-center-title" className="mt-2 text-[clamp(1.55rem,4vw,2.1rem)] font-medium tracking-[-0.055em] text-ink">Info dari Pengelola</h2><p className="mt-1 text-sm text-muted">Pengumuman untuk akunmu.</p></div><button type="button" onClick={() => setOpen(false)} aria-label="Tutup notifikasi" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-line bg-white text-muted transition-all hover:border-signal hover:text-signal dark:bg-surface"><X size={19} /></button></header>
         <div className="relative min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">

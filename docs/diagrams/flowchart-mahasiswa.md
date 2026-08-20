@@ -33,7 +33,14 @@ flowchart TD
   Choice -->|Ajukan izin keluar| Apply["Isi tujuan, jam keluar
   (tanggal selalu hari ini,
   tidak bisa dipilih)"]
-  Apply --> QR["Status: MENUNGGU_KELUAR
+  Apply --> Curfew{Jam keluar
+  05.00–22.00?}
+  Curfew -->|Tidak, jam malam
+  22.00–04.59| RejectCurfew[Ditolak: pengajuan
+  keluar jam malam
+  tidak diperbolehkan]
+  RejectCurfew --> Home
+  Curfew -->|Ya| QR["Status: MENUNGGU_KELUAR
   kode SKT- + QR aktif"]
   QR --> Cancel1{Batalkan sebelum
   diproses satpam?}
@@ -88,3 +95,5 @@ flowchart TD
 - Validasi satpam **tidak akan pernah menandai QR di luar sistem sebagai valid** — `getPermitForSecurity` mencocokkan kode yang dipindai persis (`=`, bukan pencarian sebagian) terhadap `permit_code`/`qr_token`/`entry_code` yang tersimpan; kode apa pun yang tidak cocok, tidak valid, atau sudah pernah dipakai selalu tampil pesan generik "Terjadi kesalahan".
 - Kode `SKT-`/`SKM-` dibuat lewat `crypto.getRandomValues()` (alfabet 32 karakter tanpa karakter ambigu), bukan `Math.random()` — sama seperti `qr_token` yang sudah lebih dulu memakai `crypto.randomUUID()`.
 - **Tanggal izin keluar/masuk selalu hari ini** — field tanggal di form hanya tampilan, tidak bisa diedit ke kemarin atau besok. `createPermitAction` menghitung tanggalnya sendiri di server (zona Jakarta), bukan memercayai nilai dari form, jadi tidak bisa dimanipulasi lewat request langsung; yang tetap bisa mahasiswa pilih hanya jam-nya.
+- **Jam malam (22.00–04.59): pengajuan izin keluar ditolak** — hanya berlaku untuk waktu keluar, bukan waktu kembali. Ditegakkan di `createPermit` (`lib/db.ts`), bukan cuma `min`/`max` di form.
+- **Login juga dibatasi per alamat IP** (`LOGIN_IP`), terpisah dari batas per ID BCA — supaya satu sumber yang mencoba banyak ID BCA berbeda (password spraying) tetap tertahan. Batasnya sengaja jauh lebih longgar (30/15 menit) karena satu IP bisa jadi WiFi bersama satu gedung asrama.

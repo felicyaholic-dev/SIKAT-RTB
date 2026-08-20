@@ -109,6 +109,17 @@ describe("permit lifecycle", () => {
     expect(confirmed.event).toBe("ENTRY");
   });
 
+  it("rejects an exit request planned during curfew (22.00–04.59) but allows the boundary times", () => {
+    db.addResident(MANAGER_ID, { bcaId: "200009", fullName: "Jam Malam", room: "A3-109", className: RESIDENT_CLASSES[0], gender: "LAKI_LAKI", password: "password123" });
+    const accountId = residentAccountId("200009");
+
+    expect(() => db.createPermit(accountId, { destination: "Malam", permitType: "IZIN_PRIBADI", departure: "2026-01-01T22:00" })).toThrow("jam malam");
+    expect(() => db.createPermit(accountId, { destination: "Malam", permitType: "IZIN_PRIBADI", departure: "2026-01-01T02:30" })).toThrow("jam malam");
+
+    const atFive = db.createPermit(accountId, { destination: "Subuh", permitType: "IZIN_PRIBADI", departure: "2026-01-01T05:00" });
+    expect(atFive.mode).toBe("EXIT");
+  });
+
   it("rejecting an exit request cancels it instead of sending the resident outside", () => {
     db.addResident(MANAGER_ID, { bcaId: "200002", fullName: "Ditolak Keluar", room: "A3-102", className: RESIDENT_CLASSES[0], gender: "LAKI_LAKI", password: "password123" });
     const accountId = residentAccountId("200002");
@@ -175,6 +186,23 @@ describe("rate limiting (isRateLimited / recordFailedAttempt / clearAttempts)", 
     for (let i = 0; i < 5; i++) db.recordFailedAttempt(identifier, "LOGIN");
     expect(db.isRateLimited(identifier, "LOGIN")).toBe(true);
     expect(db.isRateLimited(identifier, "RESET_PASSWORD")).toBe(false);
+  });
+
+  it("LOGIN_IP has a much looser threshold than LOGIN (30, not 5) so one shared dorm WiFi IP doesn't lock everyone out", () => {
+    const ip = "203.0.113.42";
+    for (let i = 0; i < 29; i++) db.recordFailedAttempt(ip, "LOGIN_IP");
+    expect(db.isRateLimited(ip, "LOGIN_IP")).toBe(false);
+    db.recordFailedAttempt(ip, "LOGIN_IP");
+    expect(db.isRateLimited(ip, "LOGIN_IP")).toBe(true);
+  });
+
+  it("LOGIN_IP catches spraying many different bcaId values from one IP, which per-bcaId LOGIN limiting alone never sees", () => {
+    const ip = "203.0.113.99";
+    for (let i = 0; i < 30; i++) db.recordFailedAttempt(ip, "LOGIN_IP");
+    // Every one of these bcaId values individually looks fine under LOGIN...
+    expect(db.isRateLimited("777001", "LOGIN")).toBe(false);
+    // ...but the shared IP behind all of them is now blocked.
+    expect(db.isRateLimited(ip, "LOGIN_IP")).toBe(true);
   });
 });
 

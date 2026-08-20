@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { addResident, addSecurityStaff, cancelPendingPermit, changePassword, clearAttempts, createBroadcast, createPermit, decidePermit, deleteBroadcast, deleteResident, deleteResidentsByClass, deleteSecurityStaff, importResidents, isRateLimited, recordFailedAttempt, requestManagerPasswordReset, resetHistory, resetManagerPasswordWithToken, resetStudentPassword, updateManagerProfile, updateOwnContactInfo, updateResident, updateSecurityStaff, verifyCredentials, type Gender } from "@/lib/db";
-import { clearSession, createSession, requireRole, requireSession, roleHome } from "@/lib/auth";
+import { clearSession, createSession, getClientIp, requireRole, requireSession, roleHome } from "@/lib/auth";
 import { parseResidentSheet } from "@/lib/excel-import";
 import { formatJakartaInput, RESIDENT_CLASSES } from "@/lib/ui";
 import { sendPermitEntryConfirmed, sendPermitExitApproved, sendPermitExitRejected, sendWhatsAppBroadcast } from "@/lib/whatsapp";
@@ -19,10 +19,17 @@ export async function loginAction(_: FormState, formData: FormData): Promise<For
   const bcaId = String(formData.get("bcaId") || "");
   const password = String(formData.get("password") || "");
   if (!bcaId || !password) return { error: "Masukkan ID BCA dan password." };
-  if (isRateLimited(bcaId, "LOGIN")) return { error: "Terlalu banyak percobaan masuk. Coba lagi dalam beberapa menit." };
+  const ip = await getClientIp();
+  // Two dimensions: per-bcaId (catches repeated guesses against one account)
+  // and per-IP (catches one source spraying many different bcaId values —
+  // per-bcaId alone never sees that pattern since each account only gets a
+  // few tries). IP threshold is deliberately loose, see RATE_LIMITS in
+  // lib/db.ts — one dorm WiFi IP is shared by many legitimate residents.
+  if (isRateLimited(bcaId, "LOGIN") || isRateLimited(ip, "LOGIN_IP")) return { error: "Terlalu banyak percobaan masuk. Coba lagi dalam beberapa menit." };
   const account = verifyCredentials(bcaId, password);
   if (!account) {
     recordFailedAttempt(bcaId, "LOGIN");
+    recordFailedAttempt(ip, "LOGIN_IP");
     return { error: "ID BCA atau password tidak tepat." };
   }
   clearAttempts(bcaId, "LOGIN");

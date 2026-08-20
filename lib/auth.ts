@@ -1,6 +1,6 @@
 import "server-only";
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { SignJWT, jwtVerify } from "jose";
 import { isAccountActive, type Role } from "@/lib/db";
@@ -57,6 +57,19 @@ export async function requireSession() {
   const session = await getSession();
   if (!session) redirect("/login");
   return session;
+}
+
+// Railway (and every PaaS proxy) terminates TLS in front of the app, so the
+// real client address only survives in X-Forwarded-For — req.socket-style
+// APIs aren't available to a server action anyway. Takes the first hop
+// (closest to the client) and falls back to X-Real-IP for setups that use it
+// instead; if neither is set (e.g. running bare, no proxy), rate limiting
+// degrades to per-bcaId only, same as before this existed.
+export async function getClientIp(): Promise<string> {
+  const store = await headers();
+  const forwardedFor = store.get("x-forwarded-for");
+  if (forwardedFor) return forwardedFor.split(",")[0].trim();
+  return store.get("x-real-ip") || "unknown";
 }
 
 export function roleHome(role: Role) {

@@ -49,8 +49,9 @@ export function PermitForm({ mode, student }: { mode: "EXIT" | "ENTRY"; student:
 
         <div className={`mt-4 grid gap-4 ${isEntry ? "sm:grid-cols-2" : "sm:max-w-[calc(50%-0.5rem)]"}`}>
           {isEntry && <label>Tanggal kembali<input value={todayLabel()} readOnly className="bg-mist/70 font-medium text-muted" /></label>}
-          <label>{isEntry ? "Jam kembali" : "Jam keluar"}<input name="time" type="time" defaultValue={time} required /></label>
+          <label>{isEntry ? "Jam kembali" : "Jam keluar"}<input name="time" type="time" defaultValue={time} min={isEntry ? undefined : "05:00"} max={isEntry ? undefined : "22:00"} required /></label>
         </div>
+        {!isEntry && <p className="mt-2 text-[11px] text-muted">Pengajuan keluar hanya bisa untuk pukul 05.00–22.00 (jam malam 22.00–05.00 tidak diperbolehkan).</p>}
 
         {!isEntry && <label className="mt-4">Keterangan<textarea name="destination" rows={5} placeholder="Tuliskan tujuan atau kebutuhan izin secara singkat" required /></label>}
         {isEntry && <p className="mt-5 rounded-panel bg-safe-soft px-4 py-3 text-[12px] leading-relaxed text-safe">Setelah form dikirim, sistem membuat QR masuk baru untuk divalidasi satpam.</p>}

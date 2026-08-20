@@ -281,18 +281,34 @@ function migrateLegacyDemoIds(db: Database.Database) {
   db.prepare("UPDATE permits SET status = 'SEDANG_DI_LUAR' WHERE status = 'TERLAMBAT'").run();
 }
 
-export type RateLimitAction = "LOGIN" | "RESET_PASSWORD" | "SCAN";
+export type RateLimitAction = "LOGIN" | "LOGIN_IP" | "RESET_PASSWORD" | "SCAN";
 
 // SCAN gets a looser threshold than LOGIN/RESET_PASSWORD: satpam legitimately
 // rack up "not found" lookups just from normal use (mis-scans, camera
 // glitches, an unrelated QR poster nearby triggering the auto-scan loop),
 // so 5/15min would false-lock a real shift. 20/15min still makes brute-forcing
 // the ~1 billion-combination code space (see secureCode above) infeasible.
+//
+// LOGIN_IP exists alongside LOGIN (not instead of it) to also catch
+// password-spraying — one client trying many different bcaId values, which
+// per-bcaId limiting alone never triggers. Its threshold is much looser than
+// LOGIN's 5, because unlike a single account, one IP can legitimately be an
+// entire dorm building's shared/NAT'd WiFi — many residents logging in
+// around the same time must not lock each other out. 30/15min still makes
+// spraying meaningfully slower against the resident list without that risk.
 const RATE_LIMITS: Record<RateLimitAction, { maxAttempts: number; windowMinutes: number }> = {
   LOGIN: { maxAttempts: 5, windowMinutes: 15 },
+  LOGIN_IP: { maxAttempts: 30, windowMinutes: 15 },
   RESET_PASSWORD: { maxAttempts: 5, windowMinutes: 15 },
   SCAN: { maxAttempts: 20, windowMinutes: 15 },
 };
+
+// LOGIN_IP's identifier is a client IP address, not a bcaId — normalizeBcaId's
+// uppercasing doesn't corrupt one (no case-sensitive meaning in an IP), but
+// calling it by that name would be misleading, so it's routed separately.
+function normalizeRateLimitIdentifier(identifier: string, action: RateLimitAction) {
+  return action === "LOGIN_IP" ? identifier.trim() : normalizeBcaId(identifier);
+}
 
 export function isRateLimited(identifier: string, action: RateLimitAction) {
   const db = getDb();
@@ -301,20 +317,20 @@ export function isRateLimited(identifier: string, action: RateLimitAction) {
   const { count } = db.prepare(`
     SELECT COUNT(*) AS count FROM login_attempts
     WHERE identifier = ? AND action = ? AND attempted_at >= datetime('now', ?)
-  `).get(normalizeBcaId(identifier), action, windowStart) as { count: number };
+  `).get(normalizeRateLimitIdentifier(identifier, action), action, windowStart) as { count: number };
   return count >= maxAttempts;
 }
 
 export function recordFailedAttempt(identifier: string, action: RateLimitAction) {
   const db = getDb();
-  db.prepare("INSERT INTO login_attempts (identifier, action) VALUES (?, ?)").run(normalizeBcaId(identifier), action);
+  db.prepare("INSERT INTO login_attempts (identifier, action) VALUES (?, ?)").run(normalizeRateLimitIdentifier(identifier, action), action);
   // Opportunistic cleanup so this table never grows unbounded; cheap enough
   // to run on every write since it only touches already-expired rows.
   db.prepare("DELETE FROM login_attempts WHERE attempted_at < datetime('now', '-1 day')").run();
 }
 
 export function clearAttempts(identifier: string, action: RateLimitAction) {
-  getDb().prepare("DELETE FROM login_attempts WHERE identifier = ? AND action = ?").run(normalizeBcaId(identifier), action);
+  getDb().prepare("DELETE FROM login_attempts WHERE identifier = ? AND action = ?").run(normalizeRateLimitIdentifier(identifier, action), action);
 }
 
 export function verifyCredentials(bcaId: string, password: string) {
@@ -390,6 +406,11 @@ export function createPermit(accountId: number, input: { destination?: string; p
   }
   const permitType = input.permitType || "IZIN_PRIBADI";
   if (!input.destination?.trim() || !input.departure || !["IZIN_PRIBADI", "IZIN_AKADEMIK", "IZIN_KESEHATAN", "KEPERLUAN_KELUARGA", "LAINNYA"].includes(permitType)) throw new Error("Lengkapi informasi izin dan waktu keluar.");
+  // Jam malam: pengajuan keluar ditolak jam 22.00–04.59, ditegakkan di server
+  // (bukan cuma min/max di form) supaya tidak bisa dilewati lewat request
+  // langsung. Batas atas "05:00" sengaja tidak termasuk yang ditolak.
+  const departureTime = input.departure.slice(11, 16);
+  if (departureTime >= "22:00" || departureTime < "05:00") throw new Error("Pengajuan izin keluar tidak diperbolehkan pukul 22.00–05.00 (jam malam).");
   const permitCode = `SKT-${secureCode()}`;
   const qrToken = crypto.randomUUID();
   const result = db.prepare(`
