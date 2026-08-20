@@ -108,7 +108,7 @@ Login pertama
 ### 4.3 Pengajuan izin mahasiswa
 
 1. Mahasiswa login dan membuka **Ajukan Izin**.
-2. Mahasiswa mengisi tujuan, tanggal/waktu keluar, dan estimasi kembali.
+2. Mahasiswa mengisi tujuan, jam keluar, dan estimasi kembali — tanggalnya selalu hari ini, tidak bisa dipilih mundur/maju (dihitung ulang di server, bukan dipercaya dari form, jadi tidak bisa dimanipulasi lewat request langsung).
 3. Server membuat data izin, nomor izin unik, dan QR bertanda tangan/bertoken acak.
 4. Mahasiswa melihat QR dan status `MENUNGGU_KELUAR`.
 5. Mahasiswa menunjukkan QR tersebut kepada satpam saat keluar.
@@ -230,10 +230,10 @@ types/          Deklarasi TypeScript untuk paket tanpa tipe bawaan
 public/         Aset statis (gambar, ikon)
 scripts/        Skrip CLI: reset database, ekspor ke MySQL untuk cPanel
 docs/           Dokumentasi project
-  diagrams/      DFD dan flowchart per peran
-  database/      Schema siap-pakai untuk migrasi database ke cPanel/MySQL
-  basis-data/       Bahan siap pakai untuk BAB III proposal (bukan bagian aplikasi)
-  dokumen-proyek/   Dokumen proyek/laporan (PDF/Word, bukan bagian aplikasi)
+  diagrams/        DFD dan flowchart per peran
+  database/        Schema siap-pakai untuk migrasi database ke cPanel/MySQL
+  basis-data/      Bahan siap pakai untuk BAB III proposal (bukan bagian aplikasi)
+  dokumen-proyek/  Dokumen proyek/laporan (Word, bukan bagian aplikasi)
 ```
 
 File konfigurasi di root (`next.config.ts`, `tsconfig.json`, `package.json`, dst) wajib tetap di root — dicari otomatis oleh Next.js/TypeScript/pnpm di lokasi itu.
@@ -330,7 +330,7 @@ Wing bukan kolom database — diturunkan dari awalan `room_number` (format wajib
 - Rate limit per jenis aksi (tabel `login_attempts`, fungsi `isRateLimited`): LOGIN dan RESET_PASSWORD maksimal 5 percobaan gagal per 15 menit per ID BCA; SCAN (pencarian kode/QR di halaman Validasi Satpam) maksimal 20 percobaan "tidak ditemukan" per 15 menit per akun satpam — lebih longgar karena mis-scan kamera adalah hal wajar, tapi tetap cukup ketat untuk membuat brute-force ke ruang kombinasi kode (lihat poin kode QR di bawah) tidak praktis.
 - Error login tidak membocorkan apakah sebuah ID BCA ada atau tidak. Begitu juga permintaan reset password Pengelola (lihat di bawah) — pesannya sama persis baik ID BCA itu Pengelola sungguhan atau tidak.
 - Validasi role dan kepemilikan izin dilakukan di server.
-- Token QR (`qr_token`) memakai `crypto.randomUUID()`. Kode fallback yang diketik manual satpam (`permit_code`/`entry_code`, format `SKT-`/`SKM-`) memakai alfabet 32 karakter tanpa karakter ambigu (`0/O/1/I/L` dikecualikan) yang diambil lewat `crypto.getRandomValues()` — bukan `Math.random()`, yang bukan generator acak yang aman secara kriptografis. Kode/QR asing (bukan dari sistem) atau yang sudah dipakai selalu jatuh ke "Izin tidak ditemukan" — `getPermitForSecurity` mencocokkan secara persis (`=`), bukan pencarian sebagian, jadi tidak mungkin tertulis valid secara tidak sengaja.
+- Token QR (`qr_token`) memakai `crypto.randomUUID()`. Kode fallback yang diketik manual satpam (`permit_code`/`entry_code`, format `SKT-`/`SKM-`) memakai alfabet 32 karakter tanpa karakter ambigu (`0/O/1/I/L` dikecualikan) yang diambil lewat `crypto.getRandomValues()` — bukan `Math.random()`, yang bukan generator acak yang aman secara kriptografis. Kode/QR asing (bukan dari sistem), tidak sesuai, atau yang sudah dipakai selalu jatuh ke pesan generik "Terjadi kesalahan" (bukan pesan spesifik per alasan, supaya tidak membocorkan kenapa gagal) — `getPermitForSecurity` mencocokkan secara persis (`=`), bukan pencarian sebagian, jadi tidak mungkin tertulis valid secara tidak sengaja.
 - QR tidak bisa dibuat screenshot-proof 100% — itu di luar kendali halaman web (screenshot terjadi di level OS). `components/PermitQr.tsx` menonaktifkan klik-kanan/tekan-lama simpan gambar dan mem-blur QR saat tab tidak aktif; perlindungan sebenarnya tetap di server — QR sekali pakai, jadi salinan (termasuk screenshot lama) berhenti berfungsi begitu satpam memvalidasinya.
 - Catat aksi sensitif ke `audit_logs`: perubahan master penghuni, pembuatan akun staf, pembatalan izin, validasi gerbang, ganti/reset password. Sengaja tidak ditampilkan lewat UI Pengelola (dashboard difokuskan ke kebutuhan sehari-hari Pengelola, bukan tools audit) — bisa ditinjau langsung dari database (`getAuditLog`) lewat Railway saat benar-benar dibutuhkan.
 - Input bebas milik Mahasiswa (keperluan/tujuan izin, nama) tidak langsung dipercaya di dua tempat yang bisa dibuka software lain: `app/api/reports/daily.csv/route.ts` menambahkan apostrof di depan sel yang diawali `=`/`+`/`-`/`@` supaya Excel/Sheets tidak membacanya sebagai formula (CSV injection), dan `lib/email.ts` meng-escape HTML sebelum masuk ke template email (`escapeHtml`) supaya tidak bisa menyisipkan markup ke email yang dikirim.
@@ -412,10 +412,8 @@ DATABASE_URL=file:./data/sikat.db
 SESSION_SECRET=ganti-dengan-random-string-panjang
 APP_URL=http://localhost:3000
 
-# Opsional, hanya untuk pembuatan akun manager pertama kali:
-INITIAL_MANAGER_BCA_ID=
-INITIAL_MANAGER_PASSWORD=
-INITIAL_MANAGER_NAME=
+# Opsional, hanya untuk pembuatan akun Pengelola pertama kali — lihat §"Akun Pengelola awal" di bawah:
+INITIAL_MANAGERS=[{"bcaId":"033245","name":"Nama Pengelola","password":"password-awal-minimal-8-karakter"}]
 ```
 
 Variabel notifikasi WhatsApp (§10a) dan email (§10b) opsional — lihat `.env.example` untuk daftar lengkapnya.
@@ -456,7 +454,7 @@ Skrip CLI `pnpm db:reset-history` (`scripts/reset-history.ts`) melakukan hal yan
 
 ## 11b. Testing
 
-`pnpm test` (Vitest, 33 test) menjalankan `lib/db.test.ts`, `lib/wings.test.ts`, dan `app/actions.test.ts` — test integrasi terhadap SQLite sungguhan, bukan mock: tiap file test membuat database SQLite sementara sendiri (`fs.mkdtempSync`, dihapus lagi setelah selesai) lewat `DATABASE_URL`, lalu menjalankan fungsi asli dari `lib/db.ts` di atasnya. Yang dicakup: validasi wing/gender & kapasitas kamar saat tambah penghuni, siklus izin lengkap (ajukan → keluar → ajukan masuk → konfirmasi masuk, termasuk jalur ditolak), `getPermitForSecurity` tidak pernah mengenali kode di luar sistem sebagai valid, format `secureCode` (lihat §10), rate limiting per jenis aksi, seluruh alur reset password Pengelola (token hanya terbit kalau ada email, pesan generik supaya tidak bisa dipakai menebak akun mana yang valid, token sekali pakai, token kedaluwarsa ditolak), dan kebijakan ganti password per peran langsung di `changePasswordAction` (`app/actions.ts`) — Mahasiswa/Satpam ditolak begitu `mustChangePassword` sudah `false`, Pengelola tetap boleh kapan saja.
+`pnpm test` (Vitest, 35 test) menjalankan `lib/db.test.ts`, `lib/wings.test.ts`, dan `app/actions.test.ts` — test integrasi terhadap SQLite sungguhan, bukan mock: tiap file test membuat database SQLite sementara sendiri (`fs.mkdtempSync`, dihapus lagi setelah selesai) lewat `DATABASE_URL`, lalu menjalankan fungsi asli dari `lib/db.ts` di atasnya. Yang dicakup: validasi wing/gender & kapasitas kamar saat tambah penghuni, siklus izin lengkap (ajukan → keluar → ajukan masuk → konfirmasi masuk, termasuk jalur ditolak), `getPermitForSecurity` tidak pernah mengenali kode di luar sistem sebagai valid, format `secureCode` (lihat §10), rate limiting per jenis aksi, seluruh alur reset password Pengelola (token hanya terbit kalau ada email, pesan generik supaya tidak bisa dipakai menebak akun mana yang valid, token sekali pakai, token kedaluwarsa ditolak), `isAccountActive` langsung berubah begitu penghuni dinonaktifkan (dasar dari pengecekan sesi di `lib/auth.ts`), dan kebijakan ganti password per peran langsung di `changePasswordAction` (`app/actions.ts`) — Mahasiswa/Satpam ditolak begitu `mustChangePassword` sudah `false`, Pengelola tetap boleh kapan saja.
 
 `import "server-only"` di `lib/*.ts` hanya dikenali bundler Next.js, bukan paket npm sungguhan — `vitest.config.mts` meng-alias-kannya ke stub kosong (`test/stubs/server-only.ts`) supaya bisa di-import langsung di Node lewat Vitest. `app/actions.test.ts` juga meng-mock `@/lib/auth` (`requireSession`/`requireRole`/`createSession`) serta `next/navigation` dan `next/cache`, karena keduanya butuh konteks request Next.js sungguhan yang tidak ada di Vitest — pendekatan ini sengaja fokus menguji logic peran/status di dalam action itu sendiri, bukan menguji ulang mekanisme cookie/JWT Next.js yang sudah terverifikasi lewat pemakaian production.
 

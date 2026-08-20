@@ -39,9 +39,12 @@ export async function createPermitAction(_: FormState, formData: FormData): Prom
   const session = await requireRole("STUDENT");
   const destination = String(formData.get("destination") || "");
   const permitType = String(formData.get("permitType") || "");
-  const date = String(formData.get("date") || "");
   const time = String(formData.get("time") || "");
-  const movementAt = date && time ? `${date}T${time}` : "";
+  // Izin keluar/masuk selalu untuk hari ini — tanggal dihitung di server
+  // (zona Jakarta), bukan dipercaya dari form, supaya mahasiswa tidak bisa
+  // mengajukan untuk tanggal kemarin/besok lewat request yang dimanipulasi.
+  const date = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
+  const movementAt = time ? `${date}T${time}` : "";
   try {
     const result = createPermit(session.accountId, { destination, permitType, departure: movementAt, returnAt: movementAt });
     revalidatePath("/student");

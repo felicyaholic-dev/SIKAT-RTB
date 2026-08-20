@@ -9,15 +9,22 @@ import { btn, formMessage } from "@/lib/ui";
 const initialState: FormState = {};
 type Student = { full_name: string; class_name: string; room_number: string };
 
-function localValue() {
+function localTime() {
   const date = new Date(Date.now() - new Date().getTimezoneOffset() * 60_000);
-  return { date: date.toISOString().slice(0, 10), time: date.toISOString().slice(11, 16) };
+  return date.toISOString().slice(11, 16);
+}
+
+// Izin hanya berlaku untuk hari ini — server juga menegakkan ini sendiri
+// (createPermitAction menghitung ulang tanggalnya, tidak memercayai form),
+// jadi field tanggal di sini murni tampilan, bukan input yang bisa diubah.
+function todayLabel() {
+  return new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "long", year: "numeric" }).format(new Date());
 }
 
 export function PermitForm({ mode, student }: { mode: "EXIT" | "ENTRY"; student: Student }) {
   const router = useRouter();
   const [state, action, pending] = useActionState(createPermitAction, initialState);
-  const now = localValue();
+  const time = localTime();
   const isEntry = mode === "ENTRY";
 
   useEffect(() => {
@@ -38,11 +45,11 @@ export function PermitForm({ mode, student }: { mode: "EXIT" | "ENTRY"; student:
       <section className="border-t border-line p-5 sm:p-7">
         <div className="flex items-start gap-3"><span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${isEntry ? "bg-safe-soft text-safe" : "bg-signal-soft text-signal"}`}>{isEntry ? <RotateCcw size={19} /> : <FilePlus2 size={19} />}</span><div><h2 className="text-base font-semibold tracking-tight text-ink">{isEntry ? "Konfirmasi kembali" : "Informasi izin"}</h2><p className="mt-0.5 text-[11px] text-muted">{isEntry ? "Isi waktu saat kamu kembali ke RTB" : "Isi sesuai kebutuhan keluar RTB"}</p></div></div>
 
-        {!isEntry && <div className="mt-6 grid gap-4 sm:grid-cols-2"><label>Jenis izin<select name="permitType" defaultValue="IZIN_PRIBADI" required><option value="IZIN_PRIBADI">Izin pribadi</option><option value="IZIN_AKADEMIK">Izin akademik</option><option value="IZIN_KESEHATAN">Izin kesehatan</option><option value="KEPERLUAN_KELUARGA">Keperluan keluarga</option><option value="LAINNYA">Lainnya</option></select></label><label>Tanggal keluar<input name="date" type="date" defaultValue={now.date} required /></label></div>}
+        {!isEntry && <div className="mt-6 grid gap-4 sm:grid-cols-2"><label>Jenis izin<select name="permitType" defaultValue="IZIN_PRIBADI" required><option value="IZIN_PRIBADI">Izin pribadi</option><option value="IZIN_AKADEMIK">Izin akademik</option><option value="IZIN_KESEHATAN">Izin kesehatan</option><option value="KEPERLUAN_KELUARGA">Keperluan keluarga</option><option value="LAINNYA">Lainnya</option></select></label><label>Tanggal keluar<input value={todayLabel()} readOnly className="bg-mist/70 font-medium text-muted" /></label></div>}
 
         <div className={`mt-4 grid gap-4 ${isEntry ? "sm:grid-cols-2" : "sm:max-w-[calc(50%-0.5rem)]"}`}>
-          {isEntry && <label>Tanggal kembali<input name="date" type="date" defaultValue={now.date} required /></label>}
-          <label>{isEntry ? "Jam kembali" : "Jam keluar"}<input name="time" type="time" defaultValue={now.time} required /></label>
+          {isEntry && <label>Tanggal kembali<input value={todayLabel()} readOnly className="bg-mist/70 font-medium text-muted" /></label>}
+          <label>{isEntry ? "Jam kembali" : "Jam keluar"}<input name="time" type="time" defaultValue={time} required /></label>
         </div>
 
         {!isEntry && <label className="mt-4">Keterangan<textarea name="destination" rows={5} placeholder="Tuliskan tujuan atau kebutuhan izin secara singkat" required /></label>}

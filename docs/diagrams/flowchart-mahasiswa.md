@@ -30,7 +30,9 @@ flowchart TD
   CheckWing -->|Ya| SaveProfile[Data kamar tersimpan]
   SaveProfile --> Home
 
-  Choice -->|Ajukan izin keluar| Apply[Isi tujuan, tanggal, jam keluar]
+  Choice -->|Ajukan izin keluar| Apply["Isi tujuan, jam keluar
+  (tanggal selalu hari ini,
+  tidak bisa dipilih)"]
   Apply --> QR["Status: MENUNGGU_KELUAR
   kode SKT- + QR aktif"]
   QR --> Cancel1{Batalkan sebelum
@@ -83,5 +85,6 @@ flowchart TD
 - Kamar wajib format `WING-NOMOR` (contoh `A1-101`) dan wing-nya harus cocok dengan jenis kelamin mahasiswa — lihat tabel wing di [flowchart-pengelola.md](flowchart-pengelola.md#referensi-wing).
 - **Password hanya bisa diganti sekali**, saat login pertama (langkah "Wajib buat password baru" di atas). Setelah itu, mahasiswa tidak bisa mengganti password sendiri lagi — kalau lupa, gunakan **Reset Password** mandiri di halaman login (verifikasi ID BCA + nama + kamar), bukan menu ganti password. Sistem mengirim email konfirmasi (`sendPasswordChangedEmail`) begitu password baru itu tersimpan, kalau email di Master Penghuni sudah diisi — jaga-jaga supaya ada catatan yang bisa dicek ulang kalau lupa.
 - **QR tidak bisa di-screenshot 100%** — itu di luar kendali halaman web mana pun (screenshot/screen-recording terjadi di level OS, bukan lewat browser). Yang benar-benar diterapkan (`components/PermitQr.tsx`): klik-kanan/tekan-lama "simpan gambar" dinonaktifkan, dan QR di-blur otomatis saat tab/aplikasi tidak aktif (agar tidak nampak di thumbnail app-switcher). Perlindungan sebenarnya tetap di server: QR/kode izin sekali pakai (`decidePermit`) — begitu divalidasi satpam, salinan apa pun (termasuk screenshot lama) langsung tidak berlaku.
-- Validasi satpam **tidak akan pernah menandai QR di luar sistem sebagai valid** — `getPermitForSecurity` mencocokkan kode yang dipindai persis (`=`, bukan pencarian sebagian) terhadap `permit_code`/`qr_token`/`entry_code` yang tersimpan; kode apa pun yang tidak cocok selalu tampil "Izin tidak ditemukan".
+- Validasi satpam **tidak akan pernah menandai QR di luar sistem sebagai valid** — `getPermitForSecurity` mencocokkan kode yang dipindai persis (`=`, bukan pencarian sebagian) terhadap `permit_code`/`qr_token`/`entry_code` yang tersimpan; kode apa pun yang tidak cocok, tidak valid, atau sudah pernah dipakai selalu tampil pesan generik "Terjadi kesalahan".
 - Kode `SKT-`/`SKM-` dibuat lewat `crypto.getRandomValues()` (alfabet 32 karakter tanpa karakter ambigu), bukan `Math.random()` — sama seperti `qr_token` yang sudah lebih dulu memakai `crypto.randomUUID()`.
+- **Tanggal izin keluar/masuk selalu hari ini** — field tanggal di form hanya tampilan, tidak bisa diedit ke kemarin atau besok. `createPermitAction` menghitung tanggalnya sendiri di server (zona Jakarta), bukan memercayai nilai dari form, jadi tidak bisa dimanipulasi lewat request langsung; yang tetap bisa mahasiswa pilih hanya jam-nya.
