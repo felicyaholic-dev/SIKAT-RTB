@@ -56,7 +56,7 @@ export default async function SecurityPage({ searchParams }: Props) {
             <div className="grid justify-items-center gap-2 text-muted">
               <span className="grid h-16 w-16 place-items-center rounded-[22px] bg-[#fff4de] text-amber"><TriangleAlert size={28} strokeWidth={1.6} /></span>
               <h2 className="mt-3 text-xl font-medium tracking-tight text-ink">Terjadi kesalahan</h2>
-              <p className="max-w-[250px] text-[13px] leading-relaxed">Kode tidak valid, tidak sesuai, atau sudah pernah dipakai. Periksa kembali, atau gunakan QR yang diberikan mahasiswa.</p>
+              <p className="max-w-[260px] text-[13px] leading-relaxed">Pastikan QR code yang ditampilkan benar. Kode juga bisa sudah tidak berlaku (berputar tiap 15 detik) atau sudah pernah dipakai.</p>
             </div>
           </div>
         )}

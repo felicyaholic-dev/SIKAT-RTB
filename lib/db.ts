@@ -495,15 +495,16 @@ export function getPermitForSecurity(code: string) {
 export function decidePermit(accountId: number, permitId: number, decision: "APPROVE" | "REJECT") {
   const db = getDb();
   const permit = db.prepare("SELECT * FROM permits WHERE id = ?").get(permitId) as PermitRow | undefined;
-  // "Terjadi kesalahan" is deliberately generic (not "izin tidak ditemukan"
-  // vs "sudah dipakai" vs "status berubah") — satpam just needs to know this
-  // QR/kode tidak bisa dipakai and to scan the next one, not which of these
-  // specific reasons it was.
-  if (!permit) return { ok: false, message: "Terjadi kesalahan. Izin tidak ditemukan — silakan pindai ulang QR." };
+  // "Terjadi kesalahan, pastikan QR code yang ditampilkan benar" is
+  // deliberately generic (not "izin tidak ditemukan" vs "sudah dipakai" vs
+  // "status berubah") — satpam just needs to know this QR/kode tidak bisa
+  // dipakai and to scan the next one, not which of these specific reasons
+  // it was.
+  if (!permit) return { ok: false, message: "Terjadi kesalahan, pastikan QR code yang ditampilkan benar." };
   if (permit.status === "MENUNGGU_MASUK" && decision === "REJECT") return { ok: false, message: "QR masuk tidak dapat dibatalkan dari proses ini." };
   const isExit = permit.status === "MENUNGGU_KELUAR";
   const isEntry = permit.status === "MENUNGGU_MASUK";
-  if (!isExit && !isEntry) return { ok: false, message: "Terjadi kesalahan. QR ini sudah digunakan atau belum siap divalidasi." };
+  if (!isExit && !isEntry) return { ok: false, message: "Terjadi kesalahan, pastikan QR code yang ditampilkan benar." };
   const next = isExit ? decision === "APPROVE" ? "SEDANG_DI_LUAR" : "DIBATALKAN" : "SELESAI";
   const event = isExit ? decision === "APPROVE" ? "EXIT" : "EXIT_REJECTED" : "ENTRY";
   const transaction = db.transaction(() => {
@@ -512,7 +513,7 @@ export function decidePermit(accountId: number, permitId: number, decision: "APP
     db.prepare("INSERT INTO permit_events (permit_id, event_type, performed_by_account_id) VALUES (?, ?, ?)").run(permitId, event, accountId);
     return true;
   });
-  if (!transaction()) return { ok: false, message: "Terjadi kesalahan. Status izin sudah berubah — silakan pindai ulang QR." };
+  if (!transaction()) return { ok: false, message: "Terjadi kesalahan, pastikan QR code yang ditampilkan benar." };
   const resident = db.prepare("SELECT full_name, phone_number, email FROM master_residents WHERE id = ?").get(permit.resident_id) as { full_name: string; phone_number: string | null; email: string | null } | undefined;
   const notif = { permitCode: permit.permit_code, entryCode: permit.entry_code, destination: permit.destination, departureAt: permit.planned_departure_at, returnAt: permit.planned_return_at };
   if (event === "EXIT") return { ok: true, message: "Izin keluar disetujui. Mahasiswa kini berstatus di luar RTB.", event, resident, notif };
