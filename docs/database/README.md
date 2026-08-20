@@ -9,7 +9,7 @@
 | `security_staff` | Data petugas satpam |
 | `permits` | Pengajuan izin keluar-masuk (kode izin, QR token, tujuan, jadwal, status) |
 | `permit_events` | Jejak setiap perubahan status pada satu izin (siapa yang memproses, kapan) |
-| `audit_logs` | Log aktivitas umum di sistem — bisa ditinjau lewat halaman Log Aktivitas Pengelola |
+| `audit_logs` | Jejak aksi sensitif (tambah/hapus penghuni & satpam, ganti password, broadcast, dll) — tidak ditampilkan di UI Pengelola, ditinjau langsung lewat database bila diperlukan |
 | `login_attempts` | Percobaan login/reset/scan, untuk rate-limit brute force |
 | `manager_bootstrap_links` | Penghubung akun pengelola awal saat sistem pertama kali di-setup |
 | `broadcast_notifications` | Pengumuman yang dibuat pengelola |

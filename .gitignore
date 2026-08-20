@@ -6,6 +6,5 @@ data/*.db
 data/*.db-*
 data/backups/
 !data/.gitkeep
-data/whatsapp-session
 *.tsbuildinfo
 .pnpm-store

@@ -882,7 +882,14 @@ export function changePassword(accountId: number, input: { currentPassword: stri
   if (!account || !bcrypt.compareSync(input.currentPassword, account.password_hash)) return { ok: false, message: "Password saat ini tidak tepat." };
   db.prepare("UPDATE accounts SET password_hash = ?, must_change_password = 0 WHERE id = ?").run(bcrypt.hashSync(input.password, 12), accountId);
   logAudit(accountId, "CHANGE_PASSWORD", "account", String(accountId));
-  return { ok: true, message: "Password berhasil diperbarui." };
+  // Mahasiswa can only ever change their password once (forced, at first
+  // login — see changePasswordAction) — email them a copy of that event so
+  // there's a record to fall back on if they forget it later, since after
+  // this only Pengelola can reset it.
+  const resident = account.role === "STUDENT"
+    ? db.prepare("SELECT r.full_name, r.email FROM master_residents r JOIN accounts a ON a.resident_id = r.id WHERE a.id = ?").get(accountId) as { full_name: string; email: string | null } | undefined
+    : undefined;
+  return { ok: true, message: "Password berhasil diperbarui.", resident };
 }
 
 export function getAccountEmail(accountId: number): string | null {
@@ -1029,7 +1036,9 @@ export function createBroadcast(accountId: number, input: { title: string; body:
   if (body.length < 5 || body.length > 600) return { ok: false, message: "Isi notifikasi harus terdiri dari 5–600 karakter." };
   const transaction = db.transaction(() => {
     const notification = db.prepare("INSERT INTO broadcast_notifications (title, body, created_by_account_id) VALUES (?, ?, ?)").run(title, body, accountId);
-    db.prepare("INSERT INTO notification_deliveries (notification_id, account_id) SELECT ?, id FROM accounts WHERE is_active = 1").run(notification.lastInsertRowid);
+    // SECURITY accounts don't see the notification center (AppShell hides it
+    // for that role — the icon had no use for Satpam), so skip them here too.
+    db.prepare("INSERT INTO notification_deliveries (notification_id, account_id) SELECT ?, id FROM accounts WHERE is_active = 1 AND role != 'SECURITY'").run(notification.lastInsertRowid);
     logAudit(accountId, "CREATE_BROADCAST_NOTIFICATION", "broadcast_notification", String(notification.lastInsertRowid));
   });
   transaction();
@@ -1037,7 +1046,7 @@ export function createBroadcast(accountId: number, input: { title: string; body:
     SELECT full_name, phone_number, email FROM master_residents
     WHERE resident_status = 'ACTIVE' AND (phone_number IS NOT NULL OR email IS NOT NULL)
   `).all() as Array<{ full_name: string; phone_number: string | null; email: string | null }>;
-  return { ok: true, message: "Notifikasi berhasil dikirim ke seluruh akun aktif.", recipients, title };
+  return { ok: true, message: "Notifikasi berhasil dikirim ke seluruh Mahasiswa & Pengelola aktif.", recipients, title };
 }
 
 export function getBroadcastHistory() {
@@ -1122,8 +1131,11 @@ function logAudit(actorId: number, action: string, entityType: string, entityId:
 }
 
 // Every sensitive action (resident/staff CRUD, password changes, resets,
-// broadcasts) writes to audit_logs via logAudit above — this is the read
-// side, for the Pengelola-facing "Log Aktivitas" page.
+// broadcasts) writes to audit_logs via logAudit above. Deliberately not
+// surfaced in the Pengelola UI (keeps that dashboard focused on what
+// Pengelola actually needs day to day) — this read side stays available
+// for direct inspection (e.g. via the production DB on Railway) when
+// someone needs the detailed trail.
 export function getAuditLog(limit = 300) {
   return getDb().prepare(`
     SELECT l.id, l.action, l.entity_type, l.entity_id, l.created_at,

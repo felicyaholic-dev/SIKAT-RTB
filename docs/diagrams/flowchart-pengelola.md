@@ -86,9 +86,10 @@ flowchart TD
 
   Menu -->|Pengaturan: Broadcast| BC[Tulis judul + isi pengumuman]
   BC --> BCSend["Kirim ke pusat notifikasi
-  SELURUH akun aktif, plus
-  WA + Email ke penghuni
-  yang punya nomor/email"]
+  Mahasiswa & Pengelola aktif
+  (Satpam tidak punya pusat
+  notifikasi), plus Email ke
+  penghuni yang punya email"]
   BCSend --> Home
 
   Menu -->|Pengaturan: Reset riwayat| RH{Cakupan}
@@ -107,11 +108,6 @@ flowchart TD
   saat ini (.db) untuk
   disimpan di luar volume"]
   Backup --> Home
-
-  Menu -->|Log Aktivitas| Audit["Lihat 300 aksi tersensitif
-  terbaru: siapa melakukan
-  apa dan kapan (audit_logs)"]
-  Audit --> Home
 
   Menu -->|Laporan| Report{Jenis data}
   Report -->|Aktivitas keluar-masuk| ReportFilter[Filter: kelas + periode
@@ -134,7 +130,7 @@ flowchart TD
 
 **Catatan:**
 - Menu **Riwayat** ini fitur baru — sebelumnya hanya satpam yang punya halaman ini; sekarang Pengelola juga bisa melihat data yang persis sama untuk pemantauan.
-- **Broadcast** memicu tiga hal sekaligus: notifikasi in-app ke semua akun, pesan WhatsApp, dan email — dua yang terakhir hanya ke penghuni yang sudah mengisi nomor WA/email.
+- **Broadcast** memicu dua hal sekaligus: notifikasi in-app ke akun Mahasiswa & Pengelola (Satpam tidak punya pusat notifikasi — ikonnya tidak ditampilkan di shell Satpam), dan email ke penghuni yang sudah mengisi alamat email.
 - Nama, kelas, dan status penghuni **tetap** hanya bisa diubah lewat menu ini (bukan oleh mahasiswa sendiri); yang boleh diubah mahasiswa sendiri hanya kamar, WA, dan email.
 - **Wing** bukan kolom database tersendiri — sistem menurunkannya dari awalan nomor kamar (format `WING-NOMOR`, contoh `A1-101`), lalu mengecek jenis kelamin penghuni harus cocok dengan wing tersebut. Aturan ini berlaku di tambah/edit/impor Pengelola *maupun* saat mahasiswa mengubah kamar sendiri di halaman Profil.
 - Grafik **Aktivitas keluar-masuk**, **Jam sibuk**, dan **Rekap wing** di Dashboard masing-masing punya kalender "Dari – Ke" independen sendiri-sendiri (default 7 hari, 30 hari, 30 hari) — mengubah satu tidak memengaruhi yang lain. Panel **Aktivitas terbaru** di Dashboard selalu tetap pada 24 jam terakhir (tidak ikut kalender) — kartu "Di luar RTB" di atasnya tetap menghitung total riil termasuk yang sudah di luar lebih dari 24 jam.
@@ -142,7 +138,6 @@ flowchart TD
 - **Password Pengelola bisa diganti kapan saja** dari halaman Profil (`ManagerChangePasswordForm`) — beda dengan Mahasiswa/Satpam yang cuma boleh sekali, saat login pertama. Ditegakkan di `changePasswordAction` (server), bukan cuma disembunyikan di UI: percobaan ganti password dari akun Mahasiswa/Satpam di luar momen login pertama akan ditolak walau dikirim langsung ke server.
 - **Reset password Pengelola lewat email** (`requestManagerPasswordReset`/`resetManagerPasswordWithToken`) butuh email sudah diisi di Profil lebih dulu. Token acak (256-bit), di-hash sebelum disimpan (`password_reset_tokens.token_hash`), sekali pakai, kedaluwarsa 30 menit. Pesan yang ditampilkan sama persis baik ID BCA itu Pengelola sungguhan, Pengelola tanpa email, atau ID BCA yang tidak ada — supaya tidak bisa dipakai menebak akun mana yang valid.
 - **Backup database**: otomatis harian di volume yang sama (dipicu tiap Dashboard dimuat, disimpan 14 hari) melindungi dari korupsi/salah hapus; tombol **Unduh backup** di Pengaturan untuk salinan manual yang disimpan di luar volume — dua-duanya perlu, beda risiko yang dijaga. Detail di README §11c.
-- **Log Aktivitas** (`getAuditLog`) menampilkan isi `audit_logs` yang sudah tercatat sejak awal tapi sebelumnya tidak pernah ditampilkan — sekarang Pengelola bisa langsung meninjau siapa melakukan apa tanpa query database.
 - Kode izin manual (`SKT-`/`SKM-`, dipakai satpam saat scan QR gagal) dibuat lewat `crypto.getRandomValues()` dengan alfabet 32 karakter tanpa karakter ambigu — bukan `Math.random()`. Pencarian kode/QR di halaman Validasi Satpam kena rate limit 20 percobaan "tidak ditemukan" per 15 menit per akun satpam (`SCAN`), terpisah dari rate limit login/reset password.
 
 ## Referensi wing

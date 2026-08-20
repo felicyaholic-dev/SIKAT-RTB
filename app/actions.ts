@@ -7,7 +7,7 @@ import { clearSession, createSession, requireRole, requireSession, roleHome } fr
 import { parseResidentSheet } from "@/lib/excel-import";
 import { formatJakartaInput, RESIDENT_CLASSES } from "@/lib/ui";
 import { sendPermitEntryConfirmed, sendPermitExitApproved, sendPermitExitRejected, sendWhatsAppBroadcast } from "@/lib/whatsapp";
-import { sendEmailBroadcast, sendManagerPasswordResetEmail, sendPermitEntryConfirmedEmail, sendPermitExitApprovedEmail, sendPermitExitRejectedEmail } from "@/lib/email";
+import { sendEmailBroadcast, sendManagerPasswordResetEmail, sendPasswordChangedEmail, sendPermitEntryConfirmedEmail, sendPermitExitApprovedEmail, sendPermitExitRejectedEmail } from "@/lib/email";
 
 export type FormState = { error?: string; success?: string; detail?: string[] };
 
@@ -220,6 +220,7 @@ export async function changePasswordAction(_: FormState, formData: FormData): Pr
   const result = changePassword(session.accountId, { currentPassword, password });
   if (!result.ok) return { error: result.message };
   const wasForced = session.mustChangePassword;
+  if (result.resident?.email) void sendPasswordChangedEmail(result.resident.email, result.resident.full_name);
   await createSession({ ...session, mustChangePassword: false });
   if (wasForced) redirect(roleHome(session.role));
   return { success: "Password berhasil diperbarui." };

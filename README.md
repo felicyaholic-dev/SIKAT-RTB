@@ -34,7 +34,7 @@ SIKAT RTB menggantikan pencatatan izin yang tersebar dengan satu alur digital: p
 | --- | --- | --- |
 | Mahasiswa/penghuni | Mengajukan dan melacak izin pribadi | Beranda, ajukan izin, QR izin aktif, riwayat sendiri, profil (bisa mengubah kamar/nomor WA/email sendiri) |
 | Satpam | Memvalidasi status keluar/masuk secara cepat | Scanner/kode izin, konfirmasi keluar/masuk, daftar penghuni di luar, riwayat validasi gabungan seluruh satpam |
-| Pengelola | Mengelola data master dan memantau kondisi RTB | Dashboard monitoring, riwayat validasi gabungan (sama seperti satpam), master penghuni & satpam, laporan, log aktivitas, pengaturan |
+| Pengelola | Mengelola data master dan memantau kondisi RTB | Dashboard monitoring, riwayat validasi gabungan (sama seperti satpam), master penghuni & satpam, laporan, pengaturan |
 
 > Semua pemeriksaan hak akses dilakukan di server. Menyembunyikan menu di frontend bukan mekanisme keamanan.
 
@@ -92,11 +92,13 @@ Login pertama
 → mahasiswa masuk dengan ID BCA + password awal dari pengelola
 → sistem mendeteksi status wajib ganti password
 → mahasiswa membuat password baru
-→ password tersimpan, sesi lanjut ke dashboard
+→ password tersimpan, email konfirmasi dikirim (bila email sudah diisi)
+→ sesi lanjut ke dashboard
 ```
 
 - Password awal hanya untuk login pertama; setiap akun baru (mahasiswa, satpam, maupun pengelola) wajib menggantinya sebelum bisa memakai sistem.
 - Setelah login pertama, **mahasiswa dan satpam tidak bisa mengganti password lagi sendiri** — `/change-password` otomatis mengarahkan mereka ke beranda begitu status wajib-ganti sudah selesai, dan `changePasswordAction` menolak percobaan ganti password dari kedua role ini di luar momen login pertama (ditegakkan di server, bukan cuma disembunyikan di UI).
+- Karena password Mahasiswa hanya bisa diganti sekali itu, sistem mengirim **email konfirmasi** (`sendPasswordChangedEmail`, ke email di Master Penghuni bila sudah diisi) begitu password baru tersimpan — supaya ada catatan yang bisa dicek ulang kalau lupa, dan supaya kejanggalan (bukan mahasiswa sendiri yang mengganti) segera terlihat. Satpam tidak mendapat email ini karena tidak punya kolom email di sistem.
 - **Pengelola bisa mengganti password kapan saja** dari halaman Profil (`app/manager/ManagerChangePasswordForm.tsx`), memakai aksi yang sama — bedanya cuma Pengelola tidak dibatasi status wajib-ganti.
 - Lupa password? Mahasiswa dapat memverifikasi ulang ID BCA + nama lengkap + nomor kamar untuk mengatur password baru secara mandiri, tanpa melibatkan pengelola.
 - Data tidak ditemukan atau tidak cocok saat verifikasi: permintaan reset ditolak, password lama tidak berubah.
@@ -147,12 +149,10 @@ QR yang tidak valid, kedaluwarsa, dibatalkan, atau dipakai pada status yang tida
 | Impor Excel massal | Onboarding puluhan-ratusan penghuni tiap pergantian angkatan tanpa input satu per satu | Unggah `.xlsx` (kolom ID BCA/Nama/Kamar/Kelas/Jenis Kelamin/Password/Nomor WA), diparsing dengan `exceljs`, tiap baris divalidasi (termasuk format kamar & kecocokan wing) & disimpan independen (`importResidents`) sehingga baris tidak valid dilaporkan tanpa membatalkan baris lain |
 | Reset riwayat keluar-masuk | Mengosongkan data izin lama setiap pergantian tahun ajaran tanpa menyentuh akun/master data | `resetHistory` di halaman Pengaturan pengelola, cakupan seluruh sistem atau per kelas; dianjurkan ekspor CSV "Semua waktu" sebagai arsip dulu sebelum reset, lihat §11a |
 | Laporan tersaring | Pengelola bisa fokus ke kelas/periode/jenis data tertentu tanpa menyaring manual | Filter kelas, periode, dan jenis data (aktivitas keluar-masuk vs penghuni di dalam RTB) di `getReport`/`getResidentsInside`; unduhan CSV mengikuti filter yang sama |
-| Notifikasi WA otomatis (opsional) | Mahasiswa tahu izinnya disetujui/ditolak atau ada pengumuman baru tanpa buka aplikasi terus-menerus | Kirim pesan template lewat WhatsApp Cloud API resmi (`lib/whatsapp.ts`) saat izin diputuskan satpam atau Pengelola broadcast; nonaktif kalau `WHATSAPP_CLOUD_API_TOKEN` belum di-set, lihat §10a |
-| Notifikasi email otomatis (opsional) | Kanal Plan B yang independen dari WhatsApp untuk kejadian yang sama | Kirim email HTML lewat Resend (`lib/email.ts`) di titik pemicu yang sama seperti WA; nonaktif kalau `RESEND_API_KEY` belum di-set, lihat §10b |
+| Notifikasi email otomatis | Mahasiswa tahu izinnya disetujui/ditolak atau ada pengumuman baru tanpa buka aplikasi terus-menerus | Kirim email HTML lewat Resend (`lib/email.ts`) saat izin diputuskan satpam atau Pengelola broadcast; nonaktif kalau `RESEND_API_KEY` belum di-set, lihat §10b — satu-satunya kanal notifikasi otomatis, lihat §10a |
 | Edit kontak mandiri mahasiswa | Data kamar/WA/email tetap akurat tanpa menunggu Pengelola | Mahasiswa mengubah kamar, nomor WA, dan email miliknya sendiri dari halaman Profil (`updateOwnContactInfo`); menulis ke tabel yang sama dengan Master Penghuni Pengelola, jadi perubahan langsung terlihat di kedua sisi; nama, kelas, dan status penghuni tetap hanya bisa diubah Pengelola |
 | Riwayat gabungan Satpam & Pengelola, filter wing/kelas multi-pilih | Satu sumber kebenaran soal siapa memvalidasi apa, bisa dilihat shift satpam berikutnya maupun Pengelola, keduanya bisa mempersempit ke wing/kelas/periode tertentu | Halaman **Riwayat** menampilkan seluruh validasi keluar-masuk dari *semua* satpam (bukan cuma akun yang login), dengan keterangan satpam mana yang memutuskan tiap izin (`getPermitHistory`); Pengelola dan Satpam memakai komponen bersama `components/PermitHistoryPage.tsx` dan `components/HistoryFilters.tsx` — filter wing & kelas bisa multi-pilih (checkbox), plus jangka waktu; tanpa filter = semua |
 | Dashboard dengan rentang kalender bebas per panel | Pengelola bisa membandingkan periode tertentu untuk tiap grafik secara independen, bukan cuma jendela waktu tetap atau berbagi rentang | Grafik aktivitas keluar-masuk, jam sibuk, dan rekap wing masing-masing punya input tanggal "Dari–Ke" sendiri (`app/manager/DashboardRangeFilter.tsx`, query param `actFrom/actTo`, `peakFrom/peakTo`, `wingFrom/wingTo`), default 7/30/30 hari terakhir; rekap wing selalu menampilkan seluruh wing |
-| Log Aktivitas (audit trail) | Aksi sensitif selama ini tercatat ke `audit_logs` tapi tidak pernah bisa dilihat siapa pun tanpa query database langsung | Halaman **Log Aktivitas** (`/manager/audit`, khusus Pengelola) menampilkan 300 aksi terbaru — siapa melakukan apa dan kapan — lewat `getAuditLog`, dengan label Indonesia untuk tiap jenis aksi |
 | Aktivitas terbaru 24 jam | Fokus pengelola pada pergerakan yang benar-benar baru saja terjadi, tanpa mencampur dengan kartu total di luar RTB | Panel di Dashboard menyaring event EXIT/ENTRY_REQUESTED terbaru per izin ke jendela bergulir 24 jam (`recentActivity` di `getManagerData`), terpisah dari kartu "Di luar RTB" yang tetap menghitung total riil tanpa batas waktu, dan terpisah dari antrean satpam yang tidak dibatasi waktu |
 | Mode gelap/terang | Kenyamanan pemakaian pada kondisi pencahayaan berbeda, preferensi pengguna | Toggle 3-arah (Terang/Gelap/Ikuti sistem) di semua halaman, tersimpan di localStorage, tidak flash ke tema salah saat reload (`components/ThemeProvider.tsx`, `components/ThemeToggle.tsx`); palet gelap tetap memakai identitas navy+biru brand, bukan abu-abu generik |
 | Login berbasis ID BCA | Satu identitas konsisten di seluruh alur | Credential auth, password hash bcrypt, cookie sesi `httpOnly` |
@@ -210,8 +210,7 @@ Aturan dasar:
 | Rate limiting | Tabel `login_attempts` di SQLite | Maksimal 5 percobaan gagal per 15 menit per ID BCA, untuk login maupun reset password |
 | Security header | `next.config.ts` `headers()` | CSP, `X-Frame-Options`, `Permissions-Policy` (kamera dibatasi ke situs sendiri), `Strict-Transport-Security` |
 | QR | `qrcode` (SVG inline, server-side) + browser scanner | QR dirender lokal tanpa panggilan API pihak ketiga; mendukung scan kamera dan fallback kode manual |
-| Notifikasi WA (opsional) | WhatsApp Business Platform (Cloud API resmi Meta) | Panggilan HTTP berbasis template per pesan, tanpa koneksi/sesi persisten di server — lihat §10a |
-| Notifikasi email (opsional) | Resend (API HTTPS) | Jalur Plan B yang independen dari WhatsApp, tidak terhalang blokir SMTP hosting — lihat §10b |
+| Notifikasi email (opsional) | Resend (API HTTPS) | Satu-satunya kanal notifikasi otomatis; tidak terhalang blokir SMTP hosting — lihat §10b |
 | Impor Excel | `exceljs` | Parser `.xlsx` yang aktif dipelihara; sengaja bukan paket `xlsx` npm karena versi yang dipublikasikan di npm (0.18.5) punya CVE prototype-pollution/ReDoS yang belum ada perbaikannya di registry npm |
 | Deployment | Railway | Satu service web dengan persistent volume untuk database |
 | Testing | Vitest | Test integrasi terhadap SQLite sungguhan (file temp per test file, bukan mock) — lihat §11b |
@@ -233,6 +232,8 @@ scripts/        Skrip CLI: reset database, ekspor ke MySQL untuk cPanel
 docs/           Dokumentasi project
   diagrams/      DFD dan flowchart per peran
   database/      Schema siap-pakai untuk migrasi database ke cPanel/MySQL
+  bab3-basis-data/  Bahan siap pakai untuk BAB III proposal (bukan bagian aplikasi)
+  dokumen-proyek/   Dokumen proyek/laporan (PDF/Word, bukan bagian aplikasi)
 ```
 
 File konfigurasi di root (`next.config.ts`, `tsconfig.json`, `package.json`, dst) wajib tetap di root — dicari otomatis oleh Next.js/TypeScript/pnpm di lokasi itu.
@@ -288,7 +289,9 @@ broadcast_notifications
 
 notification_deliveries
   notification_id + account_id (PK gabungan), read_at (nullable)
-  — status baca notifikasi in-app per akun
+  — status baca notifikasi in-app per akun; hanya dibuat untuk akun
+    Mahasiswa & Pengelola — Satpam tidak punya pusat notifikasi (ikonnya
+    disembunyikan di shell Satpam karena tidak ada fungsinya)
 
 password_reset_tokens
   id, account_id, token_hash (unique), expires_at, used_at (nullable),
@@ -329,81 +332,41 @@ Wing bukan kolom database — diturunkan dari awalan `room_number` (format wajib
 - Validasi role dan kepemilikan izin dilakukan di server.
 - Token QR (`qr_token`) memakai `crypto.randomUUID()`. Kode fallback yang diketik manual satpam (`permit_code`/`entry_code`, format `SKT-`/`SKM-`) memakai alfabet 32 karakter tanpa karakter ambigu (`0/O/1/I/L` dikecualikan) yang diambil lewat `crypto.getRandomValues()` — bukan `Math.random()`, yang bukan generator acak yang aman secara kriptografis. Kode/QR asing (bukan dari sistem) atau yang sudah dipakai selalu jatuh ke "Izin tidak ditemukan" — `getPermitForSecurity` mencocokkan secara persis (`=`), bukan pencarian sebagian, jadi tidak mungkin tertulis valid secara tidak sengaja.
 - QR tidak bisa dibuat screenshot-proof 100% — itu di luar kendali halaman web (screenshot terjadi di level OS). `components/PermitQr.tsx` menonaktifkan klik-kanan/tekan-lama simpan gambar dan mem-blur QR saat tab tidak aktif; perlindungan sebenarnya tetap di server — QR sekali pakai, jadi salinan (termasuk screenshot lama) berhenti berfungsi begitu satpam memvalidasinya.
-- Catat aksi sensitif ke `audit_logs`: perubahan master penghuni, pembuatan akun staf, pembatalan izin, validasi gerbang, ganti/reset password. Bisa ditinjau lewat halaman **Log Aktivitas** (khusus Pengelola, `getAuditLog`) — bukan cuma tersimpan tanpa pernah dibaca.
+- Catat aksi sensitif ke `audit_logs`: perubahan master penghuni, pembuatan akun staf, pembatalan izin, validasi gerbang, ganti/reset password. Sengaja tidak ditampilkan lewat UI Pengelola (dashboard difokuskan ke kebutuhan sehari-hari Pengelola, bukan tools audit) — bisa ditinjau langsung dari database (`getAuditLog`) lewat Railway saat benar-benar dibutuhkan.
 - Security header aktif di semua route (`next.config.ts`): `Content-Security-Policy`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Strict-Transport-Security`, dan `Permissions-Policy` yang membatasi kamera hanya untuk situs sendiri (dipakai scanner QR satpam) serta menolak mikrofon/lokasi/pembayaran/USB.
 
 > Verifikasi ID BCA + nama + kamar pada reset password mandiri (mahasiswa) cukup untuk prototype, tetapi bukan bukti identitas yang kuat jika data tersebut mudah diketahui orang lain. Untuk penggunaan nyata, tambahkan OTP ke kanal resmi sebelum password baru diterima. Pengelola memakai jalur yang lebih kuat (token via email, lihat §4.2) karena akunnya memegang kendali penuh sistem.
 
-## 10a. Notifikasi WhatsApp (opsional)
+## 10a. Notifikasi WhatsApp (tidak dilanjutkan)
 
-Mahasiswa dapat menerima pesan WA otomatis saat izin keluar/masuknya disetujui **atau ditolak** satpam, dan saat
-Pengelola mengirim broadcast baru. Fitur ini **nonaktif secara default** (`WHATSAPP_CLOUD_API_TOKEN` belum di-set)
-dan tidak memengaruhi fitur lain jika tidak diaktifkan.
+Sempat direncanakan: mahasiswa menerima pesan WA otomatis saat izin keluar/masuknya disetujui/ditolak satpam, dan
+saat Pengelola broadcast, lewat WhatsApp Business Platform (Cloud API resmi Meta, `lib/whatsapp.ts`) — satu
+panggilan HTTP per pesan, tanpa koneksi/sesi persisten di server.
 
-> **Status saat ini (15 Agustus 2026):** pendaftaran akun WhatsApp Business Platform resmi sedang berjalan; nomor
-> yang direncanakan sempat kena pembatasan pengiriman sementara (bukan blokir permanen) akibat pemakaian gateway
-> tidak resmi sebelumnya, jadi pendaftaran dilanjutkan setelah pembatasannya reda. Kredensial belum tersedia,
-> sehingga fitur ini masih nonaktif di production sampai keempat template di bawah disetujui Meta.
+> **Keputusan (20 Agustus 2026):** rencana ini dihentikan. Registrasi Cloud API sempat berjalan tapi terhambat
+> (akun Facebook pribadi kena checkpoint, template pertama ditolak Meta) — daripada terus menunggu, nomor WA
+> penghuni/pengelola kini murni **data kontak** (supaya staf bisa menghubungi manual bila perlu), bukan kanal
+> notifikasi otomatis. **Email (§10b) adalah satu-satunya kanal notifikasi otomatis.** Kode di `lib/whatsapp.ts`
+> dan pemanggilnya sengaja dibiarkan ada (nonaktif tanpa `WHATSAPP_CLOUD_API_TOKEN`) kalau-kalau suatu saat ingin
+> diaktifkan lagi, tapi saat ini tidak ada rencana ke arah itu.
 
-**Cara kerja teknis:** pesan dikirim lewat **WhatsApp Business Platform (Cloud API)** resmi dari Meta — satu
-panggilan HTTP POST per pesan ke Graph API (`lib/whatsapp.ts`), tanpa koneksi atau sesi persisten di server ini.
-Karena ini jalur resmi, pesan proaktif (di luar jendela obrolan yang dimulai pengguna) **wajib** memakai template
-yang sudah disetujui Meta — tidak bisa teks bebas.
+<details>
+<summary>Catatan teknis (historis, tidak diteruskan)</summary>
 
-> Sistem ini sempat mencoba dua jalur gratis tanpa API resmi: `@whiskeysockets/baileys` (menyambung langsung lewat
-> protokol WhatsApp Web) dan Fonnte (gateway pihak ketiga yang memakai teknik serupa dari sisi server mereka).
-> Keduanya menyebabkan nomor yang dipakai kena pembatasan dari WhatsApp — percobaan pertama karena pairing
-> berulang dalam waktu singkat, percobaan kedua kemungkinan karena kombinasi nomor baru tanpa riwayat pemakaian
-> dan siklus sambung-putus device yang berulang. Cloud API resmi dipilih sebagai jalur akhir karena satu-satunya
-> yang benar-benar bebas dari risiko pembatasan itu — bukan sekadar memasang aplikasi WhatsApp Business di HP,
-> yang tetap tunduk pada aturan anti-spam yang sama seperti akun WhatsApp biasa.
+Sistem ini sempat mencoba dua jalur gratis tanpa API resmi: `@whiskeysockets/baileys` (menyambung langsung lewat
+protokol WhatsApp Web) dan Fonnte (gateway pihak ketiga yang memakai teknik serupa dari sisi server mereka).
+Keduanya menyebabkan nomor yang dipakai kena pembatasan dari WhatsApp. Cloud API resmi dipilih sebagai jalur
+berikutnya karena satu-satunya yang benar-benar bebas dari risiko pembatasan itu, lengkap dengan empat template
+pesan (`sikat_izin_keluar_disetujui`, `sikat_izin_keluar_ditolak`, `sikat_konfirmasi_masuk`,
+`sikat_notifikasi_baru`) yang sudah disiapkan di kode — tapi proses Business Verification di Meta tidak pernah
+selesai, jadi tidak sempat aktif di production.
 
-**Empat template yang perlu dibuat dan disetujui di WhatsApp Manager** (kategori **Utility**, bahasa Indonesia):
+</details>
 
-| Nama template | Isi (baris `{{n}}` adalah variabel) |
-| --- | --- |
-| `sikat_izin_keluar_disetujui` | Yth. `{{1}}`,\n\nPengajuan izin keluar Anda telah disetujui oleh petugas keamanan RTB.\n\nKode Izin: `{{2}}`\nKeterangan: `{{3}}`\nWaktu Keluar: `{{4}}`\n\nMohon melapor kembali melalui aplikasi SIKAT RTB setelah Anda tiba kembali di RTB.\n\nTerima kasih.\n— Sistem SIKAT RTB |
-| `sikat_izin_keluar_ditolak` | Yth. `{{1}}`,\n\nMohon maaf, pengajuan izin keluar Anda ditolak oleh petugas keamanan RTB di gerbang.\n\nKode Izin: `{{2}}`\nKeterangan: `{{3}}`\n\nAnda tetap tercatat berada di dalam RTB. Untuk informasi lebih lanjut, silakan menghubungi petugas keamanan secara langsung.\n\nTerima kasih.\n— Sistem SIKAT RTB |
-| `sikat_konfirmasi_masuk` | Yth. `{{1}}`,\n\nAnda telah tercatat kembali masuk ke RTB, dikonfirmasi oleh petugas keamanan.\n\nKode Konfirmasi: `{{2}}`\nWaktu Masuk: `{{3}}`\n\nTerima kasih telah melapor tepat waktu melalui aplikasi SIKAT RTB.\n— Sistem SIKAT RTB |
-| `sikat_notifikasi_baru` | Yth. `{{1}}`,\n\nTerdapat notifikasi terbaru dari Pengelola RTB di aplikasi SIKAT RTB:\n\n`{{2}}`\n\nMohon segera membuka aplikasi SIKAT RTB untuk memeriksa informasi lengkapnya.\n\nTerima kasih.\n— Sistem SIKAT RTB |
+## 10b. Notifikasi email
 
-**Batasan yang perlu disadari:**
-
-- Approval template oleh Meta tidak instan — bisa dari beberapa menit sampai sekitar 24 jam.
-- Nomor pengirim yang didaftarkan ke Cloud API **tidak bisa dipakai bersamaan** di aplikasi WhatsApp/WhatsApp
-  Business biasa; sebaiknya pakai nomor khusus yang belum pernah dipakai WhatsApp sama sekali.
-- Mahasiswa perlu mengisi nomor WA di Master Penghuni (kolom opsional) supaya bisa menerima notifikasi; yang belum
-  mengisi nomor otomatis dilewati, tidak menyebabkan error.
-- Ada kuota gratis bulanan dari Meta untuk percakapan kategori utility; di luar kuota itu berbayar (biasanya masih
-  murah untuk skala satu RTB).
-- Nomor yang sebelumnya pernah kena pembatasan pengiriman oleh WhatsApp (misalnya bekas dipakai gateway tidak
-  resmi) sebaiknya menunggu masa pembatasannya selesai dan berhenti dipakai lewat gateway itu sama sekali, sebelum
-  didaftarkan ke Cloud API — reputasi pembatasan menempel ke nomornya, bukan ke aplikasi pengirimnya.
-
-**Cara mengaktifkan:**
-
-1. Buat/masuk ke Meta Business Account di [business.facebook.com](https://business.facebook.com), lalu buat App
-   bertipe Business di [developers.facebook.com](https://developers.facebook.com) dan tambahkan produk WhatsApp.
-2. Selesaikan **Business Verification** (Business Settings → Security Center) dengan dokumen identitas/usaha —
-   proses ini yang biasanya paling lama, dari beberapa jam sampai beberapa hari.
-3. Daftarkan nomor bisnis di WhatsApp → API Setup → Add phone number, lalu verifikasi lewat OTP SMS/panggilan ke
-   nomor tersebut.
-4. Di WhatsApp Manager, buat keempat template pada tabel di atas persis sesuai teksnya dengan kategori **Utility**,
-   kirim untuk direview.
-5. Setelah nomor dan template disetujui, catat **Phone Number ID** dan **Access Token** (token permanen lewat
-   System User untuk production, bukan token sementara 24 jam).
-6. Set `WHATSAPP_CLOUD_API_TOKEN=<access token>` dan `WHATSAPP_PHONE_NUMBER_ID=<phone number id>` sebagai
-   environment variable (lokal: `.env.local`; production: pengaturan Railway) — jangan pernah commit nilai ini ke
-   git — lalu deploy ulang. Notifikasi otomatis aktif begitu keempat template berstatus disetujui dan variabelnya
-   terbaca; sebelum disetujui, panggilan API akan gagal dengan pesan error dari Meta yang tercatat di log, tanpa
-   mengganggu proses lain.
-
-## 10b. Notifikasi email (Plan B)
-
-Jalur notifikasi kedua, independen dari WhatsApp — dipilih sebagai **Plan B** karena tidak perlu proses verifikasi
-bisnis atau approval template seperti Cloud API, jadi bisa aktif jauh lebih cepat sambil pendaftaran WhatsApp masih
-berjalan. Mahasiswa menerima email otomatis untuk kejadian yang sama seperti WhatsApp: izin keluar disetujui/ditolak,
-konfirmasi masuk, dan broadcast baru dari Pengelola.
+Satu-satunya kanal notifikasi otomatis (lihat §10a). Mahasiswa menerima email otomatis untuk izin keluar
+disetujui/ditolak, konfirmasi masuk, dan broadcast baru dari Pengelola.
 
 **Cara kerja teknis:** dikirim lewat **[Resend](https://resend.com)** (`lib/email.ts`), API pengiriman email berbasis
 HTTPS — bukan SMTP mentah. Ini pilihan yang disengaja: Railway (dan kebanyakan platform hosting lain) membatasi

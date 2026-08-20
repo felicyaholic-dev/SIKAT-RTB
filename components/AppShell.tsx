@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, ClipboardList, ClipboardPlus, FileText, History, LayoutDashboard, LogOut, ScanLine, UserRound, UsersRound } from "lucide-react";
+import { BarChart3, ClipboardPlus, FileText, History, LayoutDashboard, LogOut, ScanLine, UserRound, UsersRound } from "lucide-react";
 import type { Role } from "@/lib/db";
 import { logoutAction } from "@/app/actions";
 import { Brand } from "@/components/Brand";
@@ -29,7 +29,6 @@ const nav: Record<Role, Item[]> = {
     { href: "/manager/history", label: "Riwayat", icon: History },
     { href: "/manager/users", label: "Pengaturan", icon: UsersRound },
     { href: "/manager/stats", label: "Laporan", icon: BarChart3 },
-    { href: "/manager/audit", label: "Log Aktivitas", icon: ClipboardList },
     { href: "/manager/profile", label: "Profil", icon: UserRound },
   ],
 };
@@ -105,7 +104,7 @@ export function AppShell({ role, name, children }: { role: Role; name: string; c
           </span>
           <span className="flex items-center gap-3">
             <ThemeToggle />
-            <NotificationCenter />
+            {role !== "SECURITY" && <NotificationCenter />}
             {operationsMode ? <span className="grid h-9 w-9 place-items-center rounded-xl bg-signal-soft text-[10px] font-extrabold text-signal">{initials(name)}</span> : <span className="hidden sm:inline">{new Intl.DateTimeFormat("id-ID", { weekday: "long", day: "numeric", month: "long" }).format(new Date())}</span>}
           </span>
         </header>
