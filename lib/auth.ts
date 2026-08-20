@@ -3,7 +3,7 @@ import "server-only";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { SignJWT, jwtVerify } from "jose";
-import type { Role } from "@/lib/db";
+import { isAccountActive, type Role } from "@/lib/db";
 
 const COOKIE_NAME = "sikat_session";
 
@@ -34,7 +34,12 @@ export async function getSession(): Promise<Session | null> {
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, secret);
-    return payload as unknown as Session;
+    const session = payload as unknown as Session;
+    // A valid, unexpired JWT alone isn't enough — the account may have been
+    // deactivated since it was issued, and that revocation needs to take
+    // effect immediately rather than waiting out the token's 8h lifetime.
+    if (!isAccountActive(session.accountId)) return null;
+    return session;
   } catch {
     return null;
   }

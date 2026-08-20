@@ -897,6 +897,16 @@ export function getAccountEmail(accountId: number): string | null {
   return row?.email ?? null;
 }
 
+// The session JWT is only re-checked against this on each request (see
+// lib/auth.ts getSession) — without it, deactivating an account (resident,
+// satpam) doesn't take effect until that account's existing session
+// naturally expires (up to 8h later), contradicting the "akses dicabut"
+// message shown when deactivating.
+export function isAccountActive(accountId: number): boolean {
+  const row = getDb().prepare("SELECT is_active FROM accounts WHERE id = ?").get(accountId) as { is_active: number } | undefined;
+  return row?.is_active === 1;
+}
+
 export function updateManagerProfile(accountId: number, input: { bcaId: string; fullName: string; email?: string }) {
   const db = getDb();
   const bcaId = normalizeBcaId(input.bcaId);

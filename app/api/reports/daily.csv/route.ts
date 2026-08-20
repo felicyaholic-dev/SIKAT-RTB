@@ -4,7 +4,13 @@ import { getReport, getResidentsInside, type ReportPeriod } from "@/lib/db";
 import { RESIDENT_CLASSES } from "@/lib/ui";
 
 function cell(value: string | null | undefined) {
-  const text = value ?? "";
+  let text = value ?? "";
+  // Neutralize CSV/formula injection: Excel/Sheets treats a cell starting
+  // with =, +, -, or @ as a formula when the file is opened. "Keterangan"
+  // (destination) is free text a student types themselves, so this is
+  // reachable by untrusted input — prefixing an apostrophe forces it to be
+  // read as literal text instead.
+  if (/^[=+\-@]/.test(text)) text = `'${text}`;
   return `"${text.replaceAll('"', '""')}"`;
 }
 

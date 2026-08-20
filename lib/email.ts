@@ -16,6 +16,13 @@ function getClient() {
   return client;
 }
 
+// fullName/destination/broadcast title & body are free text a Mahasiswa or
+// Pengelola typed in — escape before interpolating into the HTML template
+// below so it can't inject markup into the recipient's own inbox render.
+function escapeHtml(text: string) {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
 function wrap(title: string, lines: string[]) {
   const rows = lines.map((line) => `<p style="margin:0 0 12px;color:#082f4c;font-size:14px;line-height:1.6">${line}</p>`).join("");
   return `<!doctype html>
@@ -23,7 +30,7 @@ function wrap(title: string, lines: string[]) {
   <table role="presentation" width="100%" style="max-width:480px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #d5ecf8">
     <tr><td style="background:#078cff;padding:20px 28px"><span style="color:#fff;font-weight:bold;font-size:16px;letter-spacing:.02em">SIKAT RTB</span></td></tr>
     <tr><td style="padding:28px">
-      <h1 style="margin:0 0 16px;color:#082f4c;font-size:19px">${title}</h1>
+      <h1 style="margin:0 0 16px;color:#082f4c;font-size:19px">${escapeHtml(title)}</h1>
       ${rows}
       <p style="margin:20px 0 0;color:#5e7b91;font-size:12px">Email otomatis dari Sistem Izin Keluar-Masuk Terintegrasi RTB — mohon tidak membalas email ini.</p>
     </td></tr>
@@ -52,8 +59,8 @@ async function send(to: string | null | undefined, subject: string, html: string
 
 export async function sendPermitExitApprovedEmail(email: string | null | undefined, fullName: string, permitCode: string, destination: string, departureAt: string) {
   await send(email, "Izin keluar disetujui — SIKAT RTB", wrap("Izin keluar disetujui", [
-    `Yth. <b>${fullName}</b>,`,
-    `Pengajuan izin keluar dengan kode <b>${permitCode}</b> ke <b>${destination}</b> telah disetujui satpam.`,
+    `Yth. <b>${escapeHtml(fullName)}</b>,`,
+    `Pengajuan izin keluar dengan kode <b>${permitCode}</b> ke <b>${escapeHtml(destination)}</b> telah disetujui satpam.`,
     `Waktu keluar: <b>${departureAt}</b>.`,
     `Tunjukkan QR/kode izin ini kepada satpam saat kembali ke RTB.`,
   ]));
@@ -61,15 +68,15 @@ export async function sendPermitExitApprovedEmail(email: string | null | undefin
 
 export async function sendPermitExitRejectedEmail(email: string | null | undefined, fullName: string, permitCode: string, destination: string) {
   await send(email, "Izin keluar ditolak — SIKAT RTB", wrap("Izin keluar ditolak", [
-    `Yth. <b>${fullName}</b>,`,
-    `Pengajuan izin keluar dengan kode <b>${permitCode}</b> ke <b>${destination}</b> ditolak oleh satpam.`,
+    `Yth. <b>${escapeHtml(fullName)}</b>,`,
+    `Pengajuan izin keluar dengan kode <b>${permitCode}</b> ke <b>${escapeHtml(destination)}</b> ditolak oleh satpam.`,
     `Silakan hubungi satpam atau pengelola RTB jika ada pertanyaan.`,
   ]));
 }
 
 export async function sendPermitEntryConfirmedEmail(email: string | null | undefined, fullName: string, entryCode: string, returnAt: string) {
   await send(email, "Konfirmasi masuk — SIKAT RTB", wrap("Konfirmasi masuk RTB", [
-    `Yth. <b>${fullName}</b>,`,
+    `Yth. <b>${escapeHtml(fullName)}</b>,`,
     `Kembalinya kamu ke RTB dengan kode <b>${entryCode}</b> telah dikonfirmasi satpam.`,
     `Waktu masuk: <b>${returnAt}</b>.`,
   ]));
@@ -77,7 +84,7 @@ export async function sendPermitEntryConfirmedEmail(email: string | null | undef
 
 export async function sendPasswordChangedEmail(email: string | null | undefined, fullName: string) {
   await send(email, "Password berhasil diperbarui — SIKAT RTB", wrap("Password berhasil diperbarui", [
-    `Yth. <b>${fullName}</b>,`,
+    `Yth. <b>${escapeHtml(fullName)}</b>,`,
     `Password akun SIKAT RTB Anda baru saja berhasil diperbarui saat login pertama.`,
     `Sebagai Mahasiswa, password hanya bisa diganti <b>satu kali</b> (di momen ini) — mohon simpan password baru Anda baik-baik.`,
     `Jika suatu saat lupa, password tidak bisa diganti sendiri lagi — hubungi Pengelola RTB untuk direset.`,
@@ -87,7 +94,7 @@ export async function sendPasswordChangedEmail(email: string | null | undefined,
 
 export async function sendManagerPasswordResetEmail(email: string | null | undefined, fullName: string, resetUrl: string) {
   await send(email, "Reset password Pengelola — SIKAT RTB", wrap("Reset password Pengelola", [
-    `Yth. <b>${fullName}</b>,`,
+    `Yth. <b>${escapeHtml(fullName)}</b>,`,
     `Ada permintaan reset password untuk akun Pengelola SIKAT RTB Anda. Klik tautan di bawah untuk mengatur password baru — berlaku 30 menit dan hanya bisa dipakai sekali.`,
     `<a href="${resetUrl}" style="color:#078cff;font-weight:bold">${resetUrl}</a>`,
     `Bukan Anda yang meminta ini? Abaikan email ini — password Anda tidak akan berubah.`,
@@ -103,7 +110,7 @@ function sleep(ms: number) {
 export async function sendEmailBroadcast(recipients: Array<{ email: string | null; full_name: string }>, title: string, body: string) {
   if (!getClient()) return;
   for (const recipient of recipients) {
-    await send(recipient.email, `${title} — SIKAT RTB`, wrap(title, [`Yth. <b>${recipient.full_name}</b>,`, body.replace(/\n/g, "<br/>")]));
+    await send(recipient.email, `${title} — SIKAT RTB`, wrap(title, [`Yth. <b>${escapeHtml(recipient.full_name)}</b>,`, escapeHtml(body).replace(/\n/g, "<br/>")]));
     await sleep(300);
   }
 }

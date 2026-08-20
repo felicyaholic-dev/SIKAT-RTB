@@ -232,7 +232,7 @@ scripts/        Skrip CLI: reset database, ekspor ke MySQL untuk cPanel
 docs/           Dokumentasi project
   diagrams/      DFD dan flowchart per peran
   database/      Schema siap-pakai untuk migrasi database ke cPanel/MySQL
-  bab3-basis-data/  Bahan siap pakai untuk BAB III proposal (bukan bagian aplikasi)
+  basis-data/       Bahan siap pakai untuk BAB III proposal (bukan bagian aplikasi)
   dokumen-proyek/   Dokumen proyek/laporan (PDF/Word, bukan bagian aplikasi)
 ```
 
@@ -326,13 +326,14 @@ Wing bukan kolom database — diturunkan dari awalan `room_number` (format wajib
 ## 10. Keamanan minimum
 
 - Password di-hash memakai bcrypt; tidak pernah disimpan di Excel atau database sebagai plaintext.
-- Sesi berupa JWT bertanda tangan (`jose`, HS256) di cookie `httpOnly`, `secure` di production, `sameSite=lax`, kedaluwarsa 8 jam. `SESSION_SECRET` wajib diisi — server menolak menyala tanpanya.
+- Sesi berupa JWT bertanda tangan (`jose`, HS256) di cookie `httpOnly`, `secure` di production, `sameSite=lax`, kedaluwarsa 8 jam. `SESSION_SECRET` wajib diisi — server menolak menyala tanpanya. Setiap request tetap mengecek ulang `accounts.is_active` ke database (`getSession` di `lib/auth.ts`, `isAccountActive`) — bukan cuma percaya isi token — supaya penghuni/satpam yang baru dinonaktifkan Pengelola langsung kehilangan akses, tidak menunggu token itu kedaluwarsa sendiri sampai 8 jam kemudian.
 - Rate limit per jenis aksi (tabel `login_attempts`, fungsi `isRateLimited`): LOGIN dan RESET_PASSWORD maksimal 5 percobaan gagal per 15 menit per ID BCA; SCAN (pencarian kode/QR di halaman Validasi Satpam) maksimal 20 percobaan "tidak ditemukan" per 15 menit per akun satpam — lebih longgar karena mis-scan kamera adalah hal wajar, tapi tetap cukup ketat untuk membuat brute-force ke ruang kombinasi kode (lihat poin kode QR di bawah) tidak praktis.
 - Error login tidak membocorkan apakah sebuah ID BCA ada atau tidak. Begitu juga permintaan reset password Pengelola (lihat di bawah) — pesannya sama persis baik ID BCA itu Pengelola sungguhan atau tidak.
 - Validasi role dan kepemilikan izin dilakukan di server.
 - Token QR (`qr_token`) memakai `crypto.randomUUID()`. Kode fallback yang diketik manual satpam (`permit_code`/`entry_code`, format `SKT-`/`SKM-`) memakai alfabet 32 karakter tanpa karakter ambigu (`0/O/1/I/L` dikecualikan) yang diambil lewat `crypto.getRandomValues()` — bukan `Math.random()`, yang bukan generator acak yang aman secara kriptografis. Kode/QR asing (bukan dari sistem) atau yang sudah dipakai selalu jatuh ke "Izin tidak ditemukan" — `getPermitForSecurity` mencocokkan secara persis (`=`), bukan pencarian sebagian, jadi tidak mungkin tertulis valid secara tidak sengaja.
 - QR tidak bisa dibuat screenshot-proof 100% — itu di luar kendali halaman web (screenshot terjadi di level OS). `components/PermitQr.tsx` menonaktifkan klik-kanan/tekan-lama simpan gambar dan mem-blur QR saat tab tidak aktif; perlindungan sebenarnya tetap di server — QR sekali pakai, jadi salinan (termasuk screenshot lama) berhenti berfungsi begitu satpam memvalidasinya.
 - Catat aksi sensitif ke `audit_logs`: perubahan master penghuni, pembuatan akun staf, pembatalan izin, validasi gerbang, ganti/reset password. Sengaja tidak ditampilkan lewat UI Pengelola (dashboard difokuskan ke kebutuhan sehari-hari Pengelola, bukan tools audit) — bisa ditinjau langsung dari database (`getAuditLog`) lewat Railway saat benar-benar dibutuhkan.
+- Input bebas milik Mahasiswa (keperluan/tujuan izin, nama) tidak langsung dipercaya di dua tempat yang bisa dibuka software lain: `app/api/reports/daily.csv/route.ts` menambahkan apostrof di depan sel yang diawali `=`/`+`/`-`/`@` supaya Excel/Sheets tidak membacanya sebagai formula (CSV injection), dan `lib/email.ts` meng-escape HTML sebelum masuk ke template email (`escapeHtml`) supaya tidak bisa menyisipkan markup ke email yang dikirim.
 - Security header aktif di semua route (`next.config.ts`): `Content-Security-Policy`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Strict-Transport-Security`, dan `Permissions-Policy` yang membatasi kamera hanya untuk situs sendiri (dipakai scanner QR satpam) serta menolak mikrofon/lokasi/pembayaran/USB.
 
 > Verifikasi ID BCA + nama + kamar pada reset password mandiri (mahasiswa) cukup untuk prototype, tetapi bukan bukti identitas yang kuat jika data tersebut mudah diketahui orang lain. Untuk penggunaan nyata, tambahkan OTP ke kanal resmi sebelum password baru diterima. Pengelola memakai jalur yang lebih kuat (token via email, lihat §4.2) karena akunnya memegang kendali penuh sistem.

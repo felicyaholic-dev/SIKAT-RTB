@@ -250,3 +250,23 @@ describe("changePassword", () => {
     expect(right.ok).toBe(true);
   });
 });
+
+describe("isAccountActive", () => {
+  it("flips to false the moment a resident is deactivated — the check lib/auth.ts relies on to revoke a live session", () => {
+    db.addResident(MANAGER_ID, { bcaId: "400002", fullName: "Nonaktifkan Saya", room: "B3-103", className: RESIDENT_CLASSES[0], gender: "LAKI_LAKI", password: "originalpass1" });
+    const raw = new Database(dbPath);
+    const residentId = (raw.prepare("SELECT id FROM master_residents WHERE bca_id = ?").get("400002") as { id: number }).id;
+    const accountId = (raw.prepare("SELECT id FROM accounts WHERE bca_id = ?").get("400002") as { id: number }).id;
+    raw.close();
+
+    expect(db.isAccountActive(accountId)).toBe(true);
+
+    db.updateResident(MANAGER_ID, { id: residentId, fullName: "Nonaktifkan Saya", room: "B3-103", className: RESIDENT_CLASSES[0], gender: "LAKI_LAKI", residentStatus: "INACTIVE" });
+
+    expect(db.isAccountActive(accountId)).toBe(false);
+  });
+
+  it("returns false for an account id that doesn't exist", () => {
+    expect(db.isAccountActive(999_999_999)).toBe(false);
+  });
+});
