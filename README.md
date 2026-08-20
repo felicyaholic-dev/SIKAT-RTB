@@ -206,9 +206,9 @@ Aturan dasar:
 | Validasi data | Manual di tiap server action | Panjang, format (regex), dan kecocokan data dicek sebelum query dijalankan |
 | Password | bcrypt (`bcryptjs`), cost factor 12 | Password tidak pernah disimpan dalam bentuk plaintext |
 | Session | Stateless JWT (`jose`) + cookie `httpOnly` | Ditandatangani server, tidak disimpan di database; kedaluwarsa otomatis 8 jam |
-| Rate limiting | Tabel `login_attempts` di SQLite | Maksimal 5 percobaan gagal per 15 menit per ID BCA, untuk login maupun reset password |
+| Rate limiting | Tabel `login_attempts` di SQLite | 5 percobaan gagal per 30 menit per ID BCA *dan* per IP untuk login; 5/15 menit untuk reset password Pengelola — lihat §10 |
 | Security header | `next.config.ts` `headers()` | CSP, `X-Frame-Options`, `Permissions-Policy` (kamera dibatasi ke situs sendiri), `Strict-Transport-Security` |
-| QR | `qrcode` (SVG inline, server-side) + browser scanner | QR dirender lokal tanpa panggilan API pihak ketiga; mendukung scan kamera dan fallback kode manual |
+| QR | `qrcode` (SVG inline, server-side) + browser scanner | QR/kode berputar tiap 15 detik (HMAC, mirip TOTP — lihat §10), dirender lokal tanpa panggilan API pihak ketiga; mendukung scan kamera dan fallback kode manual |
 | Notifikasi email (opsional) | Resend (API HTTPS) | Satu-satunya kanal notifikasi otomatis; tidak terhalang blokir SMTP hosting — lihat §10b |
 | Impor Excel | `exceljs` | Parser `.xlsx` yang aktif dipelihara; sengaja bukan paket `xlsx` npm karena versi yang dipublikasikan di npm (0.18.5) punya CVE prototype-pollution/ReDoS yang belum ada perbaikannya di registry npm |
 | Deployment | Railway | Satu service web dengan persistent volume untuk database |

@@ -1076,10 +1076,6 @@ export function getReport(period: ReportPeriod, className?: string) {
   };
 }
 
-export function getDailyReport() {
-  return getReport("DAY").rows;
-}
-
 export function getResidentsInside(className?: string) {
   const db = getDb();
   const classFilter = className ? "AND r.class_name = ?" : "";
