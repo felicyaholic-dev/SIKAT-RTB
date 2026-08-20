@@ -8,9 +8,12 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "db:reset": "tsx scripts/reset-db.ts",
     "db:reset-history": "tsx scripts/reset-history.ts",
-    "db:export-mysql": "tsx scripts/export-mysql.ts"
+    "db:export-mysql": "tsx scripts/export-mysql.ts",
+    "db:restore": "tsx scripts/restore-db.ts"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -35,6 +38,7 @@
     "eslint-config-next": "^15.1.4",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vitest": "^4.1.11"
   }
 }
