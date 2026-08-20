@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS accounts (
   password_hash VARCHAR(255) NOT NULL,
   is_active TINYINT(1) NOT NULL DEFAULT 1,
   must_change_password TINYINT(1) NOT NULL DEFAULT 0,
+  email VARCHAR(255), -- MANAGER only, for self-service password reset via email
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (resident_id) REFERENCES master_residents(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -104,5 +105,17 @@ CREATE TABLE IF NOT EXISTS notification_deliveries (
   read_at DATETIME,
   PRIMARY KEY (notification_id, account_id),
   FOREIGN KEY (notification_id) REFERENCES broadcast_notifications(id),
+  FOREIGN KEY (account_id) REFERENCES accounts(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Pengelola-only password reset via emailed link. Stores a SHA-256 hash of
+-- the token, never the raw value -- same principle as password_hash.
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  account_id INT NOT NULL,
+  token_hash VARCHAR(64) NOT NULL UNIQUE,
+  expires_at DATETIME NOT NULL,
+  used_at DATETIME,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (account_id) REFERENCES accounts(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

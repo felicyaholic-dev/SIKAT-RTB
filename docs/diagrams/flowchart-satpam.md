@@ -19,16 +19,24 @@ flowchart TD
   Home --> Mode{Kamera aktif?}
   Mode -->|Ya| Scan[Pindai QR mahasiswa]
   Mode -->|Tidak / gagal| Manual[Masukkan kode izin manual]
-  Scan --> Lookup[Sistem tampilkan data:
+  Scan --> ScanLimit{20 kode "tidak
+  ditemukan" dalam
+  15 menit terakhir?}
+  Manual --> ScanLimit
+  ScanLimit -->|Ya| Blocked["Ditolak sementara:
+  terlalu banyak percobaan"]
+  Blocked --> Home
+  ScanLimit -->|Tidak| Lookup[Sistem tampilkan data:
   nama, kamar, tujuan,
   estimasi kembali, status]
-  Manual --> Lookup
 
   Lookup --> Valid{Kode/QR valid untuk
   status saat ini?}
   Valid -->|Tidak, kedaluwarsa,
-  atau sudah dipakai| Reject0[Tampilkan pesan error,
-  tidak ada perubahan data]
+  atau sudah dipakai| Reject0["Tampilkan pesan error,
+  tidak ada perubahan data
+  (dihitung sebagai 1 percobaan
+  ke batas 20/15 menit di atas)"]
   Reject0 --> Home
 
   Valid -->|Ya, status
@@ -74,4 +82,5 @@ flowchart TD
 - Halaman **Riwayat** menampilkan aktivitas dari *semua* satpam yang pernah bertugas, bukan cuma yang sedang login — supaya satpam shift berikutnya bisa lihat kelanjutan kasus dari shift sebelumnya.
 - Halaman **Riwayat** Satpam dan Pengelola sekarang memakai komponen yang sama persis (`components/PermitHistoryPage.tsx`): filter wing dan kelas bisa multi-pilih (checkbox, bukan satu per satu), filter jangka waktu (Hari ini/7 hari/Bulan ini/Tahun ini/Semua waktu), dan tanpa filter berarti "semua". Hanya rute (`/security/outside` vs `/manager/history`) dan label peran yang beda.
 - **Password hanya bisa diganti sekali**, saat login pertama (langkah "Wajib buat password baru" di atas). Satpam tidak punya reset password mandiri (beda dengan mahasiswa) — kalau lupa, hubungi Pengelola RTB untuk direset.
+- **Rate limit pencarian kode/QR** (20 percobaan "tidak ditemukan" per 15 menit per akun satpam, `RateLimitAction: "SCAN"`) sengaja dibuat lebih longgar dari login/reset (5/15 menit) karena mis-scan kamera itu wajar dalam pemakaian normal — tapi tetap cukup ketat untuk membuat brute-force menebak kode tidak praktis, mengingat kode `SKT-`/`SKM-` sekarang dibuat lewat `crypto.getRandomValues()` (bukan `Math.random()`) dengan alfabet 32 karakter tanpa karakter ambigu (`0/O/1/I/L` dikecualikan).
 - Langkah **Valid?** di atas mencocokkan kode/QR yang dipindai persis (`=`, bukan pencarian sebagian) terhadap `permit_code`/`qr_token`/`entry_code` di database (`getPermitForSecurity`). QR atau kode apa pun yang bukan dari SIKAT RTB — atau kode asli yang sudah dipakai/kedaluwarsa — selalu jatuh ke jalur "Izin tidak ditemukan", tidak pernah tertulis valid.

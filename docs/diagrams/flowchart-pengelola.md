@@ -6,6 +6,16 @@ Alur dari sudut pandang pengelola RTB: kelola data master, pantau kondisi RTB, d
 %%{init: {'flowchart': {'curve': 'linear'}}}%%
 flowchart TD
   Start([Mulai]) --> Login["Login: ID BCA + password"]
+  Login -->|Lupa password?| ResetReq["Masukkan ID BCA di
+  /reset-password/manager"]
+  ResetReq --> ResetEmail["Tautan reset dikirim ke
+  email terdaftar (kalau ada) —
+  pesan sama persis walau
+  ID BCA tidak valid"]
+  ResetEmail --> ResetClick["Klik tautan (berlaku
+  30 menit, sekali pakai)"]
+  ResetClick --> ResetNew[Atur password baru]
+  ResetNew --> Login
   Login --> RL{Lebih dari 5 percobaan
   gagal dalam 15 menit?}
   RL -->|Ya| RL1[Login ditolak sementara]
@@ -93,6 +103,16 @@ flowchart TD
   RHClass --> Warn
   Warn --> Home
 
+  Menu -->|Pengaturan: Backup database| Backup["Unduh salinan database
+  saat ini (.db) untuk
+  disimpan di luar volume"]
+  Backup --> Home
+
+  Menu -->|Log Aktivitas| Audit["Lihat 300 aksi tersensitif
+  terbaru: siapa melakukan
+  apa dan kapan (audit_logs)"]
+  Audit --> Home
+
   Menu -->|Laporan| Report{Jenis data}
   Report -->|Aktivitas keluar-masuk| ReportFilter[Filter: kelas + periode
   hari ini/7 hari/bulan/tahun/
@@ -102,9 +122,9 @@ flowchart TD
   InsideFilter --> Download
   Download --> Home
 
-  Menu -->|Profil| Prof[Ubah nama / ID BCA
-  akun sendiri, ATAU ganti
-  password kapan saja]
+  Menu -->|Profil| Prof[Ubah nama / ID BCA /
+  email akun sendiri, ATAU
+  ganti password kapan saja]
   Prof --> Home
   Menu -->|Ganti tema| Theme[Terang / Gelap / Ikuti sistem]
   Theme --> Home
@@ -120,6 +140,10 @@ flowchart TD
 - Grafik **Aktivitas keluar-masuk**, **Jam sibuk**, dan **Rekap wing** di Dashboard masing-masing punya kalender "Dari – Ke" independen sendiri-sendiri (default 7 hari, 30 hari, 30 hari) — mengubah satu tidak memengaruhi yang lain. Panel **Aktivitas terbaru** di Dashboard selalu tetap pada 24 jam terakhir (tidak ikut kalender) — kartu "Di luar RTB" di atasnya tetap menghitung total riil termasuk yang sudah di luar lebih dari 24 jam.
 - Filter **Riwayat** (wing & kelas, masing-masing bisa multi-pilih, plus jangka waktu) sekarang identik di halaman Pengelola *dan* Satpam — satu komponen (`components/PermitHistoryPage.tsx`) dipakai keduanya.
 - **Password Pengelola bisa diganti kapan saja** dari halaman Profil (`ManagerChangePasswordForm`) — beda dengan Mahasiswa/Satpam yang cuma boleh sekali, saat login pertama. Ditegakkan di `changePasswordAction` (server), bukan cuma disembunyikan di UI: percobaan ganti password dari akun Mahasiswa/Satpam di luar momen login pertama akan ditolak walau dikirim langsung ke server.
+- **Reset password Pengelola lewat email** (`requestManagerPasswordReset`/`resetManagerPasswordWithToken`) butuh email sudah diisi di Profil lebih dulu. Token acak (256-bit), di-hash sebelum disimpan (`password_reset_tokens.token_hash`), sekali pakai, kedaluwarsa 30 menit. Pesan yang ditampilkan sama persis baik ID BCA itu Pengelola sungguhan, Pengelola tanpa email, atau ID BCA yang tidak ada — supaya tidak bisa dipakai menebak akun mana yang valid.
+- **Backup database**: otomatis harian di volume yang sama (dipicu tiap Dashboard dimuat, disimpan 14 hari) melindungi dari korupsi/salah hapus; tombol **Unduh backup** di Pengaturan untuk salinan manual yang disimpan di luar volume — dua-duanya perlu, beda risiko yang dijaga. Detail di README §11c.
+- **Log Aktivitas** (`getAuditLog`) menampilkan isi `audit_logs` yang sudah tercatat sejak awal tapi sebelumnya tidak pernah ditampilkan — sekarang Pengelola bisa langsung meninjau siapa melakukan apa tanpa query database.
+- Kode izin manual (`SKT-`/`SKM-`, dipakai satpam saat scan QR gagal) dibuat lewat `crypto.getRandomValues()` dengan alfabet 32 karakter tanpa karakter ambigu — bukan `Math.random()`. Pencarian kode/QR di halaman Validasi Satpam kena rate limit 20 percobaan "tidak ditemukan" per 15 menit per akun satpam (`SCAN`), terpisah dari rate limit login/reset password.
 
 ## Referensi wing
 

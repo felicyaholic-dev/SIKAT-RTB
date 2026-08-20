@@ -34,7 +34,7 @@ SIKAT RTB menggantikan pencatatan izin yang tersebar dengan satu alur digital: p
 | --- | --- | --- |
 | Mahasiswa/penghuni | Mengajukan dan melacak izin pribadi | Beranda, ajukan izin, QR izin aktif, riwayat sendiri, profil (bisa mengubah kamar/nomor WA/email sendiri) |
 | Satpam | Memvalidasi status keluar/masuk secara cepat | Scanner/kode izin, konfirmasi keluar/masuk, daftar penghuni di luar, riwayat validasi gabungan seluruh satpam |
-| Pengelola | Mengelola data master dan memantau kondisi RTB | Dashboard monitoring, riwayat validasi gabungan (sama seperti satpam), master penghuni & satpam, laporan, pengaturan |
+| Pengelola | Mengelola data master dan memantau kondisi RTB | Dashboard monitoring, riwayat validasi gabungan (sama seperti satpam), master penghuni & satpam, laporan, log aktivitas, pengaturan |
 
 > Semua pemeriksaan hak akses dilakukan di server. Menyembunyikan menu di frontend bukan mekanisme keamanan.
 
@@ -100,7 +100,8 @@ Login pertama
 - **Pengelola bisa mengganti password kapan saja** dari halaman Profil (`app/manager/ManagerChangePasswordForm.tsx`), memakai aksi yang sama — bedanya cuma Pengelola tidak dibatasi status wajib-ganti.
 - Lupa password? Mahasiswa dapat memverifikasi ulang ID BCA + nama lengkap + nomor kamar untuk mengatur password baru secara mandiri, tanpa melibatkan pengelola.
 - Data tidak ditemukan atau tidak cocok saat verifikasi: permintaan reset ditolak, password lama tidak berubah.
-- Satpam dan pengelola tidak memiliki reset password mandiri (untuk kasus lupa password); reset untuk mereka selalu lewat pengelola yang berwenang — pengelola sendiri direset lewat akses server/database langsung.
+- Satpam tidak memiliki reset password mandiri; reset untuk mereka lewat Pengelola yang berwenang.
+- **Pengelola punya jalur reset sendiri lewat email** (`/reset-password/manager`), berbeda dari mahasiswa: karena tidak ada data setara "kamar" untuk verifikasi identitas dan akun Pengelola memegang kendali penuh sistem, resetnya memakai token acak (`crypto.getRandomValues`, 256-bit) yang dikirim ke email terdaftar — sekali pakai, kedaluwarsa 30 menit (`password_reset_tokens`). Mengharuskan Pengelola sudah mengisi email di halaman Profil terlebih dahulu; tanpa email di sana, tidak ada jalur reset mandiri (perlu akses server/database langsung).
 
 ### 4.3 Pengajuan izin mahasiswa
 
@@ -151,6 +152,7 @@ QR yang tidak valid, kedaluwarsa, dibatalkan, atau dipakai pada status yang tida
 | Edit kontak mandiri mahasiswa | Data kamar/WA/email tetap akurat tanpa menunggu Pengelola | Mahasiswa mengubah kamar, nomor WA, dan email miliknya sendiri dari halaman Profil (`updateOwnContactInfo`); menulis ke tabel yang sama dengan Master Penghuni Pengelola, jadi perubahan langsung terlihat di kedua sisi; nama, kelas, dan status penghuni tetap hanya bisa diubah Pengelola |
 | Riwayat gabungan Satpam & Pengelola, filter wing/kelas multi-pilih | Satu sumber kebenaran soal siapa memvalidasi apa, bisa dilihat shift satpam berikutnya maupun Pengelola, keduanya bisa mempersempit ke wing/kelas/periode tertentu | Halaman **Riwayat** menampilkan seluruh validasi keluar-masuk dari *semua* satpam (bukan cuma akun yang login), dengan keterangan satpam mana yang memutuskan tiap izin (`getPermitHistory`); Pengelola dan Satpam memakai komponen bersama `components/PermitHistoryPage.tsx` dan `components/HistoryFilters.tsx` — filter wing & kelas bisa multi-pilih (checkbox), plus jangka waktu; tanpa filter = semua |
 | Dashboard dengan rentang kalender bebas per panel | Pengelola bisa membandingkan periode tertentu untuk tiap grafik secara independen, bukan cuma jendela waktu tetap atau berbagi rentang | Grafik aktivitas keluar-masuk, jam sibuk, dan rekap wing masing-masing punya input tanggal "Dari–Ke" sendiri (`app/manager/DashboardRangeFilter.tsx`, query param `actFrom/actTo`, `peakFrom/peakTo`, `wingFrom/wingTo`), default 7/30/30 hari terakhir; rekap wing selalu menampilkan seluruh wing |
+| Log Aktivitas (audit trail) | Aksi sensitif selama ini tercatat ke `audit_logs` tapi tidak pernah bisa dilihat siapa pun tanpa query database langsung | Halaman **Log Aktivitas** (`/manager/audit`, khusus Pengelola) menampilkan 300 aksi terbaru — siapa melakukan apa dan kapan — lewat `getAuditLog`, dengan label Indonesia untuk tiap jenis aksi |
 | Aktivitas terbaru 24 jam | Fokus pengelola pada pergerakan yang benar-benar baru saja terjadi, tanpa mencampur dengan kartu total di luar RTB | Panel di Dashboard menyaring event EXIT/ENTRY_REQUESTED terbaru per izin ke jendela bergulir 24 jam (`recentActivity` di `getManagerData`), terpisah dari kartu "Di luar RTB" yang tetap menghitung total riil tanpa batas waktu, dan terpisah dari antrean satpam yang tidak dibatasi waktu |
 | Mode gelap/terang | Kenyamanan pemakaian pada kondisi pencahayaan berbeda, preferensi pengguna | Toggle 3-arah (Terang/Gelap/Ikuti sistem) di semua halaman, tersimpan di localStorage, tidak flash ke tema salah saat reload (`components/ThemeProvider.tsx`, `components/ThemeToggle.tsx`); palet gelap tetap memakai identitas navy+biru brand, bukan abu-abu generik |
 | Login berbasis ID BCA | Satu identitas konsisten di seluruh alur | Credential auth, password hash bcrypt, cookie sesi `httpOnly` |
@@ -212,7 +214,7 @@ Aturan dasar:
 | Notifikasi email (opsional) | Resend (API HTTPS) | Jalur Plan B yang independen dari WhatsApp, tidak terhalang blokir SMTP hosting — lihat §10b |
 | Impor Excel | `exceljs` | Parser `.xlsx` yang aktif dipelihara; sengaja bukan paket `xlsx` npm karena versi yang dipublikasikan di npm (0.18.5) punya CVE prototype-pollution/ReDoS yang belum ada perbaikannya di registry npm |
 | Deployment | Railway | Satu service web dengan persistent volume untuk database |
-| Testing | Vitest + Playwright | Menguji logic status/auth dan alur pengguna kritis |
+| Testing | Vitest | Test integrasi terhadap SQLite sungguhan (file temp per test file, bukan mock) — lihat §11b |
 
 ### Struktur folder
 
@@ -237,7 +239,7 @@ File konfigurasi di root (`next.config.ts`, `tsconfig.json`, `package.json`, dst
 
 ## 9. Model data
 
-10 tabel — schema lengkap siap-pakai (versi MySQL untuk migrasi cPanel) ada di [docs/database/schema.sql](docs/database/schema.sql).
+11 tabel — schema lengkap siap-pakai (versi MySQL untuk migrasi cPanel) ada di [docs/database/schema.sql](docs/database/schema.sql).
 
 ```text
 master_residents
@@ -252,7 +254,9 @@ master_residents
 accounts
   id, resident_id (nullable untuk satpam/pengelola), bca_id (unique),
   full_name, role (STUDENT/SECURITY/MANAGER), password_hash,
-  is_active, must_change_password, created_at
+  is_active, must_change_password, email (nullable), created_at
+  — email hanya dipakai akun MANAGER, untuk reset password mandiri
+    lewat email (lihat §4.2); diisi sendiri lewat halaman Profil
 
 security_staff
   id, bca_id (unique), full_name, gender, staff_status,
@@ -285,9 +289,17 @@ broadcast_notifications
 notification_deliveries
   notification_id + account_id (PK gabungan), read_at (nullable)
   — status baca notifikasi in-app per akun
+
+password_reset_tokens
+  id, account_id, token_hash (unique), expires_at, used_at (nullable),
+  created_at
+  — khusus reset password Pengelola lewat email (§4.2); menyimpan hash
+    token (SHA-256), bukan token mentahnya — sama seperti password_hash,
+    isi tabel ini sendiri tidak cukup untuk mereset password siapa pun
+  — sekali pakai (used_at diisi setelah dipakai) dan kedaluwarsa 30 menit
 ```
 
-Relasi FK: `accounts.resident_id → master_residents.id`, `permits.resident_id → master_residents.id`, `permit_events.permit_id → permits.id`, `permit_events.performed_by_account_id → accounts.id`, `manager_bootstrap_links.account_id → accounts.id`, `broadcast_notifications.created_by_account_id → accounts.id`, `notification_deliveries.notification_id → broadcast_notifications.id`, `notification_deliveries.account_id → accounts.id`.
+Relasi FK: `accounts.resident_id → master_residents.id`, `permits.resident_id → master_residents.id`, `permit_events.permit_id → permits.id`, `permit_events.performed_by_account_id → accounts.id`, `manager_bootstrap_links.account_id → accounts.id`, `broadcast_notifications.created_by_account_id → accounts.id`, `notification_deliveries.notification_id → broadcast_notifications.id`, `notification_deliveries.account_id → accounts.id`, `password_reset_tokens.account_id → accounts.id`.
 
 DFD lengkap yang menggambarkan aliran data antar tabel ini ada di [docs/diagrams/dfd.md](docs/diagrams/dfd.md).
 
@@ -312,15 +324,15 @@ Wing bukan kolom database — diturunkan dari awalan `room_number` (format wajib
 
 - Password di-hash memakai bcrypt; tidak pernah disimpan di Excel atau database sebagai plaintext.
 - Sesi berupa JWT bertanda tangan (`jose`, HS256) di cookie `httpOnly`, `secure` di production, `sameSite=lax`, kedaluwarsa 8 jam. `SESSION_SECRET` wajib diisi — server menolak menyala tanpanya.
-- Rate limit pada login dan reset password: maksimal 5 percobaan gagal per 15 menit untuk ID BCA yang sama (tabel `login_attempts`), lalu percobaan berikutnya ditolak sampai jendela waktu itu berakhir.
-- Error login tidak membocorkan apakah sebuah ID BCA ada atau tidak.
+- Rate limit per jenis aksi (tabel `login_attempts`, fungsi `isRateLimited`): LOGIN dan RESET_PASSWORD maksimal 5 percobaan gagal per 15 menit per ID BCA; SCAN (pencarian kode/QR di halaman Validasi Satpam) maksimal 20 percobaan "tidak ditemukan" per 15 menit per akun satpam — lebih longgar karena mis-scan kamera adalah hal wajar, tapi tetap cukup ketat untuk membuat brute-force ke ruang kombinasi kode (lihat poin kode QR di bawah) tidak praktis.
+- Error login tidak membocorkan apakah sebuah ID BCA ada atau tidak. Begitu juga permintaan reset password Pengelola (lihat di bawah) — pesannya sama persis baik ID BCA itu Pengelola sungguhan atau tidak.
 - Validasi role dan kepemilikan izin dilakukan di server.
-- Token QR bersifat acak, tidak berisi data pribadi dalam plaintext, dan hanya valid untuk izin/status yang sesuai. Kode/QR asing (bukan dari sistem) atau yang sudah dipakai selalu jatuh ke "Izin tidak ditemukan" — `getPermitForSecurity` mencocokkan secara persis (`=`), bukan pencarian sebagian, jadi tidak mungkin tertulis valid secara tidak sengaja.
+- Token QR (`qr_token`) memakai `crypto.randomUUID()`. Kode fallback yang diketik manual satpam (`permit_code`/`entry_code`, format `SKT-`/`SKM-`) memakai alfabet 32 karakter tanpa karakter ambigu (`0/O/1/I/L` dikecualikan) yang diambil lewat `crypto.getRandomValues()` — bukan `Math.random()`, yang bukan generator acak yang aman secara kriptografis. Kode/QR asing (bukan dari sistem) atau yang sudah dipakai selalu jatuh ke "Izin tidak ditemukan" — `getPermitForSecurity` mencocokkan secara persis (`=`), bukan pencarian sebagian, jadi tidak mungkin tertulis valid secara tidak sengaja.
 - QR tidak bisa dibuat screenshot-proof 100% — itu di luar kendali halaman web (screenshot terjadi di level OS). `components/PermitQr.tsx` menonaktifkan klik-kanan/tekan-lama simpan gambar dan mem-blur QR saat tab tidak aktif; perlindungan sebenarnya tetap di server — QR sekali pakai, jadi salinan (termasuk screenshot lama) berhenti berfungsi begitu satpam memvalidasinya.
-- Catat aksi sensitif: perubahan master penghuni, pembuatan akun staf, pembatalan izin, dan validasi gerbang.
+- Catat aksi sensitif ke `audit_logs`: perubahan master penghuni, pembuatan akun staf, pembatalan izin, validasi gerbang, ganti/reset password. Bisa ditinjau lewat halaman **Log Aktivitas** (khusus Pengelola, `getAuditLog`) — bukan cuma tersimpan tanpa pernah dibaca.
 - Security header aktif di semua route (`next.config.ts`): `Content-Security-Policy`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Strict-Transport-Security`, dan `Permissions-Policy` yang membatasi kamera hanya untuk situs sendiri (dipakai scanner QR satpam) serta menolak mikrofon/lokasi/pembayaran/USB.
 
-> Verifikasi ID BCA + nama + kamar pada reset password mandiri cukup untuk prototype, tetapi bukan bukti identitas yang kuat jika data tersebut mudah diketahui orang lain. Untuk penggunaan nyata, tambahkan OTP ke kanal resmi sebelum password baru diterima.
+> Verifikasi ID BCA + nama + kamar pada reset password mandiri (mahasiswa) cukup untuk prototype, tetapi bukan bukti identitas yang kuat jika data tersebut mudah diketahui orang lain. Untuk penggunaan nyata, tambahkan OTP ke kanal resmi sebelum password baru diterima. Pengelola memakai jalur yang lebih kuat (token via email, lihat §4.2) karena akunnya memegang kendali penuh sistem.
 
 ## 10a. Notifikasi WhatsApp (opsional)
 
@@ -477,6 +489,23 @@ Akun, Master Penghuni/Satpam, dan audit log **tidak pernah** ikut terhapus oleh 
 2. Baru jalankan **Reset riwayat** dengan cakupan yang sesuai.
 
 Skrip CLI `pnpm db:reset-history` (`scripts/reset-history.ts`) melakukan hal yang sama untuk seluruh sistem dan tetap tersedia untuk reset database lokal saat pengembangan; skrip ini membaca `DATABASE_URL` sehingga menjalankannya dari komputer lokal **tidak akan** memengaruhi database production di Railway — gunakan fitur di halaman Pengaturan (atau `railway run pnpm db:reset-history` untuk cakupan seluruh sistem) saat menyasar production.
+
+## 11b. Testing
+
+`pnpm test` (Vitest) menjalankan `lib/db.test.ts` dan `lib/wings.test.ts` — test integrasi terhadap SQLite sungguhan, bukan mock: tiap file test membuat database SQLite sementara sendiri (`fs.mkdtempSync`, dihapus lagi setelah selesai) lewat `DATABASE_URL`, lalu menjalankan fungsi asli dari `lib/db.ts` di atasnya. Yang dicakup: validasi wing/gender & kapasitas kamar saat tambah penghuni, siklus izin lengkap (ajukan → keluar → ajukan masuk → konfirmasi masuk, termasuk jalur ditolak), `getPermitForSecurity` tidak pernah mengenali kode di luar sistem sebagai valid, format `secureCode` (lihat §10), rate limiting per jenis aksi, dan seluruh alur reset password Pengelola (token hanya terbit kalau ada email, pesan generik supaya tidak bisa dipakai menebak akun mana yang valid, token sekali pakai, token kedaluwarsa ditolak).
+
+`import "server-only"` di `lib/*.ts` hanya dikenali bundler Next.js, bukan paket npm sungguhan — `vitest.config.mts` meng-alias-kannya ke stub kosong (`test/stubs/server-only.ts`) supaya bisa di-import langsung di Node lewat Vitest.
+
+Belum ada Playwright/E2E berbasis browser — cakupan saat ini di level logic/database (`lib/`), belum menguji komponen React atau server actions (`app/actions.ts`) secara langsung.
+
+## 11c. Backup & pemulihan database
+
+Dua lapis, beda tujuan:
+
+- **Otomatis, harian, di volume yang sama** (`ensureDailyBackup` di `lib/db.ts`, dipicu tiap kali Dashboard Pengelola dimuat, tanpa menunggu — kalau snapshot hari itu sudah ada, langsung dilewati). Memakai API online-backup bawaan SQLite (`db.backup()`), aman dijalankan sambil ada penulisan lain berjalan (WAL) — bukan sekadar copy file mentah yang berisiko menyalin file yang sedang setengah ditulis. Disimpan 14 hari terakhir di `data/backups/`, lebih tua otomatis dihapus. **Ini melindungi dari korupsi data atau salah hapus, bukan dari hilangnya volume Railway itu sendiri** — snapshot-nya ada di volume yang sama dengan database aslinya.
+- **Manual, on-demand, untuk disimpan di luar volume** — tombol **Unduh backup** di halaman Pengaturan (`GET /api/backup`, khusus Pengelola) mengunduh snapshot database saat itu juga. Perlu diunduh dan disimpan sendiri secara berkala (Google Drive, laptop, dll.) untuk perlindungan penuh terhadap hilangnya volume.
+
+Pemulihan: `pnpm db:restore <path-ke-backup.db>` (`scripts/restore-db.ts`) menimpa database lokal dengan file backup yang dipilih — jalankan saat aplikasi tidak sedang berjalan.
 
 ## 12. Deployment Railway
 

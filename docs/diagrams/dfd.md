@@ -79,6 +79,9 @@ flowchart TD
   D7[(D7 broadcast_notifications)]
   D8[(D8 notification_deliveries)]
   D9[(D9 audit_logs)]
+  D10[(D10 password_reset_tokens
+  khusus Pengelola, token
+  di-hash & sekali pakai)]
 
   PGL -->|Tambah/edit/hapus penghuni
   & satpam, impor Excel| P1
@@ -92,9 +95,14 @@ flowchart TD
   MHS -->|ID BCA + password,
   ganti/reset password| P2
   SAT -->|ID BCA + password| P2
-  PGL -->|ID BCA + password| P2
+  PGL -->|ID BCA + password,
+  isi email di Profil,
+  minta reset via email| P2
   P2 --> D6
   P2 -.->|Cek & update kredensial| D2
+  P2 --> D10
+  P2 -->|Kirim tautan reset| EMAIL
+  EMAIL -->|Status kirim| P2
   P2 -->|Sesi login| MHS
   P2 -->|Sesi login| SAT
   P2 -->|Sesi login| PGL
@@ -130,7 +138,8 @@ flowchart TD
   independen), aktivitas 24 jam
   terakhir, riwayat keluar-masuk
   (filter wing/kelas multi-pilih
-  + jangka waktu), laporan + CSV| PGL
+  + jangka waktu), log aktivitas,
+  laporan + CSV| PGL
   P5 -->|Riwayat global keluar-masuk
   (filter wing/kelas multi-pilih
   + jangka waktu)| SAT
@@ -148,3 +157,6 @@ flowchart TD
 - **Proses 5.0** juga menambah panel "Aktivitas terbaru" yang selalu dibatasi 24 jam terakhir (rolling window, bukan kalender), terpisah dari kartu "Di luar RTB" yang tetap menghitung total riil tanpa batas waktu.
 - **Proses 5.0** (Riwayat) sekarang bisa difilter per wing dan kelas — keduanya **multi-pilih** (checkbox, bukan satu opsi) — plus jangka waktu (Hari ini/7 hari/Bulan ini/Tahun ini/Semua waktu). Filter ini kini identik di Riwayat Pengelola *dan* Riwayat Satpam, keduanya memanggil `getPermitHistory` lewat komponen bersama `components/PermitHistoryPage.tsx` — sebelumnya hanya Pengelola yang punya filter.
 - **Proses 2.0** (Autentikasi & Akun) sekarang membedakan hak ganti password per peran: Mahasiswa dan Satpam hanya boleh mengganti password sekali, pada momen wajib-ganti di login pertama — di luar itu `changePasswordAction` menolaknya di server, bukan cuma UI yang menyembunyikannya. Pengelola dikecualikan dan boleh mengganti password kapan saja lewat halaman Profil.
+- **Proses 2.0** juga mendapat jalur baru: reset password mandiri untuk Pengelola lewat email (**D10 password_reset_tokens** baru). Berbeda dari reset mahasiswa (verifikasi data langsung ke D1, tanpa tabel token), Pengelola mendapat token acak yang dikirim ke email terdaftar (kolom baru `accounts.email`, khusus MANAGER) — sekali pakai, kedaluwarsa 30 menit. Pesan yang ditampilkan selalu sama persis baik ID BCA itu Pengelola sungguhan maupun tidak, supaya endpoint ini tidak bisa dipakai menebak akun mana yang valid.
+- **Proses 3.0** (Pengajuan & Validasi Izin) kini menegakkan dua lapis pertahanan tambahan: kode `permit_code`/`entry_code` dibuat lewat generator acak yang aman secara kriptografis (`crypto.getRandomValues`, bukan `Math.random()`), dan pencarian kode/QR di gerbang (dipakai P3, ditegakkan lewat D6) kena rate limit terpisah (SCAN, 20 percobaan gagal/15 menit per akun satpam) agar ruang kombinasi kodenya tidak praktis untuk di-brute-force.
+- **Proses 5.0** juga mendapat sub-halaman baru **Log Aktivitas** (khusus Pengelola) yang membaca D9 (`audit_logs`) langsung — sebelumnya tabel ini ditulis terus tapi tidak pernah ditampilkan ke siapa pun.
