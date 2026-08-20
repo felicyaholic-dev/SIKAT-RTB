@@ -2,12 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { addResident, addSecurityStaff, cancelPendingPermit, changePassword, clearAttempts, createBroadcast, createPermit, decidePermit, deleteBroadcast, deleteResident, deleteResidentsByClass, deleteSecurityStaff, importResidents, isRateLimited, recordFailedAttempt, resetHistory, resetStudentPassword, updateManagerProfile, updateOwnContactInfo, updateResident, updateSecurityStaff, verifyCredentials, type Gender } from "@/lib/db";
+import { addResident, addSecurityStaff, cancelPendingPermit, changePassword, clearAttempts, createBroadcast, createPermit, decidePermit, deleteBroadcast, deleteResident, deleteResidentsByClass, deleteSecurityStaff, importResidents, isRateLimited, recordFailedAttempt, requestManagerPasswordReset, resetHistory, resetManagerPasswordWithToken, resetStudentPassword, updateManagerProfile, updateOwnContactInfo, updateResident, updateSecurityStaff, verifyCredentials, type Gender } from "@/lib/db";
 import { clearSession, createSession, requireRole, requireSession, roleHome } from "@/lib/auth";
 import { parseResidentSheet } from "@/lib/excel-import";
 import { formatJakartaInput, RESIDENT_CLASSES } from "@/lib/ui";
 import { sendPermitEntryConfirmed, sendPermitExitApproved, sendPermitExitRejected, sendWhatsAppBroadcast } from "@/lib/whatsapp";
-import { sendEmailBroadcast, sendPermitEntryConfirmedEmail, sendPermitExitApprovedEmail, sendPermitExitRejectedEmail } from "@/lib/email";
+import { sendEmailBroadcast, sendManagerPasswordResetEmail, sendPermitEntryConfirmedEmail, sendPermitExitApprovedEmail, sendPermitExitRejectedEmail } from "@/lib/email";
 
 export type FormState = { error?: string; success?: string; detail?: string[] };
 
@@ -176,6 +176,32 @@ export async function resetPasswordAction(_: FormState, formData: FormData): Pro
   return result.ok ? { success: result.message } : { error: result.message };
 }
 
+// Always records an attempt (not just failures) and always returns the same
+// generic message via requestManagerPasswordReset — an attacker probing BCA
+// IDs must not be able to tell a real Pengelola account from a made-up one
+// via either the rate-limit behavior or the response text.
+export async function requestManagerPasswordResetAction(_: FormState, formData: FormData): Promise<FormState> {
+  const bcaId = String(formData.get("bcaId") || "");
+  if (!/^\d{6}$/.test(bcaId.trim())) return { error: "ID BCA harus terdiri dari 6 angka." };
+  if (isRateLimited(bcaId, "RESET_PASSWORD")) return { error: "Terlalu banyak percobaan. Coba lagi dalam beberapa menit." };
+  recordFailedAttempt(bcaId, "RESET_PASSWORD");
+  const result = requestManagerPasswordReset(bcaId);
+  if (result.email && result.token) {
+    const resetUrl = `${(process.env.APP_URL || "").replace(/\/$/, "")}/reset-password/manager/confirm?token=${result.token}`;
+    void sendManagerPasswordResetEmail(result.email, result.name ?? "", resetUrl);
+  }
+  return { success: result.message };
+}
+
+export async function confirmManagerPasswordResetAction(_: FormState, formData: FormData): Promise<FormState> {
+  const token = String(formData.get("token") || "");
+  const password = String(formData.get("password") || "");
+  const confirmPassword = String(formData.get("confirmPassword") || "");
+  if (password !== confirmPassword) return { error: "Konfirmasi password belum sama." };
+  const result = resetManagerPasswordWithToken(token, password);
+  return result.ok ? { success: result.message } : { error: result.message };
+}
+
 // Mahasiswa & Satpam may only set their password once, during the forced
 // first-login flow (mustChangePassword). Pengelola can change theirs anytime
 // (this same action also powers the voluntary form on /manager/profile) —
@@ -223,6 +249,7 @@ export async function updateManagerProfileAction(_: FormState, formData: FormDat
   const result = updateManagerProfile(session.accountId, {
     bcaId: String(formData.get("bcaId") || ""),
     fullName: String(formData.get("fullName") || ""),
+    email: String(formData.get("email") || ""),
   });
   if (!result.ok) return { error: result.message };
   await createSession({ ...session, bcaId: result.bcaId ?? session.bcaId, name: result.fullName ?? session.name });

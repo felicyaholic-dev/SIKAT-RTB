@@ -2,10 +2,23 @@ import "server-only";
 
 import bcrypt from "bcryptjs";
 import Database from "better-sqlite3";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { RESIDENT_CLASSES } from "@/lib/ui";
 import { WINGS, genderLabel, wingFromRoom } from "@/lib/wings";
+
+// 32 chars so `byte % 32` is unbiased (256 / 32 = 8 exactly); excludes
+// visually ambiguous 0/O/1/I/L. Used for human-typed fallback codes
+// (permit_code/entry_code) — qr_token already uses crypto.randomUUID().
+const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+function secureCode(length = 6): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(length));
+  let out = "";
+  for (let i = 0; i < length; i++) out += CODE_ALPHABET[bytes[i] % CODE_ALPHABET.length];
+  return out;
+}
 
 export type Role = "STUDENT" | "SECURITY" | "MANAGER";
 export type PermitStatus = "MENUNGGU_KELUAR" | "SEDANG_DI_LUAR" | "MENUNGGU_MASUK" | "SELESAI" | "DIBATALKAN";
@@ -140,8 +153,18 @@ function getDb() {
       FOREIGN KEY(notification_id) REFERENCES broadcast_notifications(id),
       FOREIGN KEY(account_id) REFERENCES accounts(id)
     );
+    CREATE TABLE IF NOT EXISTS password_reset_tokens (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      account_id INTEGER NOT NULL,
+      token_hash TEXT NOT NULL UNIQUE,
+      expires_at TEXT NOT NULL,
+      used_at TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(account_id) REFERENCES accounts(id)
+    );
   `);
   ensureColumn(database, "accounts", "must_change_password", "INTEGER NOT NULL DEFAULT 0");
+  ensureColumn(database, "accounts", "email", "TEXT");
   ensureColumn(database, "master_residents", "gender", "TEXT NOT NULL DEFAULT 'TIDAK_DISEBUTKAN'");
   ensureColumn(database, "master_residents", "phone_number", "TEXT");
   ensureColumn(database, "master_residents", "email", "TEXT");
@@ -151,6 +174,46 @@ function getDb() {
   migrateLegacyDemoIds(database);
   seed(database);
   return database;
+}
+
+function backupDir() {
+  const dir = path.join(path.dirname(databasePath()), "backups");
+  fs.mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+// Fire-and-forget, called from getManagerData() on every Dashboard load:
+// creates today's snapshot if one doesn't exist yet, then prunes anything
+// older than the retention window. Uses SQLite's own online-backup API
+// (safe under concurrent WAL writes) rather than a raw file copy, which
+// could grab a half-written file mid-write. This is a same-volume safety
+// net against corruption/accidental data loss — it does NOT protect against
+// losing the Railway volume itself, which is what getBackupSnapshot's
+// on-demand download (an actual offsite copy) is for.
+const BACKUP_RETENTION_DAYS = 14;
+function ensureDailyBackup() {
+  const dir = backupDir();
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
+  const target = path.join(dir, `sikat-${today}.db`);
+  if (fs.existsSync(target)) return;
+  getDb().backup(target)
+    .then(() => {
+      const cutoff = Date.now() - BACKUP_RETENTION_DAYS * 86_400_000;
+      for (const file of fs.readdirSync(dir)) {
+        const full = path.join(dir, file);
+        if (fs.statSync(full).mtimeMs < cutoff) fs.rmSync(full, { force: true });
+      }
+    })
+    .catch((error) => console.warn("[backup] Gagal membuat backup harian:", error instanceof Error ? error.message : error));
+}
+
+// On-demand snapshot for the manual "Unduh Backup" button — a consistent
+// point-in-time copy written to a temp path, which the API route streams
+// to the browser and then deletes.
+export async function createBackupSnapshot(): Promise<string> {
+  const target = path.join(os.tmpdir(), `sikat-backup-${Date.now()}.db`);
+  await getDb().backup(target);
+  return target;
 }
 
 type BootstrapManager = { bcaId: string; password: string; name: string };
@@ -218,19 +281,28 @@ function migrateLegacyDemoIds(db: Database.Database) {
   db.prepare("UPDATE permits SET status = 'SEDANG_DI_LUAR' WHERE status = 'TERLAMBAT'").run();
 }
 
-const RATE_LIMIT_MAX_ATTEMPTS = 5;
-const RATE_LIMIT_WINDOW_MINUTES = 15;
+export type RateLimitAction = "LOGIN" | "RESET_PASSWORD" | "SCAN";
 
-export type RateLimitAction = "LOGIN" | "RESET_PASSWORD";
+// SCAN gets a looser threshold than LOGIN/RESET_PASSWORD: satpam legitimately
+// rack up "not found" lookups just from normal use (mis-scans, camera
+// glitches, an unrelated QR poster nearby triggering the auto-scan loop),
+// so 5/15min would false-lock a real shift. 20/15min still makes brute-forcing
+// the ~1 billion-combination code space (see secureCode above) infeasible.
+const RATE_LIMITS: Record<RateLimitAction, { maxAttempts: number; windowMinutes: number }> = {
+  LOGIN: { maxAttempts: 5, windowMinutes: 15 },
+  RESET_PASSWORD: { maxAttempts: 5, windowMinutes: 15 },
+  SCAN: { maxAttempts: 20, windowMinutes: 15 },
+};
 
 export function isRateLimited(identifier: string, action: RateLimitAction) {
   const db = getDb();
-  const windowStart = `-${RATE_LIMIT_WINDOW_MINUTES} minutes`;
+  const { maxAttempts, windowMinutes } = RATE_LIMITS[action];
+  const windowStart = `-${windowMinutes} minutes`;
   const { count } = db.prepare(`
     SELECT COUNT(*) AS count FROM login_attempts
     WHERE identifier = ? AND action = ? AND attempted_at >= datetime('now', ?)
   `).get(normalizeBcaId(identifier), action, windowStart) as { count: number };
-  return count >= RATE_LIMIT_MAX_ATTEMPTS;
+  return count >= maxAttempts;
 }
 
 export function recordFailedAttempt(identifier: string, action: RateLimitAction) {
@@ -311,14 +383,14 @@ export function createPermit(accountId: number, input: { destination?: string; p
   if (current?.status === "MENUNGGU_MASUK") throw new Error("QR masuk masih menunggu validasi satpam.");
   if (current?.status === "SEDANG_DI_LUAR") {
     if (!input.returnAt) throw new Error("Masukkan waktu kembali ke RTB.");
-    const entryCode = `SKM-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
+    const entryCode = `SKM-${secureCode()}`;
     db.prepare("UPDATE permits SET entry_code = ?, planned_return_at = ?, status = 'MENUNGGU_MASUK' WHERE id = ?").run(entryCode, input.returnAt, current.id);
     db.prepare("INSERT INTO permit_events (permit_id, event_type, performed_by_account_id) VALUES (?, 'ENTRY_REQUESTED', ?)").run(current.id, accountId);
     return { code: entryCode, mode: "ENTRY" as const };
   }
   const permitType = input.permitType || "IZIN_PRIBADI";
   if (!input.destination?.trim() || !input.departure || !["IZIN_PRIBADI", "IZIN_AKADEMIK", "IZIN_KESEHATAN", "KEPERLUAN_KELUARGA", "LAINNYA"].includes(permitType)) throw new Error("Lengkapi informasi izin dan waktu keluar.");
-  const permitCode = `SKT-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
+  const permitCode = `SKT-${secureCode()}`;
   const qrToken = crypto.randomUUID();
   const result = db.prepare(`
     INSERT INTO permits (resident_id, permit_code, qr_token, destination, permit_type, planned_departure_at, planned_return_at, status)
@@ -468,6 +540,7 @@ function enumerateDays(from: string, to: string, maxDays = 366): string[] {
 
 export function getManagerData(options?: { activityFrom?: string; activityTo?: string; peakFrom?: string; peakTo?: string; wingFrom?: string; wingTo?: string }) {
   const db = getDb();
+  ensureDailyBackup();
   const stats = db.prepare(`
     SELECT
       (SELECT COUNT(*) FROM master_residents WHERE resident_status = 'ACTIVE') AS residents,
@@ -812,21 +885,78 @@ export function changePassword(accountId: number, input: { currentPassword: stri
   return { ok: true, message: "Password berhasil diperbarui." };
 }
 
-export function updateManagerProfile(accountId: number, input: { bcaId: string; fullName: string }) {
+export function getAccountEmail(accountId: number): string | null {
+  const row = getDb().prepare("SELECT email FROM accounts WHERE id = ?").get(accountId) as { email: string | null } | undefined;
+  return row?.email ?? null;
+}
+
+export function updateManagerProfile(accountId: number, input: { bcaId: string; fullName: string; email?: string }) {
   const db = getDb();
   const bcaId = normalizeBcaId(input.bcaId);
   const fullName = input.fullName.trim().replace(/\s+/g, " ");
   if (!/^\d{6}$/.test(bcaId)) return { ok: false, message: "ID BCA harus terdiri dari 6 angka." };
   if (fullName.length < 2) return { ok: false, message: "Nama lengkap belum valid." };
+  const email = normalizeEmail(input.email);
+  if (input.email?.trim() && !email) return { ok: false, message: "Alamat email tidak valid." };
   const account = db.prepare("SELECT id FROM accounts WHERE id = ? AND role = 'MANAGER' AND is_active = 1").get(accountId);
   if (!account) return { ok: false, message: "Akun pengelola tidak ditemukan." };
   try {
-    db.prepare("UPDATE accounts SET bca_id = ?, full_name = ? WHERE id = ?").run(bcaId, fullName, accountId);
+    db.prepare("UPDATE accounts SET bca_id = ?, full_name = ?, email = ? WHERE id = ?").run(bcaId, fullName, email, accountId);
     logAudit(accountId, "UPDATE_MANAGER_PROFILE", "account", String(accountId));
     return { ok: true, message: "Profil pengelola berhasil diperbarui.", bcaId, fullName };
   } catch {
     return { ok: false, message: "ID BCA sudah digunakan oleh akun lain." };
   }
+}
+
+// Manager-only password recovery: unlike Mahasiswa (verify ID BCA + nama +
+// kamar) there's no equivalent low-friction identity check for Pengelola,
+// and their account holds far more power — so this uses a proper emailed,
+// single-use, time-limited token instead. Requires the manager to have set
+// an email on their Profile first (see updateManagerProfile above).
+function generateResetToken(): string {
+  return Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("hex");
+}
+function hashResetToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
+const RESET_TOKEN_TTL_MINUTES = 30;
+
+// Always returns the same generic message regardless of whether bcaId
+// matched a real Pengelola account — the caller must not branch UI/copy on
+// whether email/name/token came back, only ever show `message`, or this
+// stops being a defense against account enumeration.
+export function requestManagerPasswordReset(bcaId: string): { ok: true; message: string; email?: string; name?: string; token?: string } {
+  const db = getDb();
+  const genericMessage = "Jika ID BCA tersebut terdaftar sebagai Pengelola dan sudah punya email terverifikasi di Profil, tautan reset telah dikirim ke email itu.";
+  const account = db.prepare("SELECT id, full_name, email FROM accounts WHERE bca_id = ? AND role = 'MANAGER' AND is_active = 1").get(normalizeBcaId(bcaId)) as { id: number; full_name: string; email: string | null } | undefined;
+  if (!account?.email) return { ok: true, message: genericMessage };
+  const token = generateResetToken();
+  const expiresAt = new Date(Date.now() + RESET_TOKEN_TTL_MINUTES * 60_000).toISOString();
+  db.prepare("INSERT INTO password_reset_tokens (account_id, token_hash, expires_at) VALUES (?, ?, ?)").run(account.id, hashResetToken(token), expiresAt);
+  logAudit(account.id, "REQUEST_MANAGER_PASSWORD_RESET", "account", String(account.id));
+  return { ok: true, message: genericMessage, email: account.email, name: account.full_name, token };
+}
+
+export function resetManagerPasswordWithToken(token: string, newPassword: string) {
+  if (!token.trim()) return { ok: false, message: "Tautan reset tidak valid." };
+  if (newPassword.length < 8) return { ok: false, message: "Password baru minimal 8 karakter." };
+  const db = getDb();
+  const row = db.prepare(`
+    SELECT rt.id, rt.account_id, rt.expires_at, rt.used_at, a.role
+    FROM password_reset_tokens rt JOIN accounts a ON a.id = rt.account_id
+    WHERE rt.token_hash = ?
+  `).get(hashResetToken(token)) as { id: number; account_id: number; expires_at: string; used_at: string | null; role: Role } | undefined;
+  if (!row || row.role !== "MANAGER" || row.used_at || new Date(row.expires_at).getTime() < Date.now()) {
+    return { ok: false, message: "Tautan reset tidak valid, sudah dipakai, atau sudah kedaluwarsa. Minta tautan baru." };
+  }
+  const transaction = db.transaction(() => {
+    db.prepare("UPDATE accounts SET password_hash = ?, must_change_password = 0 WHERE id = ?").run(bcrypt.hashSync(newPassword, 12), row.account_id);
+    db.prepare("UPDATE password_reset_tokens SET used_at = CURRENT_TIMESTAMP WHERE id = ?").run(row.id);
+    logAudit(row.account_id, "RESET_MANAGER_PASSWORD_VIA_EMAIL", "account", String(row.account_id));
+  });
+  transaction();
+  return { ok: true, message: "Password berhasil direset. Silakan masuk dengan password baru." };
 }
 
 const reportPeriodWhere: Record<ReportPeriod, string> = {
@@ -989,6 +1119,28 @@ export function markNotificationsRead(accountId: number) {
 
 function logAudit(actorId: number, action: string, entityType: string, entityId: string) {
   getDb().prepare("INSERT INTO audit_logs (actor_account_id, action, entity_type, entity_id) VALUES (?, ?, ?, ?)").run(actorId, action, entityType, entityId);
+}
+
+// Every sensitive action (resident/staff CRUD, password changes, resets,
+// broadcasts) writes to audit_logs via logAudit above — this is the read
+// side, for the Pengelola-facing "Log Aktivitas" page.
+export function getAuditLog(limit = 300) {
+  return getDb().prepare(`
+    SELECT l.id, l.action, l.entity_type, l.entity_id, l.created_at,
+      a.full_name AS actor_name, a.role AS actor_role
+    FROM audit_logs l
+    LEFT JOIN accounts a ON a.id = l.actor_account_id
+    ORDER BY l.created_at DESC, l.id DESC
+    LIMIT ?
+  `).all(limit) as Array<{
+    id: number;
+    action: string;
+    entity_type: string;
+    entity_id: string;
+    created_at: string;
+    actor_name: string | null;
+    actor_role: Role | null;
+  }>;
 }
 
 function normalizeBcaId(value: string) { return value.trim().toUpperCase(); }

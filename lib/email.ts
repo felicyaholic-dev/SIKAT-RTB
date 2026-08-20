@@ -75,6 +75,15 @@ export async function sendPermitEntryConfirmedEmail(email: string | null | undef
   ]));
 }
 
+export async function sendManagerPasswordResetEmail(email: string | null | undefined, fullName: string, resetUrl: string) {
+  await send(email, "Reset password Pengelola — SIKAT RTB", wrap("Reset password Pengelola", [
+    `Yth. <b>${fullName}</b>,`,
+    `Ada permintaan reset password untuk akun Pengelola SIKAT RTB Anda. Klik tautan di bawah untuk mengatur password baru — berlaku 30 menit dan hanya bisa dipakai sekali.`,
+    `<a href="${resetUrl}" style="color:#078cff;font-weight:bold">${resetUrl}</a>`,
+    `Bukan Anda yang meminta ini? Abaikan email ini — password Anda tidak akan berubah.`,
+  ]));
+}
+
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }

@@ -28,6 +28,11 @@ export default function ResetPasswordPage() {
           <Link href="/login" className="font-semibold text-signal hover:underline">
             Masuk di sini
           </Link>
+          <br />
+          Login sebagai Pengelola?{" "}
+          <Link href="/reset-password/manager" className="font-semibold text-signal hover:underline">
+            Reset lewat email di sini
+          </Link>
         </p>
       }
     >

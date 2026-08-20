@@ -1,3 +1,4 @@
+import { DatabaseBackup } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { AddResidentForm } from "@/app/manager/AddResidentForm";
 import { DeleteResidentButton, EditResidentForm } from "@/app/manager/EditResidentForm";
@@ -8,7 +9,7 @@ import { SecurityStaffControl } from "@/app/manager/SecurityStaffControl";
 import { NotificationBroadcast } from "@/app/manager/NotificationBroadcast";
 import { requireRole } from "@/lib/auth";
 import { getBroadcastHistory, getManagerData } from "@/lib/db";
-import { initials, pill } from "@/lib/ui";
+import { btn, initials, pill } from "@/lib/ui";
 
 export default async function ManagerUsersPage() {
   const session = await requireRole("MANAGER");
@@ -87,6 +88,22 @@ export default async function ManagerUsersPage() {
         </section>
 
         <SecurityStaffControl staff={securityStaff} />
+        <section className="security-card mt-5 p-5 sm:p-6">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <p className="security-kicker">DATABASE</p>
+              <h2 className="mt-2 text-lg font-medium tracking-tight">Backup database</h2>
+              <p className="mt-1 text-sm text-muted">
+                Sistem otomatis menyimpan cadangan harian di server (disimpan 14 hari terakhir) — melindungi dari korupsi data,
+                bukan dari hilangnya volume Railway itu sendiri. Unduh salinan ini secara berkala dan simpan di tempat lain
+                (Google Drive, laptop, dll.) untuk perlindungan penuh.
+              </p>
+            </div>
+            <a href="/api/backup" className={`${btn.base} ${btn.outline} shrink-0`}>
+              <DatabaseBackup size={16} /> Unduh backup
+            </a>
+          </div>
+        </section>
         <ResetHistoryControl />
         <NotificationBroadcast broadcasts={broadcasts} />
       </div>

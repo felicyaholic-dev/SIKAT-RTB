@@ -1,7 +1,7 @@
-import { QrCode, Search, TriangleAlert } from "lucide-react";
+import { QrCode, Search, ShieldAlert, TriangleAlert } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { requireRole } from "@/lib/auth";
-import { getPermitForSecurity } from "@/lib/db";
+import { getPermitForSecurity, isRateLimited, recordFailedAttempt } from "@/lib/db";
 import { ValidatePermit } from "./ValidatePermit";
 import { QrScanner } from "./QrScanner";
 
@@ -10,7 +10,12 @@ type Props = { searchParams: Promise<{ code?: string }> };
 export default async function SecurityPage({ searchParams }: Props) {
   const session = await requireRole("SECURITY");
   const { code } = await searchParams;
-  const permit = code ? getPermitForSecurity(code) : undefined;
+  // Rate-limited per satpam account (not per scanned code) — protects
+  // against brute-forcing the code space via repeated manual/scan lookups,
+  // without touching the QR-scan camera loop itself (see QrScanner.tsx).
+  const scanLimited = Boolean(code) && isRateLimited(session.bcaId, "SCAN");
+  const permit = code && !scanLimited ? getPermitForSecurity(code) : undefined;
+  if (code && !scanLimited && !permit) recordFailedAttempt(session.bcaId, "SCAN");
   return (
     <AppShell role="SECURITY" name={session.name}>
       <div className="security-page mx-auto max-w-[1280px] px-5 py-9 md:px-10 md:py-11">
@@ -28,7 +33,7 @@ export default async function SecurityPage({ searchParams }: Props) {
               <label htmlFor="code" className="sr-only">Kode pengajuan</label>
               <p className="mb-2 text-center text-[10px] text-muted">Atau masukkan kode pengajuan</p>
               <div className="flex gap-2">
-                <input id="code" name="code" defaultValue={code} placeholder="Contoh: SKT-8J7K2" />
+                <input id="code" name="code" defaultValue={code} placeholder="Contoh: SKT-8J7K2M" />
                 <button className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-signal px-4 text-xs font-bold text-white shadow-[0_8px_16px_rgb(7_140_255_/_0.25)] transition-all hover:-translate-y-0.5 hover:bg-[#007ce8]">
                   <Search size={16} strokeWidth={1.8} /> Periksa <span className="hidden sm:inline">kode</span>
                 </button>
@@ -37,7 +42,16 @@ export default async function SecurityPage({ searchParams }: Props) {
           </div>
 
         </section>
-        {code && !permit && (
+        {scanLimited && (
+          <div className="security-card mt-5 grid min-h-56 max-w-[760px] place-items-center p-8 text-center">
+            <div className="grid justify-items-center gap-2 text-muted">
+              <span className="grid h-16 w-16 place-items-center rounded-[22px] bg-danger-soft text-danger"><ShieldAlert size={28} strokeWidth={1.6} /></span>
+              <h2 className="mt-3 text-xl font-medium tracking-tight text-ink">Terlalu banyak percobaan</h2>
+              <p className="max-w-[280px] text-[13px] leading-relaxed">Terlalu banyak kode yang tidak ditemukan dalam waktu singkat. Coba lagi dalam beberapa menit.</p>
+            </div>
+          </div>
+        )}
+        {code && !scanLimited && !permit && (
           <div className="security-card mt-5 grid min-h-56 max-w-[760px] place-items-center p-8 text-center">
             <div className="grid justify-items-center gap-2 text-muted">
               <span className="grid h-16 w-16 place-items-center rounded-[22px] bg-[#fff4de] text-amber"><TriangleAlert size={28} strokeWidth={1.6} /></span>

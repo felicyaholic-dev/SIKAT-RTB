@@ -4,6 +4,7 @@ node_modules
 !.env.example
 data/*.db
 data/*.db-*
+data/backups/
 !data/.gitkeep
 data/whatsapp-session
 *.tsbuildinfo

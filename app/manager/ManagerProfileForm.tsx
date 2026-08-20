@@ -7,7 +7,7 @@ import { btn, formMessage } from "@/lib/ui";
 
 const initialState: FormState = {};
 
-export function ManagerProfileForm({ fullName, bcaId }: { fullName: string; bcaId: string }) {
+export function ManagerProfileForm({ fullName, bcaId, email }: { fullName: string; bcaId: string; email: string }) {
   const [state, action, pending] = useActionState(updateManagerProfileAction, initialState);
   return (
     <form action={action} className="security-card mt-5 p-6 sm:p-8">
@@ -28,8 +28,12 @@ export function ManagerProfileForm({ fullName, bcaId }: { fullName: string; bcaI
           ID BCA · 6 angka
           <input name="bcaId" inputMode="numeric" pattern="[0-9]{6}" defaultValue={bcaId} required />
         </label>
+        <label className="sm:col-span-2">
+          Email (untuk reset password kalau lupa)
+          <input name="email" type="email" defaultValue={email} placeholder="nama@contoh.com" />
+        </label>
       </div>
-      <p className="mt-4 text-[11px] leading-relaxed text-muted">ID BCA baru akan dipakai pada login berikutnya. Password akun tidak berubah.</p>
+      <p className="mt-4 text-[11px] leading-relaxed text-muted">ID BCA baru akan dipakai pada login berikutnya. Password akun tidak berubah lewat form ini. Email dipakai satu-satunya untuk mengirim tautan reset password kalau Anda lupa password — tanpa email di sini, tidak ada jalur pemulihan mandiri.</p>
       {state.error && <p className={`${formMessage("error")} mt-5`}>{state.error}</p>}
       {state.success && <p className={`${formMessage("success")} mt-5`}>{state.success}</p>}
       <div className="mt-6 flex justify-end border-t border-line pt-5">
