@@ -281,6 +281,22 @@
 }
 
 @layer components {
+  /* Raises the bar against casual QR reposting: blocks long-press "save
+     image" / right-click context menu and text/image selection. This is
+     NOT screenshot-proof — no web page can intercept an OS-level
+     screenshot or screen recording, only a native app with OS-level
+     hooks can do that. The QR's real protection is that it's single-use
+     and status-gated server-side (lib/db.ts decidePermit): once a satpam
+     validates it, any copy — screenshotted or not — stops working. */
+  .qr-protected {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .qr-protected svg {
+    pointer-events: none;
+  }
+
   /* The prototype's own hero gradient, used verbatim wherever a section
      needs visual weight — replaces solid dark-navy fills. */
   .bg-hero-sky {

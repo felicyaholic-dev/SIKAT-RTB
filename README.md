@@ -315,7 +315,8 @@ Wing bukan kolom database — diturunkan dari awalan `room_number` (format wajib
 - Rate limit pada login dan reset password: maksimal 5 percobaan gagal per 15 menit untuk ID BCA yang sama (tabel `login_attempts`), lalu percobaan berikutnya ditolak sampai jendela waktu itu berakhir.
 - Error login tidak membocorkan apakah sebuah ID BCA ada atau tidak.
 - Validasi role dan kepemilikan izin dilakukan di server.
-- Token QR bersifat acak, tidak berisi data pribadi dalam plaintext, dan hanya valid untuk izin/status yang sesuai.
+- Token QR bersifat acak, tidak berisi data pribadi dalam plaintext, dan hanya valid untuk izin/status yang sesuai. Kode/QR asing (bukan dari sistem) atau yang sudah dipakai selalu jatuh ke "Izin tidak ditemukan" — `getPermitForSecurity` mencocokkan secara persis (`=`), bukan pencarian sebagian, jadi tidak mungkin tertulis valid secara tidak sengaja.
+- QR tidak bisa dibuat screenshot-proof 100% — itu di luar kendali halaman web (screenshot terjadi di level OS). `components/PermitQr.tsx` menonaktifkan klik-kanan/tekan-lama simpan gambar dan mem-blur QR saat tab tidak aktif; perlindungan sebenarnya tetap di server — QR sekali pakai, jadi salinan (termasuk screenshot lama) berhenti berfungsi begitu satpam memvalidasinya.
 - Catat aksi sensitif: perubahan master penghuni, pembuatan akun staf, pembatalan izin, dan validasi gerbang.
 - Security header aktif di semua route (`next.config.ts`): `Content-Security-Policy`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Strict-Transport-Security`, dan `Permissions-Policy` yang membatasi kamera hanya untuk situs sendiri (dipakai scanner QR satpam) serta menolak mikrofon/lokasi/pembayaran/USB.
 
