@@ -1,0 +1,22 @@
+version: 2
+updates:
+  # npm/pnpm dependencies — grouped into one weekly PR instead of one PR per
+  # package, since patch/minor bumps rarely need individual review here.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    groups:
+      dependencies:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # GitHub Actions themselves (actions/checkout, pnpm/action-setup, etc.)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"

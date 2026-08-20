@@ -492,11 +492,11 @@ Skrip CLI `pnpm db:reset-history` (`scripts/reset-history.ts`) melakukan hal yan
 
 ## 11b. Testing
 
-`pnpm test` (Vitest) menjalankan `lib/db.test.ts` dan `lib/wings.test.ts` — test integrasi terhadap SQLite sungguhan, bukan mock: tiap file test membuat database SQLite sementara sendiri (`fs.mkdtempSync`, dihapus lagi setelah selesai) lewat `DATABASE_URL`, lalu menjalankan fungsi asli dari `lib/db.ts` di atasnya. Yang dicakup: validasi wing/gender & kapasitas kamar saat tambah penghuni, siklus izin lengkap (ajukan → keluar → ajukan masuk → konfirmasi masuk, termasuk jalur ditolak), `getPermitForSecurity` tidak pernah mengenali kode di luar sistem sebagai valid, format `secureCode` (lihat §10), rate limiting per jenis aksi, dan seluruh alur reset password Pengelola (token hanya terbit kalau ada email, pesan generik supaya tidak bisa dipakai menebak akun mana yang valid, token sekali pakai, token kedaluwarsa ditolak).
+`pnpm test` (Vitest, 33 test) menjalankan `lib/db.test.ts`, `lib/wings.test.ts`, dan `app/actions.test.ts` — test integrasi terhadap SQLite sungguhan, bukan mock: tiap file test membuat database SQLite sementara sendiri (`fs.mkdtempSync`, dihapus lagi setelah selesai) lewat `DATABASE_URL`, lalu menjalankan fungsi asli dari `lib/db.ts` di atasnya. Yang dicakup: validasi wing/gender & kapasitas kamar saat tambah penghuni, siklus izin lengkap (ajukan → keluar → ajukan masuk → konfirmasi masuk, termasuk jalur ditolak), `getPermitForSecurity` tidak pernah mengenali kode di luar sistem sebagai valid, format `secureCode` (lihat §10), rate limiting per jenis aksi, seluruh alur reset password Pengelola (token hanya terbit kalau ada email, pesan generik supaya tidak bisa dipakai menebak akun mana yang valid, token sekali pakai, token kedaluwarsa ditolak), dan kebijakan ganti password per peran langsung di `changePasswordAction` (`app/actions.ts`) — Mahasiswa/Satpam ditolak begitu `mustChangePassword` sudah `false`, Pengelola tetap boleh kapan saja.
 
-`import "server-only"` di `lib/*.ts` hanya dikenali bundler Next.js, bukan paket npm sungguhan — `vitest.config.mts` meng-alias-kannya ke stub kosong (`test/stubs/server-only.ts`) supaya bisa di-import langsung di Node lewat Vitest.
+`import "server-only"` di `lib/*.ts` hanya dikenali bundler Next.js, bukan paket npm sungguhan — `vitest.config.mts` meng-alias-kannya ke stub kosong (`test/stubs/server-only.ts`) supaya bisa di-import langsung di Node lewat Vitest. `app/actions.test.ts` juga meng-mock `@/lib/auth` (`requireSession`/`requireRole`/`createSession`) serta `next/navigation` dan `next/cache`, karena keduanya butuh konteks request Next.js sungguhan yang tidak ada di Vitest — pendekatan ini sengaja fokus menguji logic peran/status di dalam action itu sendiri, bukan menguji ulang mekanisme cookie/JWT Next.js yang sudah terverifikasi lewat pemakaian production.
 
-Belum ada Playwright/E2E berbasis browser — cakupan saat ini di level logic/database (`lib/`), belum menguji komponen React atau server actions (`app/actions.ts`) secara langsung.
+Belum ada Playwright/E2E berbasis browser — cakupan saat ini di level logic/database (`lib/`) dan server actions (`app/actions.ts`), belum menguji komponen React atau alur klik-per-klik di browser sungguhan.
 
 ## 11c. Backup & pemulihan database
 
@@ -506,6 +506,13 @@ Dua lapis, beda tujuan:
 - **Manual, on-demand, untuk disimpan di luar volume** — tombol **Unduh backup** di halaman Pengaturan (`GET /api/backup`, khusus Pengelola) mengunduh snapshot database saat itu juga. Perlu diunduh dan disimpan sendiri secara berkala (Google Drive, laptop, dll.) untuk perlindungan penuh terhadap hilangnya volume.
 
 Pemulihan: `pnpm db:restore <path-ke-backup.db>` (`scripts/restore-db.ts`) menimpa database lokal dengan file backup yang dipilih — jalankan saat aplikasi tidak sedang berjalan.
+
+> Jalur restore ini sudah pernah benar-benar dipraktikkan (2026-08-20), bukan cuma diverifikasi strukturnya: backup asli dari production diunduh lewat `/api/backup`, dipulihkan ke database sementara lewat `pnpm db:restore`, lalu jumlah baris di 5 tabel utama (`accounts`, `master_residents`, `permits`, `permit_events`, `audit_logs`) dicocokkan persis antara sumber dan hasil pulihan — semuanya sama persis.
+
+## 11d. CI & pembaruan dependency
+
+- **GitHub Actions** (`.github/workflows/ci.yml`) menjalankan lint → test → build di setiap push/PR ke `main` — gerbang kualitas saja, tidak melakukan deploy (deploy Railway tetap terpisah, lihat §12).
+- **Dependabot** (`.github/dependabot.yml`) memeriksa pembaruan dependency npm dan GitHub Actions tiap minggu; bump minor/patch dikelompokkan jadi satu PR, bump major tetap masuk sebagai PR terpisah untuk ditinjau manual (lebih berisiko breaking change).
 
 ## 12. Deployment Railway
 
