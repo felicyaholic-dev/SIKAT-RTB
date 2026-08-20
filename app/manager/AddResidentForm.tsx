@@ -4,6 +4,7 @@ import { useState, useActionState } from "react";
 import { Plus } from "lucide-react";
 import { addResidentAction, type FormState } from "@/app/actions";
 import { FormModal } from "@/components/FormModal";
+import { PasswordField } from "@/components/PasswordField";
 import { btn, formMessage, RESIDENT_CLASSES } from "@/lib/ui";
 import { genderLabel, wingFromRoom } from "@/lib/wings";
 
@@ -68,7 +69,7 @@ export function AddResidentForm() {
               </label>
               <label>
                 Password awal
-                <input name="password" type="password" minLength={8} placeholder="Minimal 8 karakter" required />
+                <PasswordField name="password" minLength={8} placeholder="Minimal 8 karakter" required />
               </label>
               {state.error && <p className={formMessage("error")}>{state.error}</p>}
               {state.success && <p className={formMessage("success")}>{state.success}</p>}

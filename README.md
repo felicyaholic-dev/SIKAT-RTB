@@ -175,6 +175,7 @@ Konsep desain: **Stempel Izin** — kertas hangat dan tinta navy, warna dipakai 
 - ID BCA, nomor izin, dan waktu memakai font monospace (Geist Mono) agar mudah dibaca di pos.
 - Seluruh motion tunduk pada `prefers-reduced-motion`.
 - Jangan gunakan foto orang hasil AI. Gunakan avatar inisial atau foto yang memang diunggah pengguna.
+- **Setiap field password punya ikon mata** (`components/PasswordField.tsx`) untuk tampilkan/sembunyikan isian — dipakai konsisten di seluruh form password (login, ganti password Mahasiswa/Satpam/Pengelola, password awal Master Penghuni/Satpam, reset password Pengelola). Status tampil/sembunyi cuma state lokal di browser, tidak pernah dikirim ke server.
 
 ### Mode gelap
 

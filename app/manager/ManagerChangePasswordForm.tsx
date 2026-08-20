@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { KeyRound } from "lucide-react";
 import { changePasswordAction, type FormState } from "@/app/actions";
+import { PasswordField } from "@/components/PasswordField";
 import { btn, formMessage } from "@/lib/ui";
 
 const initialState: FormState = {};
@@ -21,15 +22,15 @@ export function ManagerChangePasswordForm() {
       <div className="mt-6 grid gap-5 sm:grid-cols-3">
         <label>
           Password saat ini
-          <input name="currentPassword" type="password" autoComplete="current-password" required />
+          <PasswordField name="currentPassword" autoComplete="current-password" required />
         </label>
         <label>
           Password baru
-          <input name="password" type="password" autoComplete="new-password" minLength={8} placeholder="Minimal 8 karakter" required />
+          <PasswordField name="password" autoComplete="new-password" minLength={8} placeholder="Minimal 8 karakter" required />
         </label>
         <label>
           Konfirmasi password baru
-          <input name="confirmPassword" type="password" autoComplete="new-password" required />
+          <PasswordField name="confirmPassword" autoComplete="new-password" required />
         </label>
       </div>
       {state.error && <p className={`${formMessage("error")} mt-5`}>{state.error}</p>}

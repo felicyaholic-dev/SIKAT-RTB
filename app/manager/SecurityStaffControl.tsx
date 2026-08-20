@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { addSecurityStaffAction, deleteSecurityStaffAction, type FormState, updateSecurityStaffAction } from "@/app/actions";
 import { FormModal } from "@/components/FormModal";
+import { PasswordField } from "@/components/PasswordField";
 import { btn, formMessage, initials, pill } from "@/lib/ui";
 
 const initialState: FormState = {};
@@ -87,7 +88,7 @@ export function SecurityStaffControl({ staff }: { staff: Staff[] }) {
               </label>
               <label>
                 Password awal
-                <input name="password" type="password" minLength={8} required />
+                <PasswordField name="password" minLength={8} required />
               </label>
               {state.error && <p className={formMessage("error")}>{state.error}</p>}
               {state.success && <p className={formMessage("success")}>{state.success}</p>}

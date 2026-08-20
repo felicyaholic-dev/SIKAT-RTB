@@ -59,6 +59,7 @@ Struktur folder di `app/` menentukan alamat URL-nya langsung, jadi susunannya ti
 | `HistoryFilters.tsx` | Kontrol filter (wing, kelas, jangka waktu) untuk halaman Riwayat. |
 | `PermitHistoryList.tsx` / `PermitHistoryPage.tsx` | Tampilan daftar riwayat validasi izin — dipakai bersama oleh halaman Riwayat Satpam dan Pengelola supaya keduanya identik. |
 | `PermitQr.tsx` | Tampilan QR izin mahasiswa, termasuk proteksi ringan dari screenshot (blur saat tab tidak aktif, dll). |
+| `PasswordField.tsx` | Input password dengan ikon mata untuk tampilkan/sembunyikan isian — dipakai di semua form password (login, ganti password, password awal penghuni/satpam, reset password Pengelola). |
 | `LiveRefresh.tsx` | Badge kecil "LIVE" yang bikin halaman me-refresh data otomatis tiap beberapa detik (dipakai Dashboard Pengelola). |
 | `MobileProfileLogout.tsx` | Tombol keluar akun yang cuma muncul di layar HP (sidebar desktop sudah punya tombolnya sendiri). |
 | `SplashScreen.tsx` | Animasi logo singkat sekali saat aplikasi pertama kali dimuat. |

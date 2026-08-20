@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { ArrowRight } from "lucide-react";
 import { loginAction, type FormState } from "@/app/actions";
+import { PasswordField } from "@/components/PasswordField";
 import { btn, formMessage } from "@/lib/ui";
 
 const initialState: FormState = {};
@@ -17,7 +18,7 @@ export function LoginForm() {
       </label>
       <label>
         Password
-        <input name="password" type="password" autoComplete="current-password" placeholder="Masukkan password" required />
+        <PasswordField name="password" autoComplete="current-password" placeholder="Masukkan password" required />
       </label>
       {state.error && <p className={formMessage("error")}>{state.error}</p>}
       <button className={`${btn.base} ${btn.primary} mt-1 w-full`} disabled={pending}>
