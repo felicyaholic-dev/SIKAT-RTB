@@ -16,7 +16,7 @@ jobs:
       # collect page data. Never used to sign a real session anywhere.
       SESSION_SECRET: ci-build-only-secret-not-used-for-real-sessions
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: pnpm/action-setup@v4
         with:
