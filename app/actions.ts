@@ -2,8 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { addResident, addSecurityStaff, cancelPendingPermit, changePassword, clearAttempts, createBroadcast, createPermit, decidePermit, deleteBroadcast, deleteResident, deleteResidentsByClass, deleteSecurityStaff, importResidents, isRateLimited, recordFailedAttempt, requestManagerPasswordReset, resetHistory, resetManagerPasswordWithToken, resetStudentPassword, updateManagerProfile, updateOwnContactInfo, updateResident, updateSecurityStaff, verifyCredentials, type Gender } from "@/lib/db";
-import { clearSession, createSession, getClientIp, requireRole, requireSession, roleHome } from "@/lib/auth";
+import { addResident, addSecurityStaff, cancelPendingPermit, changePassword, clearAttempts, createBroadcast, createPermit, decidePermit, deleteBroadcast, deleteResident, deleteResidentsByClass, deleteSecurityStaff, getStudentData, importResidents, isRateLimited, recordFailedAttempt, requestManagerPasswordReset, resetHistory, resetManagerPasswordWithToken, updateManagerProfile, updateOwnContactInfo, updateResident, updateSecurityStaff, verifyCredentials, type Gender } from "@/lib/db";
+import { clearSession, createSession, getClientIp, getSession, requireRole, requireSession, roleHome } from "@/lib/auth";
 import { parseResidentSheet } from "@/lib/excel-import";
 import { formatJakartaInput, RESIDENT_CLASSES } from "@/lib/ui";
 import { sendPermitEntryConfirmed, sendPermitExitApproved, sendPermitExitRejected, sendWhatsAppBroadcast } from "@/lib/whatsapp";
@@ -38,6 +38,19 @@ export async function loginAction(_: FormState, formData: FormData): Promise<For
 }
 
 export async function logoutAction() {
+  // A pending (not-yet-validated) QR/kode is tied to this browser session —
+  // logging out abandons it rather than leaving it sitting around forever
+  // now that there's no hard time expiry (it rotates every 15s instead, see
+  // currentPermitCode in lib/db.ts). Next login starts a fresh Ajukan Izin,
+  // not a resumed one. Doesn't touch SEDANG_DI_LUAR — that's the mahasiswa's
+  // actual real-world status, unrelated to whether they're logged in.
+  const session = await getSession();
+  if (session?.role === "STUDENT") {
+    const pending = getStudentData(session.accountId)?.activePermit;
+    if (pending && (pending.status === "MENUNGGU_KELUAR" || pending.status === "MENUNGGU_MASUK")) {
+      cancelPendingPermit(session.accountId, pending.id);
+    }
+  }
   await clearSession();
   redirect("/");
 }
@@ -167,22 +180,6 @@ export async function updateResidentAction(_: FormState, formData: FormData): Pr
     revalidatePath("/manager/stats");
     revalidatePath("/manager");
   }
-  return result.ok ? { success: result.message } : { error: result.message };
-}
-
-export async function resetPasswordAction(_: FormState, formData: FormData): Promise<FormState> {
-  const bcaId = String(formData.get("bcaId") || "");
-  const password = String(formData.get("password") || "");
-  if (password.length < 8) return { error: "Password minimal terdiri dari 8 karakter." };
-  if (isRateLimited(bcaId, "RESET_PASSWORD")) return { error: "Terlalu banyak percobaan reset. Coba lagi dalam beberapa menit." };
-  const result = resetStudentPassword({
-    bcaId,
-    fullName: String(formData.get("fullName") || ""),
-    room: String(formData.get("room") || ""),
-    password,
-  });
-  if (result.ok) clearAttempts(bcaId, "RESET_PASSWORD");
-  else recordFailedAttempt(bcaId, "RESET_PASSWORD");
   return result.ok ? { success: result.message } : { error: result.message };
 }
 

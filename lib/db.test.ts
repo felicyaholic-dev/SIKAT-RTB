@@ -354,41 +354,6 @@ describe("Pengelola password reset via email", () => {
   });
 });
 
-describe("resetStudentPassword", () => {
-  it("rejects when name or room doesn't match the bcaId, with the same generic message either way", () => {
-    db.addResident(MANAGER_ID, { bcaId: "600001", fullName: "Reset Saya", room: "B3-201", className: RESIDENT_CLASSES[0], gender: "LAKI_LAKI", password: "originalpass1" });
-
-    const wrongName = db.resetStudentPassword({ bcaId: "600001", fullName: "Nama Salah", room: "B3-201", password: "newpassword123" });
-    const wrongRoom = db.resetStudentPassword({ bcaId: "600001", fullName: "Reset Saya", room: "B3-202", password: "newpassword123" });
-    const unknownBcaId = db.resetStudentPassword({ bcaId: "699999", fullName: "Siapa Saja", room: "B3-201", password: "newpassword123" });
-
-    expect(wrongName.ok).toBe(false);
-    expect(wrongRoom.ok).toBe(false);
-    expect(unknownBcaId.ok).toBe(false);
-    // Same generic message across all three — can't be used to probe which
-    // bcaId is real or which field was the mismatch.
-    expect(wrongName.message).toBe(wrongRoom.message);
-    expect(wrongName.message).toBe(unknownBcaId.message);
-  });
-
-  it("resets the password when bcaId + name + room all match, and the new password actually works to log in", () => {
-    db.addResident(MANAGER_ID, { bcaId: "600002", fullName: "Berhasil Reset", room: "B3-203", className: RESIDENT_CLASSES[0], gender: "LAKI_LAKI", password: "originalpass1" });
-
-    const result = db.resetStudentPassword({ bcaId: "600002", fullName: "Berhasil Reset", room: "B3-203", password: "newpassword123" });
-    expect(result.ok).toBe(true);
-
-    expect(db.verifyCredentials("600002", "newpassword123")).not.toBeNull();
-    expect(db.verifyCredentials("600002", "originalpass1")).toBeNull();
-  });
-
-  it("name/room matching ignores case and extra whitespace, but still requires an actual match", () => {
-    db.addResident(MANAGER_ID, { bcaId: "600003", fullName: "Kasus Spasi", room: "B3-204", className: RESIDENT_CLASSES[0], gender: "LAKI_LAKI", password: "originalpass1" });
-
-    const messyButCorrect = db.resetStudentPassword({ bcaId: "600003", fullName: "  kasus   spasi  ", room: " b3-204 ", password: "newpassword123" });
-    expect(messyButCorrect.ok).toBe(true);
-  });
-});
-
 describe("changePassword", () => {
   it("rejects the wrong current password and accepts the right one", () => {
     db.addResident(MANAGER_ID, { bcaId: "400001", fullName: "Ganti Password", room: "B3-102", className: RESIDENT_CLASSES[0], gender: "LAKI_LAKI", password: "originalpass1" });

@@ -8,4 +8,4 @@ data/backups/
 !data/.gitkeep
 *.tsbuildinfo
 .pnpm-store
-~$*.doc*
+~$*

@@ -26,6 +26,8 @@ vi.mock("@/lib/auth", async (importOriginal) => {
       return currentSession;
     }),
     createSession: vi.fn(async (session: Session) => { currentSession = session; }),
+    getSession: vi.fn(async () => currentSession ?? null),
+    clearSession: vi.fn(async () => {}),
   };
 });
 
@@ -52,12 +54,12 @@ afterAll(() => {
 });
 
 const db = await import("@/lib/db");
-const { changePasswordAction } = await import("@/app/actions");
+const { changePasswordAction, logoutAction } = await import("@/app/actions");
 const { RESIDENT_CLASSES } = await import("@/lib/ui");
 
-function seedAccount(bcaId: string, role: "STUDENT" | "SECURITY" | "MANAGER", password: string): number {
+function seedAccount(bcaId: string, role: "STUDENT" | "SECURITY" | "MANAGER", password: string, room = "A1-101"): number {
   if (role === "STUDENT") {
-    db.addResident(1, { bcaId, fullName: "Test Account", room: "A1-101", className: RESIDENT_CLASSES[0], gender: "PEREMPUAN", password });
+    db.addResident(1, { bcaId, fullName: "Test Account", room, className: RESIDENT_CLASSES[0], gender: "PEREMPUAN", password });
   } else {
     const raw = new Database(dbPath);
     raw.prepare("INSERT INTO accounts (bca_id, full_name, role, password_hash) VALUES (?, ?, ?, ?)")
@@ -135,5 +137,38 @@ describe("changePasswordAction — first-login-only for Mahasiswa/Satpam, anytim
     const result = await changePasswordAction({}, formData({ currentPassword: "not-the-password", password: "newpassword123", confirmPassword: "newpassword123" }));
     expect(result.error).toBeTruthy();
     expect(result.success).toBeUndefined();
+  });
+});
+
+describe("logoutAction — abandons a pending permit instead of leaving it resumable forever", () => {
+  it("cancels a STUDENT's pending (not yet validated) permit on logout, so the next login starts a fresh Ajukan Izin", async () => {
+    const accountId = seedAccount("500008", "STUDENT", "originalpass1", "A1-102");
+    db.createPermit(accountId, { destination: "Pulang", permitType: "IZIN_PRIBADI", departure: "2026-01-01T10:00" });
+    expect(db.getStudentData(accountId)?.activePermit?.status).toBe("MENUNGGU_KELUAR");
+
+    currentSession = { accountId, bcaId: "500008", name: "Test", role: "STUDENT", mustChangePassword: false };
+    await expect(logoutAction()).rejects.toThrow("REDIRECT:/");
+
+    expect(db.getStudentData(accountId)?.activePermit).toBeUndefined();
+  });
+
+  it("leaves a SEDANG_DI_LUAR status alone — that's the mahasiswa's real-world status, not something logging out should undo", async () => {
+    const accountId = seedAccount("500009", "STUDENT", "originalpass1", "A1-102");
+    db.createPermit(accountId, { destination: "Pulang", permitType: "IZIN_PRIBADI", departure: "2026-01-01T10:00" });
+    const pending = db.getStudentData(accountId)!.activePermit!;
+    const found = db.getPermitForSecurity(db.currentPermitCode(pending)!)!;
+    db.decidePermit(1, found.id, "APPROVE");
+
+    currentSession = { accountId, bcaId: "500009", name: "Test", role: "STUDENT", mustChangePassword: false };
+    await expect(logoutAction()).rejects.toThrow("REDIRECT:/");
+
+    expect(db.getStudentData(accountId)?.activePermit?.status).toBe("SEDANG_DI_LUAR");
+  });
+
+  it("does nothing to permits for non-STUDENT roles (satpam/pengelola have none to clean up)", async () => {
+    const accountId = seedAccount("500010", "SECURITY", "originalpass1");
+    currentSession = { accountId, bcaId: "500010", name: "Test", role: "SECURITY", mustChangePassword: false };
+    await expect(logoutAction()).rejects.toThrow("REDIRECT:/");
+    // No throw beyond the redirect is the assertion here — nothing STUDENT-specific runs for other roles.
   });
 });

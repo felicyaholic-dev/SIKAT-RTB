@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useContext, createContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { LockKeyhole, X } from "lucide-react";
 import { Brand } from "@/components/Brand";
@@ -46,7 +45,7 @@ export function LoginModalProvider({ children }: { children: ReactNode }) {
             <div className="relative mt-8"><h2 id="login-modal-title" className="text-[clamp(1.8rem,4vw,2.45rem)] font-medium tracking-[-0.055em] text-ink">Masuk ke SIKAT RTB</h2><p className="mt-2 text-sm leading-6 text-muted">Masukkan data akses yang telah terdaftar. Sistem akan membuka halaman sesuai akunmu.</p></div>
             <div className="relative mt-7"><LoginForm /></div>
             <div className="relative mt-6 flex items-center justify-center gap-2 text-center text-[11px] text-muted"><LockKeyhole size={14} className="text-signal" /> Hanya akun aktif yang terdaftar yang dapat masuk.</div>
-            <p className="relative mt-4 text-center text-[12px] text-muted">Akun dibuat oleh Pengelola RTB. <Link href="/reset-password" onClick={close} className="font-bold text-signal hover:underline">Lupa password?</Link></p>
+            <p className="relative mt-4 text-center text-[12px] text-muted">Akun dibuat oleh Pengelola RTB. Lupa password? Hubungi Pengelola RTB untuk direset.</p>
           </section>
         </div>
       )}

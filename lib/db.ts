@@ -931,20 +931,6 @@ export function deleteResidentsByClass(actorId: number, className: string) {
   return { ok: true, message: `${count} data penghuni kelas ${className} berhasil dihapus dari sistem.` };
 }
 
-export function resetStudentPassword(input: { bcaId: string; fullName: string; room: string; password: string }) {
-  const db = getDb();
-  const resident = db.prepare("SELECT * FROM master_residents WHERE bca_id = ?").get(normalizeBcaId(input.bcaId)) as ResidentRow | undefined;
-  if (!resident || resident.resident_status !== "ACTIVE") return { ok: false, message: "Data akun tidak dapat diverifikasi." };
-  if (normalizeName(resident.full_name) !== normalizeName(input.fullName) || normalizeRoom(resident.room_number) !== normalizeRoom(input.room)) {
-    return { ok: false, message: "Data akun tidak dapat diverifikasi." };
-  }
-  const account = db.prepare("SELECT id FROM accounts WHERE resident_id = ? AND role = 'STUDENT' AND is_active = 1").get(resident.id) as { id: number } | undefined;
-  if (!account) return { ok: false, message: "Akun tidak ditemukan. Hubungi Pengelola RTB." };
-  db.prepare("UPDATE accounts SET password_hash = ?, must_change_password = 0 WHERE id = ?").run(bcrypt.hashSync(input.password, 12), account.id);
-  logAudit(account.id, "RESET_PASSWORD", "account", String(account.id));
-  return { ok: true, message: "Password berhasil diatur ulang. Silakan masuk dengan password baru." };
-}
-
 export function changePassword(accountId: number, input: { currentPassword: string; password: string }) {
   const db = getDb();
   const account = db.prepare("SELECT * FROM accounts WHERE id = ? AND is_active = 1").get(accountId) as AccountRow | undefined;
@@ -1235,9 +1221,6 @@ export function getAuditLog(limit = 300) {
 }
 
 function normalizeBcaId(value: string) { return value.trim().toUpperCase(); }
-function normalizeName(value: string) { return value.trim().replace(/\s+/g, " ").toLocaleLowerCase("id-ID"); }
-function normalizeRoom(value: string) { return value.trim().replace(/\s+/g, "").toUpperCase(); }
-
 // Stores Indonesian phone numbers in international format (62xxxxxxxxxx,
 // no leading +) since that is what a WhatsApp JID needs downstream.
 export function normalizePhoneNumber(value: string | undefined): string | null {

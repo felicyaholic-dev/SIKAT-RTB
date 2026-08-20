@@ -81,7 +81,9 @@ flowchart TD
   History --> Home
   Choice -->|Ganti tema| Theme[Terang / Gelap / Ikuti sistem]
   Theme --> Home
-  Choice -->|Keluar| Logout[Logout]
+  Choice -->|Keluar| Logout["Logout — izin yang masih
+  menunggu (belum divalidasi
+  satpam) otomatis dibatalkan"]
   Logout --> Finish
 ```
 
@@ -90,7 +92,8 @@ flowchart TD
 - Notifikasi WA dan Email dikirim otomatis di titik yang sama, tapi masing-masing independen: kalau salah satu kanal belum diaktifkan Pengelola (belum ada kredensial), kanal lain tetap jalan.
 - Edit kamar/WA/email bisa dilakukan kapan saja dari halaman Profil, tidak menunggu proses izin selesai.
 - Kamar wajib format `WING-NOMOR` (contoh `A1-101`) dan wing-nya harus cocok dengan jenis kelamin mahasiswa — lihat tabel wing di [flowchart-pengelola.md](flowchart-pengelola.md#referensi-wing).
-- **Password hanya bisa diganti sekali**, saat login pertama (langkah "Wajib buat password baru" di atas). Setelah itu, mahasiswa tidak bisa mengganti password sendiri lagi — kalau lupa, gunakan **Reset Password** mandiri di halaman login (verifikasi ID BCA + nama + kamar), bukan menu ganti password. Sistem mengirim email konfirmasi (`sendPasswordChangedEmail`) begitu password baru itu tersimpan, kalau email di Master Penghuni sudah diisi — jaga-jaga supaya ada catatan yang bisa dicek ulang kalau lupa.
+- **Password hanya bisa diganti sekali**, saat login pertama (langkah "Wajib buat password baru" di atas). Setelah itu, mahasiswa tidak bisa mengganti password sendiri lagi, dan **tidak ada jalur reset mandiri** — kalau lupa, satu-satunya cara adalah menghubungi Pengelola RTB untuk direset. Sistem mengirim email konfirmasi (`sendPasswordChangedEmail`) begitu password baru itu tersimpan, kalau email di Master Penghuni sudah diisi — jaga-jaga supaya ada catatan yang bisa dicek ulang kalau lupa.
+- **Logout membatalkan izin yang masih menunggu validasi satpam** (`MENUNGGU_KELUAR`/`MENUNGGU_MASUK`) — QR/kode tidak lagi punya batas waktu akhir sejak berputar tiap 15 detik (lihat di bawah), jadi logout jadi titik pembersihan alaminya. Login berikutnya selalu mulai dari **Ajukan Izin** baru. Tidak berlaku untuk status `SEDANG_DI_LUAR`, yang tetap dipertahankan karena itu status nyata mahasiswa di dunia fisik.
 - **QR/kode izin berputar tiap 15 detik**, bukan nilai tetap sejak dibuat — turunan HMAC dari secret per izin (`qr_token`) + jendela waktu saat itu (`currentPermitCode` di `lib/db.ts`), mirip TOTP. Halaman mahasiswa polling `/api/student/current-permit-code` tiap 15 detik supaya QR/kode yang tampil selalu yang berlaku, tanpa perlu isi ulang form. Screenshot lama, kode yang ditulis di kertas, atau kode yang dibagikan ke orang lain berhenti berfungsi maksimal ~30 detik kemudian (toleransi ±1 jendela) — terlepas dari izinnya sudah diproses satpam atau belum.
 - **QR tidak bisa dibuat screenshot-proof 100% dari sisi visual** — itu di luar kendali halaman web mana pun (screenshot/screen-recording terjadi di level OS, bukan lewat browser). Yang benar-benar diterapkan (`components/PermitQr.tsx`): klik-kanan/tekan-lama "simpan gambar" dinonaktifkan, dan QR di-blur otomatis saat tab/aplikasi tidak aktif (agar tidak nampak di thumbnail app-switcher). Perlindungan sebenarnya ya rotasi 15 detik di atas.
 - Validasi satpam **tidak akan pernah menandai QR di luar sistem sebagai valid** — `getPermitForSecurity` mencocokkan kode yang dipindai persis (`=`, bukan pencarian sebagian) terhadap `permit_code`/`qr_token`/`entry_code` yang tersimpan; kode apa pun yang tidak cocok, tidak valid, atau sudah pernah dipakai selalu tampil pesan generik "Terjadi kesalahan".

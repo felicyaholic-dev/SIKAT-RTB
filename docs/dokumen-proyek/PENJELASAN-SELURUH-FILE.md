@@ -35,7 +35,7 @@ Struktur folder di `app/` menentukan alamat URL-nya langsung, jadi susunannya ti
 | `activate/page.tsx` | Alamat pintasan lama yang otomatis mengarahkan ke landing page dengan form login terbuka. |
 | `login/` | Halaman & form login. |
 | `change-password/` | Halaman ganti password wajib saat login pertama. |
-| `reset-password/` | Reset password mandiri mahasiswa, dan reset password Pengelola lewat email. |
+| `reset-password/` | Reset password Pengelola lewat email (`manager/`) — Mahasiswa dan Satpam tidak punya reset mandiri, harus lewat Pengelola langsung. |
 | `api/backup/route.ts` | Endpoint unduh salinan database (khusus Pengelola). |
 | `api/notifications/route.ts` | Endpoint ambil daftar notifikasi & tandai sudah dibaca. |
 | `api/reports/daily.csv/route.ts` | Endpoint unduh laporan dalam bentuk CSV. |
