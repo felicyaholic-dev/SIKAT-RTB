@@ -73,7 +73,7 @@ export function HistoryFilters({ basePath, wing, kelas, period }: { basePath: st
               </label>
             ))}
           </div>
-          <button type="button" onClick={() => wingDetailsRef.current?.removeAttribute("open")} className="mt-3 w-full rounded-lg bg-navy px-3 py-1.5 text-xs font-semibold text-white">Selesai</button>
+          <button type="button" onClick={() => wingDetailsRef.current?.removeAttribute("open")} className="mt-3 w-full rounded-lg bg-signal px-3 py-1.5 text-xs font-semibold text-white">Selesai</button>
         </div>
       </details>
 
@@ -92,7 +92,7 @@ export function HistoryFilters({ basePath, wing, kelas, period }: { basePath: st
               </label>
             ))}
           </div>
-          <button type="button" onClick={() => kelasDetailsRef.current?.removeAttribute("open")} className="mt-3 w-full rounded-lg bg-navy px-3 py-1.5 text-xs font-semibold text-white">Selesai</button>
+          <button type="button" onClick={() => kelasDetailsRef.current?.removeAttribute("open")} className="mt-3 w-full rounded-lg bg-signal px-3 py-1.5 text-xs font-semibold text-white">Selesai</button>
         </div>
       </details>
     </div>

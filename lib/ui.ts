@@ -102,11 +102,9 @@ export function initials(name: string, max = 2) {
 
 export const btn = {
   base: "inline-flex items-center justify-center gap-2 rounded-panel px-5 min-h-11 text-sm font-semibold transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:shadow-none disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:translate-y-0 disabled:hover:shadow-none",
-  primary: "bg-signal text-white hover:bg-ink",
-  ink: "bg-navy text-white hover:bg-ink",
+  primary: "bg-signal text-white hover:brightness-90",
   safe: "bg-safe text-white hover:brightness-90",
   outline: "border border-line bg-transparent text-ink hover:border-signal hover:text-signal",
-  white: "bg-white text-navy hover:bg-paper",
 };
 
 export function formMessage(kind: "error" | "success") {
