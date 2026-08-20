@@ -103,7 +103,8 @@ flowchart TD
   Download --> Home
 
   Menu -->|Profil| Prof[Ubah nama / ID BCA
-  akun sendiri]
+  akun sendiri, ATAU ganti
+  password kapan saja]
   Prof --> Home
   Menu -->|Ganti tema| Theme[Terang / Gelap / Ikuti sistem]
   Theme --> Home
@@ -118,6 +119,7 @@ flowchart TD
 - **Wing** bukan kolom database tersendiri — sistem menurunkannya dari awalan nomor kamar (format `WING-NOMOR`, contoh `A1-101`), lalu mengecek jenis kelamin penghuni harus cocok dengan wing tersebut. Aturan ini berlaku di tambah/edit/impor Pengelola *maupun* saat mahasiswa mengubah kamar sendiri di halaman Profil.
 - Grafik **Aktivitas keluar-masuk**, **Jam sibuk**, dan **Rekap wing** di Dashboard masing-masing punya kalender "Dari – Ke" independen sendiri-sendiri (default 7 hari, 30 hari, 30 hari) — mengubah satu tidak memengaruhi yang lain. Panel **Aktivitas terbaru** di Dashboard selalu tetap pada 24 jam terakhir (tidak ikut kalender) — kartu "Di luar RTB" di atasnya tetap menghitung total riil termasuk yang sudah di luar lebih dari 24 jam.
 - Filter **Riwayat** (wing & kelas, masing-masing bisa multi-pilih, plus jangka waktu) sekarang identik di halaman Pengelola *dan* Satpam — satu komponen (`components/PermitHistoryPage.tsx`) dipakai keduanya.
+- **Password Pengelola bisa diganti kapan saja** dari halaman Profil (`ManagerChangePasswordForm`) — beda dengan Mahasiswa/Satpam yang cuma boleh sekali, saat login pertama. Ditegakkan di `changePasswordAction` (server), bukan cuma disembunyikan di UI: percobaan ganti password dari akun Mahasiswa/Satpam di luar momen login pertama akan ditolak walau dikirim langsung ke server.
 
 ## Referensi wing
 

@@ -96,9 +96,11 @@ Login pertama
 ```
 
 - Password awal hanya untuk login pertama; setiap akun baru (mahasiswa, satpam, maupun pengelola) wajib menggantinya sebelum bisa memakai sistem.
+- Setelah login pertama, **mahasiswa dan satpam tidak bisa mengganti password lagi sendiri** — `/change-password` otomatis mengarahkan mereka ke beranda begitu status wajib-ganti sudah selesai, dan `changePasswordAction` menolak percobaan ganti password dari kedua role ini di luar momen login pertama (ditegakkan di server, bukan cuma disembunyikan di UI).
+- **Pengelola bisa mengganti password kapan saja** dari halaman Profil (`app/manager/ManagerChangePasswordForm.tsx`), memakai aksi yang sama — bedanya cuma Pengelola tidak dibatasi status wajib-ganti.
 - Lupa password? Mahasiswa dapat memverifikasi ulang ID BCA + nama lengkap + nomor kamar untuk mengatur password baru secara mandiri, tanpa melibatkan pengelola.
 - Data tidak ditemukan atau tidak cocok saat verifikasi: permintaan reset ditolak, password lama tidak berubah.
-- Satpam dan pengelola tidak memiliki reset password mandiri; perubahan akses mereka selalu melalui pengelola yang berwenang.
+- Satpam dan pengelola tidak memiliki reset password mandiri (untuk kasus lupa password); reset untuk mereka selalu lewat pengelola yang berwenang — pengelola sendiri direset lewat akses server/database langsung.
 
 ### 4.3 Pengajuan izin mahasiswa
 

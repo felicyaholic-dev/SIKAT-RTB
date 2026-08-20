@@ -176,8 +176,16 @@ export async function resetPasswordAction(_: FormState, formData: FormData): Pro
   return result.ok ? { success: result.message } : { error: result.message };
 }
 
+// Mahasiswa & Satpam may only set their password once, during the forced
+// first-login flow (mustChangePassword). Pengelola can change theirs anytime
+// (this same action also powers the voluntary form on /manager/profile) —
+// if they forget it later, only Pengelola can reset an account, so this
+// keeps that recovery path from depending on itself.
 export async function changePasswordAction(_: FormState, formData: FormData): Promise<FormState> {
   const session = await requireSession();
+  if (session.role !== "MANAGER" && !session.mustChangePassword) {
+    return { error: "Mahasiswa dan satpam hanya bisa mengganti password saat login pertama. Hubungi Pengelola RTB untuk reset password." };
+  }
   const currentPassword = String(formData.get("currentPassword") || "");
   const password = String(formData.get("password") || "");
   const confirmPassword = String(formData.get("confirmPassword") || "");
@@ -185,8 +193,10 @@ export async function changePasswordAction(_: FormState, formData: FormData): Pr
   if (password !== confirmPassword) return { error: "Konfirmasi password belum sama." };
   const result = changePassword(session.accountId, { currentPassword, password });
   if (!result.ok) return { error: result.message };
+  const wasForced = session.mustChangePassword;
   await createSession({ ...session, mustChangePassword: false });
-  redirect(roleHome(session.role));
+  if (wasForced) redirect(roleHome(session.role));
+  return { success: "Password berhasil diperbarui." };
 }
 
 export async function addSecurityStaffAction(_: FormState, formData: FormData): Promise<FormState> {
