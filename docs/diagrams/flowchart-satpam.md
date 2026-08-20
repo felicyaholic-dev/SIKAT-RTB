@@ -53,13 +53,13 @@ flowchart TD
   NotifEntry --> Home
 
   Home --> OtherMenu{Menu lain}
-  OtherMenu -->|Penghuni di luar| Outside[Lihat daftar mahasiswa
-  yang sedang SEDANG_DI_LUAR]
-  Outside --> Home
   OtherMenu -->|Riwayat| History["Lihat riwayat validasi
   SELURUH satpam (bukan cuma
-  akun sendiri), tercatat
-  siapa yang memvalidasi apa"]
+  akun sendiri), tercatat siapa
+  yang memvalidasi apa — bisa
+  difilter wing/kelas (multi-pilih)
+  dan jangka waktu, sama seperti
+  halaman Riwayat Pengelola"]
   History --> Home
   OtherMenu -->|Profil| Profile[Lihat data diri sendiri]
   Profile --> Home
@@ -72,3 +72,4 @@ flowchart TD
 **Catatan:**
 - Setiap keputusan (setuju/tolak/konfirmasi masuk) dicatat sebagai *event* dengan `performed_by_account_id` — jadi identitas satpam yang memutuskan selalu tersimpan, dan muncul di halaman Riwayat sebagai "oleh [nama satpam]".
 - Halaman **Riwayat** menampilkan aktivitas dari *semua* satpam yang pernah bertugas, bukan cuma yang sedang login — supaya satpam shift berikutnya bisa lihat kelanjutan kasus dari shift sebelumnya.
+- Halaman **Riwayat** Satpam dan Pengelola sekarang memakai komponen yang sama persis (`components/PermitHistoryPage.tsx`): filter wing dan kelas bisa multi-pilih (checkbox, bukan satu per satu), filter jangka waktu (Hari ini/7 hari/Bulan ini/Tahun ini/Semua waktu), dan tanpa filter berarti "semua". Hanya rute (`/security/outside` vs `/manager/history`) dan label peran yang beda.

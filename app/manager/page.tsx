@@ -13,10 +13,10 @@ function formatRangeLabel(from: string, to: string) {
   return from === to ? fmt(from) : `${fmt(from)} – ${fmt(to)}`;
 }
 
-export default async function ManagerPage({ searchParams }: { searchParams: Promise<{ actFrom?: string; actTo?: string; peakFrom?: string; peakTo?: string }> }) {
+export default async function ManagerPage({ searchParams }: { searchParams: Promise<{ actFrom?: string; actTo?: string; peakFrom?: string; peakTo?: string; wingFrom?: string; wingTo?: string }> }) {
   const session = await requireRole("MANAGER");
-  const { actFrom, actTo, peakFrom, peakTo } = await searchParams;
-  const { stats, recentActivity, weeklyActivity, peakHours, wingActivity, range } = getManagerData({ activityFrom: actFrom, activityTo: actTo, peakFrom, peakTo });
+  const { actFrom, actTo, peakFrom, peakTo, wingFrom, wingTo } = await searchParams;
+  const { stats, recentActivity, weeklyActivity, peakHours, wingActivity, range } = getManagerData({ activityFrom: actFrom, activityTo: actTo, peakFrom, peakTo, wingFrom, wingTo });
   const inside = Math.max(0, stats.residents - stats.outside);
   const presenceTotal = inside + stats.outside;
   const totalActivity = Math.max(1, ...weeklyActivity.flatMap((day) => [day.exits, day.entries]));
@@ -64,9 +64,14 @@ export default async function ManagerPage({ searchParams }: { searchParams: Prom
           <p className="mt-3 flex gap-5 text-[10px] text-muted"><span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-amber" />Keluar</span><span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-signal" />Masuk</span></p>
         </article>
         <article className="security-card p-5 sm:p-6">
-          <p className="security-kicker">REKAP WING</p>
-          <h2 className="mt-2 text-lg font-medium tracking-tight text-ink">Paling sering mengajukan izin</h2>
-          <p className="mt-1 text-[11px] text-muted">{formatRangeLabel(range.peakFrom, range.peakTo)}, seluruh {wingActivity.length} wing.</p>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="security-kicker">REKAP WING</p>
+              <h2 className="mt-2 text-lg font-medium tracking-tight text-ink">Paling sering mengajukan izin</h2>
+            </div>
+            <DashboardRangeFilter paramFrom="wingFrom" paramTo="wingTo" from={range.wingFrom} to={range.wingTo} ariaLabel="Rentang tanggal rekap wing" />
+          </div>
+          <p className="mt-3 text-[11px] text-muted">{formatRangeLabel(range.wingFrom, range.wingTo)}, seluruh {wingActivity.length} wing.</p>
           <div className="mt-5 grid max-h-[420px] gap-3 overflow-y-auto pr-1">
             {wingActivity.map((wing) => <div key={wing.code}><div className="flex items-center justify-between gap-2 text-[11px]"><span className="font-semibold text-ink">{wing.code} <span className="font-normal text-muted">· {wing.floor}</span></span><b className="font-mono text-xs text-ink">{wing.count}</b></div><div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-pill bg-mist"><i className={`block h-full rounded-pill ${wing.gender === "PEREMPUAN" ? "bg-signal" : wing.gender === "LAKI_LAKI" ? "bg-amber" : "bg-muted"}`} style={{ width: `${(wing.count / maxWingCount) * 100}%` }} /></div></div>)}
           </div>

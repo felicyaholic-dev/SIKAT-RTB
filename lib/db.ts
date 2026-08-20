@@ -394,10 +394,10 @@ const eventPeriodWhere: Record<ReportPeriod, string> = {
 // stored column, so it's filtered in JS after the SQL fetch (see
 // insertResidentRow for why); the 300-row cap is applied after that filter
 // so it caps what's actually shown, not what's fetched pre-filter.
-export function getPermitHistory(filters?: { wing?: string; className?: string; period?: ReportPeriod }) {
+export function getPermitHistory(filters?: { wing?: string[]; className?: string[]; period?: ReportPeriod }) {
   const period = filters?.period ?? "ALL";
-  const classFilter = filters?.className ? "AND r.class_name = ?" : "";
-  const params = filters?.className ? [filters.className] : [];
+  const classNames = (filters?.className ?? []).filter(Boolean);
+  const classFilter = classNames.length ? `AND r.class_name IN (${classNames.map(() => "?").join(",")})` : "";
   const rows = getDb().prepare(`
     SELECT e.id AS event_id, e.event_type, e.occurred_at,
       p.permit_code, p.entry_code, p.destination, p.status,
@@ -410,7 +410,7 @@ export function getPermitHistory(filters?: { wing?: string; className?: string; 
     WHERE e.event_type IN ('EXIT', 'ENTRY', 'EXIT_REJECTED')
       AND ${eventPeriodWhere[period]} ${classFilter}
     ORDER BY e.occurred_at DESC, e.id DESC
-  `).all(...params) as Array<{
+  `).all(...classNames) as Array<{
     event_id: number;
     event_type: "EXIT" | "ENTRY" | "EXIT_REJECTED";
     occurred_at: string;
@@ -423,7 +423,8 @@ export function getPermitHistory(filters?: { wing?: string; className?: string; 
     class_name: string;
     performed_by_name: string | null;
   }>;
-  const filtered = filters?.wing ? rows.filter((row) => wingFromRoom(row.room_number)?.code === filters.wing) : rows;
+  const wings = (filters?.wing ?? []).filter(Boolean);
+  const filtered = wings.length ? rows.filter((row) => { const wing = wingFromRoom(row.room_number); return wing && wings.includes(wing.code); }) : rows;
   return filtered.slice(0, 300);
 }
 
@@ -465,7 +466,7 @@ function enumerateDays(from: string, to: string, maxDays = 366): string[] {
   return days;
 }
 
-export function getManagerData(options?: { activityFrom?: string; activityTo?: string; peakFrom?: string; peakTo?: string }) {
+export function getManagerData(options?: { activityFrom?: string; activityTo?: string; peakFrom?: string; peakTo?: string; wingFrom?: string; wingTo?: string }) {
   const db = getDb();
   const stats = db.prepare(`
     SELECT
@@ -545,11 +546,13 @@ export function getManagerData(options?: { activityFrom?: string; activityTo?: s
 
   // Wing is derived from the room number prefix (see lib/wings.ts), not a
   // stored column, so activity is aggregated in JS after fetching rooms.
-  // Shares peakRange so the two "last N days"-style panels stay in sync.
+  // Independent range from peakRange — each dashboard panel gets its own
+  // calendar picker.
+  const wingRange = resolveDateRange(options?.wingFrom, options?.wingTo, 30);
   const wingRooms = db.prepare(`
     SELECT r.room_number FROM permits p JOIN master_residents r ON r.id = p.resident_id
     WHERE date(p.created_at, '+7 hours') BETWEEN ? AND ?
-  `).all(peakRange.from, peakRange.to) as Array<{ room_number: string }>;
+  `).all(wingRange.from, wingRange.to) as Array<{ room_number: string }>;
   const wingCounts = new Map<string, number>();
   for (const row of wingRooms) {
     const wing = wingFromRoom(row.room_number);
@@ -566,7 +569,11 @@ export function getManagerData(options?: { activityFrom?: string; activityTo?: s
 
   return {
     stats, recentActivity, weeklyActivity, peakHours, wingActivity, residents, securityStaff,
-    range: { activityFrom: activityRange.from, activityTo: activityRange.to, peakFrom: peakRange.from, peakTo: peakRange.to },
+    range: {
+      activityFrom: activityRange.from, activityTo: activityRange.to,
+      peakFrom: peakRange.from, peakTo: peakRange.to,
+      wingFrom: wingRange.from, wingTo: wingRange.to,
+    },
   };
 }
 
