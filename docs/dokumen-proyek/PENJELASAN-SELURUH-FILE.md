@@ -10,10 +10,12 @@ Kalau ada file baru yang ditambahkan di kemudian hari dan belum tercatat di sini
 | --- | --- |
 | `.env.example` | Contoh daftar pengaturan rahasia yang dibutuhkan aplikasi (kunci sesi login, dll) — isinya cuma contoh, bukan nilai asli, jadi aman ikut disimpan di git. |
 | `.env.local` | Nilai asli dari pengaturan rahasia tadi, khusus untuk komputer ini — **tidak** ikut disimpan di git supaya tidak bocor ke orang lain. |
+| `.github/dependabot.yml` | Pengaturan supaya GitHub secara otomatis memeriksa update library yang dipakai project ini setiap minggu, dan mengumpulkannya jadi satu usulan perubahan (bukan satu-satu). |
+| `.github/workflows/ci.yml` | Pengaturan pemeriksaan otomatis oleh GitHub: setiap ada perubahan kode dikirim, otomatis dicek kerapian kode, dijalankan seluruh pengujian otomatis, dan dicoba di-build — supaya kesalahan ketahuan sebelum masuk ke kode utama. |
 | `.gitignore` | Daftar file/folder yang sengaja tidak ikut disimpan di git (contoh: folder library pihak ketiga, file database lokal). |
 | `eslint.config.mjs` | Aturan pengecekan kerapian kode secara otomatis. |
 | `next-env.d.ts` | Dibuat otomatis oleh kerangka aplikasi (Next.js), tidak perlu dan tidak boleh diedit manual. |
-| `next.config.ts` | Pengaturan aplikasi secara keseluruhan: termasuk pengaman supaya halaman aplikasi ini tidak bisa disisipkan diam-diam ke situs lain untuk menipu pengguna, dan beberapa pengaturan teknis lain saat aplikasi disiapkan untuk dipakai publik. |
+| `next.config.ts` | Pengaturan keamanan & teknis aplikasi secara keseluruhan: mengunci akses kamera cuma untuk fitur pindai QR Satpam (fitur lain seperti mikrofon/lokasi otomatis ditolak), beberapa lapis pengaman browser supaya halaman ini tidak bisa disisipkan diam-diam ke situs lain untuk menipu pengguna, dan pengaturan teknis lain saat aplikasi disiapkan untuk dipakai publik. |
 | `package.json` | Daftar semua komponen/library luar yang dipakai project, dan daftar perintah singkat untuk menjalankannya (mulai aplikasi, menjalankan pengujian otomatis, dst). |
 | `pnpm-lock.yaml` | Catatan versi persis setiap komponen/library yang dipakai, dibuat otomatis — jangan diedit manual. |
 | `pnpm-workspace.yaml` | Pengaturan tambahan untuk alat instalasi library (pnpm). |
@@ -36,16 +38,48 @@ Susunan folder di dalam `app/` menentukan alamat halaman (URL) secara langsung, 
 | `api/reports/daily.csv/route.ts` | Menyediakan file laporan aktivitas harian (format CSV, bisa dibuka di Excel) untuk diunduh. |
 | `api/student/current-permit-code/route.ts` | Dicek ulang otomatis tiap 15 detik oleh halaman mahasiswa, untuk mengambil QR/kode izin yang sedang berlaku saat itu. Kode ini sengaja berganti tiap 15 detik supaya tidak bisa disalahgunakan lewat screenshot lama (lihat README §10). |
 | `api/student/permit-status/route.ts` | Dicek ulang otomatis oleh halaman mahasiswa, untuk tahu kalau izinnya baru saja diputuskan (disetujui/ditolak) satpam. |
-| `change-password/` | Halaman ganti password wajib, muncul saat pengguna login pertama kali. |
+| `change-password/ChangePasswordForm.tsx` | Form ganti password wajib di login pertama: password awal, password baru, konfirmasi password baru. |
+| `change-password/page.tsx` | Halaman ganti password wajib. Otomatis melompati halaman ini kalau penggunanya sudah pernah ganti password. |
 | `globals.css` | Definisi warna, bentuk sudut, dan gaya visual yang dipakai di seluruh aplikasi (termasuk mode gelap). |
 | `layout.tsx` | Bingkai paling luar dari setiap halaman — memuat jenis huruf, tema, dan animasi logo pembuka. |
 | `loading.tsx` | Layar loading singkat yang muncul saat halaman pertama kali dibuka. |
-| `login/` | Halaman dan form login. |
-| `manager/` | Seluruh halaman khusus Pengelola: dashboard, kelola data penghuni & satpam, kirim pengumuman, laporan, pengaturan, profil. |
+| `login/LoginForm.tsx` | Form login: isian ID BCA dan password. |
+| `login/page.tsx` | Alamat lama, otomatis mengarahkan ke halaman utama dengan form login langsung terbuka. |
+| `manager/AddResidentForm.tsx` | Jendela pop-up "Tambah penghuni" (di halaman Pengaturan): isi ID BCA, nama, kamar, kelas, dan password awal — otomatis membuatkan akun login untuk penghuni baru. |
+| `manager/DashboardRangeFilter.tsx` | Kontrol pilih rentang tanggal (dari–sampai) untuk grafik-grafik di halaman Dashboard. |
+| `manager/DeleteResidentsByClass.tsx` | Jendela pop-up konfirmasi untuk menghapus seluruh data satu kelas/angkatan sekaligus (dipakai saat satu angkatan sudah tidak lagi tinggal di RTB). |
+| `manager/EditResidentForm.tsx` | Jendela pop-up untuk mengubah data satu penghuni, dan tombol hapus satu penghuni — dipakai di tabel halaman Pengaturan. |
+| `manager/history/page.tsx` | Halaman Riwayat Pengelola: daftar keputusan izin keluar-masuk seluruh penghuni, bisa difilter. |
+| `manager/ImportResidentsForm.tsx` | Jendela pop-up untuk mengunggah file Excel berisi banyak data penghuni sekaligus (impor massal). |
+| `manager/ManagerChangePasswordForm.tsx` | Form ganti password khusus akun Pengelola — bisa dipakai kapan saja, beda dari akun mahasiswa/satpam yang cuma bisa sekali di awal. |
+| `manager/ManagerProfileForm.tsx` | Form ubah data pribadi akun Pengelola (nama, ID BCA, email). |
+| `manager/NotificationBroadcast.tsx` | Form kirim pengumuman ke seluruh pengguna aktif, beserta daftar riwayat pengumuman yang pernah dikirim dan tombol hapus. |
+| `manager/page.tsx` | Halaman Dashboard utama Pengelola: ringkasan jumlah penghuni di dalam/luar RTB, grafik aktivitas, jam tersibuk, rekap per wing, dan aktivitas terbaru. |
+| `manager/profile/page.tsx` | Halaman Profil Pengelola: data akun, memuat form ubah profil dan form ganti password. |
+| `manager/ReportFilters.tsx` | Kontrol filter kelas untuk halaman Laporan. |
+| `manager/ResetHistoryControl.tsx` | Tombol dan konfirmasi untuk mengosongkan riwayat izin (semua atau per kelas), di halaman Pengaturan. |
+| `manager/SecurityStaffControl.tsx` | Tabel data satpam beserta form tambah/ubah/hapus akun satpam, di halaman Pengaturan. |
+| `manager/stats/page.tsx` | Halaman Laporan: ringkasan aktivitas keluar-masuk per periode waktu, atau daftar penghuni yang sedang di dalam RTB — bisa diunduh sebagai CSV. |
+| `manager/users/page.tsx` | Halaman Pengaturan: tabel seluruh penghuni & akunnya, kontrol master satpam, tombol unduh backup database, dan reset riwayat. |
 | `page.tsx` | Halaman utama yang pertama kali dilihat pengunjung sebelum login. |
-| `reset-password/` | Reset password Pengelola lewat email — Mahasiswa dan Satpam tidak punya reset mandiri, harus lewat Pengelola langsung. |
-| `security/` | Seluruh halaman khusus Satpam: validasi keluar/masuk (pindai QR/input kode), riwayat, profil. |
-| `student/` | Seluruh halaman khusus Mahasiswa: beranda, ajukan izin, QR izin aktif, riwayat, profil. |
+| `reset-password/manager/confirm/ManagerResetConfirmForm.tsx` | Form isi password baru, muncul setelah pengguna klik tautan reset dari email. |
+| `reset-password/manager/confirm/page.tsx` | Halaman tujuan tautan reset password dari email, memuat form isi password baru. |
+| `reset-password/manager/ManagerResetRequestForm.tsx` | Form minta tautan reset password: isi ID BCA, tautan dikirim ke email yang sudah terdaftar untuk akun itu. |
+| `reset-password/manager/page.tsx` | Halaman awal reset password Pengelola, memuat form permintaan tautan reset. Mahasiswa dan Satpam tidak punya reset mandiri, harus menghubungi Pengelola langsung. |
+| `security/outside/page.tsx` | Halaman Riwayat Satpam: daftar validasi keluar-masuk, bisa difilter — tampilannya sama dengan Riwayat Pengelola. |
+| `security/page.tsx` | Halaman utama Validasi Satpam: memindai atau memasukkan kode izin, lalu menampilkan detailnya untuk diputuskan. |
+| `security/profile/page.tsx` | Halaman Profil Satpam: data akun, hanya bisa dilihat — perubahan data dilakukan oleh Pengelola. |
+| `security/QrScanner.tsx` | Bagian yang membaca QR lewat kamera perangkat, lalu memberi tahu kode yang berhasil terbaca. |
+| `security/ValidatePermit.tsx` | Jendela pop-up yang menampilkan detail satu pengajuan izin (nama, kamar, tujuan, jadwal) beserta tombol setuju/tolak untuk satpam. |
+| `student/ActivePermitCard.tsx` | Tampilan kartu QR/kode izin yang sedang berlaku, beserta tombol batalkan pengajuan. |
+| `student/apply/page.tsx` | Halaman Ajukan Izin: menampilkan form pengajuan baru, atau kartu QR kalau sedang menunggu keputusan/izin sedang aktif. |
+| `student/history/page.tsx` | Halaman Riwayat pribadi mahasiswa: lima aktivitas keluar-masuk terakhir. |
+| `student/page.tsx` | Halaman Beranda Mahasiswa: ringkasan status hunian (di dalam/luar RTB) saat ini. |
+| `student/permit/page.tsx` | Alamat lama, otomatis mengarahkan ke halaman Ajukan Izin. |
+| `student/PermitForm.tsx` | Form pengajuan izin keluar, atau form konfirmasi kembali ke RTB — satu file dipakai untuk kedua mode. |
+| `student/profile/page.tsx` | Halaman Profil Mahasiswa: data akun, memuat form ubah kamar/WA/email. |
+| `student/StudentContactForm.tsx` | Form ubah kamar, nomor WA, dan email milik sendiri. |
+| `student/StudentPermitDecisionWatcher.tsx` | Pengecekan otomatis di halaman Ajukan Izin, untuk memunculkan pemberitahuan singkat begitu satpam baru saja memutuskan izinnya (disetujui/ditolak). |
 
 ## `components/` — Bagian tampilan yang dipakai bersama di banyak halaman
 
@@ -92,8 +126,8 @@ Susunan folder di dalam `app/` menentukan alamat halaman (URL) secara langsung, 
 | File | Fungsinya |
 | --- | --- |
 | `auth.ts` | Mengatur login dan status "sedang login": membuat kode sesi rahasia saat login berhasil, memeriksa kode itu tiap kali ada permintaan ke server, memastikan hanya peran yang berhak yang bisa membuka suatu halaman, dan mendeteksi percobaan login bertubi-tubi dari alamat yang sama supaya bisa dibatasi otomatis (mencegah tebak-tebak password). |
-| `db.ts` | Inti aplikasi: seluruh akses ke database dan aturan bisnisnya (validasi wing/kamar, alur izin keluar-masuk, pembatasan percobaan, catatan riwayat aktivitas, dll). File terbesar dan terpenting di project ini. |
 | `db.test.ts` | Pengujian otomatis untuk `db.ts` — bagian terbesar dari seluruh pengujian project. |
+| `db.ts` | Inti aplikasi: seluruh akses ke database dan aturan bisnisnya (validasi wing/kamar, alur izin keluar-masuk, pembatasan percobaan, catatan riwayat aktivitas, dll). File terbesar dan terpenting di project ini. |
 | `email.ts` | Pengiriman email otomatis (izin disetujui/ditolak, pengumuman, dll) lewat layanan pengirim email bernama Resend. |
 | `excel-import.ts` | Pembaca file Excel (`.xlsx`) untuk fitur impor data penghuni secara massal. |
 | `qr.ts` | Pembuat gambar QR dari kode izin, untuk dipindai satpam di gerbang. |
