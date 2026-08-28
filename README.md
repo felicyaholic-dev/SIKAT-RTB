@@ -230,10 +230,10 @@ types/          Deklarasi TypeScript untuk paket tanpa tipe bawaan
 public/         Aset statis (gambar, ikon)
 scripts/        Skrip CLI: reset database, ekspor ke MySQL untuk cPanel
 docs/           Dokumentasi project
-  diagrams/        DFD dan flowchart per peran
+  diagrams/        DFD dan flowchart per peran (PDF)
   database/        Schema siap-pakai untuk migrasi database ke cPanel/MySQL
   basis-data/      Bahan siap pakai untuk BAB III proposal (bukan bagian aplikasi)
-  dokumen-proyek/  Dokumen proyek/laporan (Word, bukan bagian aplikasi)
+  dokumen-proyek/  Dokumen proyek/laporan, termasuk peta seluruh file (bukan bagian aplikasi)
 ```
 
 File konfigurasi di root (`next.config.ts`, `tsconfig.json`, `package.json`, dst) wajib tetap di root — dicari otomatis oleh Next.js/TypeScript/pnpm di lokasi itu.
@@ -307,7 +307,7 @@ password_reset_tokens
 
 Relasi FK: `accounts.resident_id → master_residents.id`, `permits.resident_id → master_residents.id`, `permit_events.permit_id → permits.id`, `permit_events.performed_by_account_id → accounts.id`, `manager_bootstrap_links.account_id → accounts.id`, `broadcast_notifications.created_by_account_id → accounts.id`, `notification_deliveries.notification_id → broadcast_notifications.id`, `notification_deliveries.account_id → accounts.id`, `password_reset_tokens.account_id → accounts.id`.
 
-DFD lengkap yang menggambarkan aliran data antar tabel ini ada di [docs/diagrams/dfd.md](docs/diagrams/dfd.md).
+Diagram relasi antar tabel ini ada di [docs/basis-data/3.3-skema-relasi.md](docs/basis-data/3.3-skema-relasi.md). Untuk DFD alur proses (Level 0-2) dan flowchart per peran, lihat [docs/diagrams/](docs/diagrams/).
 
 ### 9a. Wing & lantai
 

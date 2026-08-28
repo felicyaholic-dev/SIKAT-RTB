@@ -1,8 +1,12 @@
 # Dokumentasi SIKAT RTB
 
-- **[diagrams/](diagrams/)** — DFD lengkap dan flowchart per peran (Mahasiswa, Satpam, Pengelola).
-- **[database/](database/)** — schema database siap-pakai untuk migrasi ke MySQL (cPanel): `schema.sql`, penjelasan tiap tabel.
-- **[basis-data/](basis-data/)** — bahan siap pakai untuk BAB III proposal (Perancangan Basis Data Relasional): penjelasan tiap tabel (versi Word, lengkap dengan SQL DDL) dan diagram ER.
-- **[dokumen-proyek/](dokumen-proyek/)** — dokumen proyek/laporan: fitur & keamanan (Word), dan penjelasan tiap file kode (Markdown).
+Dokumentasi lengkap aplikasi (cara kerja, cara setup, keamanan, dll) ada di **[README.md](../README.md)** di root project. Halaman ini cuma peta singkat isi folder `docs/`.
 
-Dokumentasi lain ada langsung di [README.md](../README.md) di root project (arsitektur, cara setup, keamanan, deployment, dll).
+Peta lengkap **setiap file** di seluruh project (bukan cuma `docs/`), ditulis dengan bahasa sehari-hari, ada di **[dokumen-proyek/PENJELASAN-SELURUH-FILE.md](dokumen-proyek/PENJELASAN-SELURUH-FILE.md)**.
+
+## Isi folder ini
+
+- **[diagrams/](diagrams/)** — Gambar alur sistem: DFD (bagaimana data mengalir antar proses) dan flowchart (langkah demi langkah tiap peran: Mahasiswa, Satpam, Pengelola). Format PDF, sudah disetujui dosen pembimbing.
+- **[database/](database/)** — File `schema.sql`: perintah siap-pakai untuk membuat semua tabel database di phpMyAdmin/MySQL (dipakai saat pindah hosting/cPanel).
+- **[basis-data/](basis-data/)** — Bahan untuk BAB III proposal (Perancangan Basis Data Relasional): diagram hubungan antar tabel beserta penjelasannya.
+- **[dokumen-proyek/](dokumen-proyek/)** — Dokumen laporan proyek: penjelasan fitur & keamanan aplikasi, dan peta seluruh file project.
